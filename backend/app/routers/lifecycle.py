@@ -1,0 +1,170 @@
+"""Depart d'un salarie et restitution signee du materiel (A.5.11).
+
+Accessible aux roles RH et informatique (la restitution peut etre conduite par
+l'un ou l'autre ; la remise a l'arrivee reste reservee a l'informatique).
+"""
+import hashlib
+import os
+from datetime import date, datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlmodel import Session, select
+
+from ..auth import writer_guard
+from ..db import get_session
+from ..models import (
+    Asset,
+    AssetStatus,
+    Assignment,
+    AssignmentAsset,
+    EmployeeStatus,
+    Entite,
+    Signature,
+    User,
+)
+from ..pdfgen import build_receipt
+from ..signing import seal_pdf
+
+router = APIRouter(
+    prefix="/lifecycle", tags=["lifecycle"],
+    dependencies=[Depends(writer_guard("rh", "informatique"))],
+)
+
+ARCHIVE_DIR = os.environ.get("KIKAN_ARCHIVE_DIR", "/archive")
+
+
+class DepartRequest(BaseModel):
+    date_sortie: date
+
+
+class RestitutionRequest(BaseModel):
+    user_id: int
+    asset_ids: list[int] | None = None  # None = tout le materiel detenu
+    signataire: str
+    methode: str = "manuscrite_ecran"
+
+
+def _holdings(session: Session, user_id: int) -> list[tuple[Asset, int]]:
+    """Actifs encore affectes a ce salarie, avec l'id d'affectation associe."""
+    assignments = session.exec(
+        select(Assignment).where(Assignment.user_id == user_id)
+    ).all()
+    aids = [a.id for a in assignments]
+    if not aids:
+        return []
+    links = session.exec(
+        select(AssignmentAsset).where(AssignmentAsset.assignment_id.in_(aids))
+    ).all()
+    result = []
+    for link in links:
+        asset = session.get(Asset, link.asset_id)
+        if asset and asset.statut == AssetStatus.affecte:
+            result.append((asset, link.assignment_id))
+    return result
+
+
+@router.get("/holdings/{user_id}", response_model=list[Asset])
+def holdings(user_id: int, session: Session = Depends(get_session)):
+    return [a for a, _ in _holdings(session, user_id)]
+
+
+@router.post("/depart/{user_id}")
+def declarer_depart(user_id: int, data: DepartRequest, session: Session = Depends(get_session)):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "Utilisateur introuvable")
+    user.statut = EmployeeStatus.en_depart
+    user.date_sortie = data.date_sortie
+    user.maj_le = datetime.utcnow()
+    session.add(user)
+    session.commit()
+    held = [a for a, _ in _holdings(session, user_id)]
+    return {
+        "user_id": user_id,
+        "statut": user.statut,
+        "date_sortie": str(user.date_sortie),
+        "materiel_a_recuperer": [
+            {"id": a.id, "identifiant_interne": a.identifiant_interne,
+             "type": a.type, "marque": a.marque, "modele": a.modele}
+            for a in held
+        ],
+    }
+
+
+@router.post("/restituer", response_model=Signature, status_code=201)
+def restituer(data: RestitutionRequest, session: Session = Depends(get_session)):
+    user = session.get(User, data.user_id)
+    if not user:
+        raise HTTPException(404, "Utilisateur introuvable")
+
+    held = _holdings(session, data.user_id)
+    if data.asset_ids is not None:
+        held = [(a, aid) for a, aid in held if a.id in data.asset_ids]
+    if not held:
+        raise HTTPException(400, "Aucun materiel a restituer pour ce salarie")
+
+    entite = session.get(Entite, user.entite_id) if user.entite_id else None
+    assets = [a for a, _ in held]
+    assignment_ids = {aid for _, aid in held}
+
+    pdf = build_receipt(
+        user={"nom": user.nom, "prenom": user.prenom, "matricule": user.matricule},
+        entite_nom=entite.nom if entite else None,
+        assets=[{"type": a.type, "marque": a.marque, "modele": a.modele,
+                 "numero_serie": a.numero_serie, "identifiant_interne": a.identifiant_interne}
+                for a in assets],
+        title="Accuse de restitution de materiel",
+    )
+    sealed = seal_pdf(pdf, reason="Restitution de materiel", name=data.signataire)
+    empreinte = hashlib.sha256(sealed).hexdigest()
+
+    now = datetime.utcnow()
+    year_dir = os.path.join(ARCHIVE_DIR, str(now.year))
+    os.makedirs(year_dir, exist_ok=True)
+    path = os.path.join(year_dir, f"restitution_{data.user_id}_{now:%Y%m%d%H%M%S}.pdf")
+    with open(path, "wb") as f:
+        f.write(sealed)
+
+    # Marque les actifs rendus.
+    for asset in assets:
+        asset.statut = AssetStatus.rendu
+        asset.maj_le = now
+        session.add(asset)
+
+    # Cloture les affectations entierement restituees.
+    for aid in assignment_ids:
+        links = session.exec(
+            select(AssignmentAsset).where(AssignmentAsset.assignment_id == aid)
+        ).all()
+        if all(session.get(Asset, l.asset_id).statut != AssetStatus.affecte for l in links):
+            assignment = session.get(Assignment, aid)
+            assignment.date_restitution = now
+            assignment.statut = "restitue"
+            session.add(assignment)
+
+    signature = Signature(
+        assignment_id=sorted(assignment_ids)[0],
+        signataire=data.signataire,
+        methode=data.methode,
+        horodatage=now,
+        empreinte_doc=empreinte,
+        audit_json={"type": "restitution", "assignments": sorted(assignment_ids),
+                    "assets": [a.id for a in assets]},
+        ged_reference=path,
+    )
+    session.add(signature)
+
+    # Si le salarie partait et n'a plus rien, il est sorti.
+    if user.statut == EmployeeStatus.en_depart and not _restant(session, data.user_id, assets):
+        user.statut = EmployeeStatus.sorti
+        session.add(user)
+
+    session.commit()
+    session.refresh(signature)
+    return signature
+
+
+def _restant(session: Session, user_id: int, just_returned: list[Asset]) -> list[Asset]:
+    returned_ids = {a.id for a in just_returned}
+    return [a for a, _ in _holdings(session, user_id) if a.id not in returned_ids]

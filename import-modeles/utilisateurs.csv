@@ -1,0 +1,4 @@
+matricule;nom;prenom;email;code_entite;service;date_arrivee;statut
+E001;Durand;Claude;claude.durand@exemple.fr;SIEGE;Comptabilité;2026-09-01;actif
+E002;Martin;Dominique;dominique.martin@exemple.fr;FILIALE-A;Logistique;2026-10-15;actif
+E003;Petit;Camille;camille.petit@exemple.fr;FILIALE-B;Informatique;2026-11-03;prevu

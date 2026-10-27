@@ -1,0 +1,5 @@
+matricule_utilisateur;application;acces;note
+E001;ERP Gestion;oui;Utilisateur standard
+E001;Messagerie;oui;
+E002;ERP Gestion;non;
+E002;Messagerie;oui;Memes droits que E001

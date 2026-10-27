@@ -1,0 +1,5 @@
+code;nom;code_parent;actif
+GROUPE;Groupe Exemple;;oui
+SIEGE;Groupe Exemple (siège);GROUPE;oui
+FILIALE-A;Filiale A;GROUPE;oui
+FILIALE-B;Filiale B;GROUPE;oui

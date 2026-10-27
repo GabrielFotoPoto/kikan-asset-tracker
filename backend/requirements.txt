@@ -1,0 +1,11 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+sqlmodel==0.0.22
+psycopg2-binary==2.9.10
+pydantic-settings==2.6.1
+python-multipart==0.0.17
+reportlab==4.2.5
+pyhanko==0.25.1
+cryptography==43.0.3
+PyJWT==2.10.0
+bcrypt==4.2.0

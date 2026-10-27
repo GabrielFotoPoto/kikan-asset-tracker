@@ -1,0 +1,135 @@
+"""Reporting : detentions a l'instant T, export CSV et PDF."""
+import csv
+import io
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from sqlmodel import Session, select
+
+from ..auth import get_current_account
+from ..db import get_session
+from ..models import Asset, AssetStatus, Assignment, AssignmentAsset, Entite, User
+
+router = APIRouter(
+    prefix="/reports", tags=["reports"],
+    dependencies=[Depends(get_current_account)],
+)
+
+COLUMNS = [
+    ("entite", "Entite"),
+    ("service", "Service"),
+    ("matricule", "Matricule"),
+    ("nom", "Nom"),
+    ("prenom", "Prenom"),
+    ("statut_salarie", "Statut"),
+    ("type", "Type"),
+    ("marque", "Marque"),
+    ("modele", "Modele"),
+    ("numero_serie", "N serie"),
+    ("identifiant_interne", "Id interne"),
+    ("date_remise", "Remise"),
+]
+
+
+def _rows(session: Session, entite_id: int | None, service: str | None) -> list[dict]:
+    encours = {a.id: a for a in session.exec(
+        select(Assignment).where(Assignment.statut == "en_cours")).all()}
+    asset_to_assignment = {}
+    for link in session.exec(select(AssignmentAsset)).all():
+        if link.assignment_id in encours:
+            asset_to_assignment[link.asset_id] = encours[link.assignment_id]
+
+    entites = {e.id: e for e in session.exec(select(Entite)).all()}
+    rows = []
+    for asset in session.exec(select(Asset).where(Asset.statut == AssetStatus.affecte)).all():
+        assignment = asset_to_assignment.get(asset.id)
+        if not assignment:
+            continue
+        user = session.get(User, assignment.user_id)
+        if not user:
+            continue
+        if entite_id is not None and user.entite_id != entite_id:
+            continue
+        if service and (user.service or "") != service:
+            continue
+        rows.append({
+            "entite": entites[user.entite_id].nom if user.entite_id in entites else "",
+            "service": user.service or "",
+            "matricule": user.matricule or "",
+            "nom": user.nom,
+            "prenom": user.prenom,
+            "statut_salarie": user.statut.value if hasattr(user.statut, "value") else user.statut,
+            "type": asset.type or "",
+            "marque": asset.marque or "",
+            "modele": asset.modele or "",
+            "numero_serie": asset.numero_serie or "",
+            "identifiant_interne": asset.identifiant_interne or "",
+            "date_remise": assignment.date_remise.strftime("%Y-%m-%d") if assignment.date_remise else "",
+        })
+    rows.sort(key=lambda r: (r["entite"], r["nom"], r["prenom"]))
+    return rows
+
+
+def _csv(rows: list[dict]) -> bytes:
+    buf = io.StringIO()
+    writer = csv.writer(buf, delimiter=";")
+    writer.writerow([label for _, label in COLUMNS])
+    for r in rows:
+        writer.writerow([r[key] for key, _ in COLUMNS])
+    # BOM UTF-8 pour une ouverture correcte dans Excel FR.
+    return ("﻿" + buf.getvalue()).encode("utf-8")
+
+
+def _pdf(rows: list[dict], jour: str) -> bytes:
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), title="Detentions de materiel")
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph("Detentions de materiel par salarie", styles["Title"]),
+        Paragraph(f"Edite le {jour} - {len(rows)} ligne(s)", styles["Normal"]),
+        Spacer(1, 6 * mm),
+    ]
+    data = [[label for _, label in COLUMNS]]
+    for r in rows:
+        data.append([r[key] for key, _ in COLUMNS])
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b4c7e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef2f7")]),
+    ]))
+    story.append(table)
+    doc.build(story)
+    return buf.getvalue()
+
+
+@router.get("/holdings")
+def holdings_report(
+    format: str = Query("json", pattern="^(json|csv|pdf)$"),
+    entite_id: int | None = None,
+    service: str | None = None,
+    session: Session = Depends(get_session),
+):
+    rows = _rows(session, entite_id, service)
+    jour = date.today().isoformat()
+    if format == "csv":
+        return Response(
+            content=_csv(rows),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="kikan-detentions-{jour}.csv"'},
+        )
+    if format == "pdf":
+        return Response(
+            content=_pdf(rows, jour),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="kikan-detentions-{jour}.pdf"'},
+        )
+    return {"date": jour, "count": len(rows), "rows": rows}

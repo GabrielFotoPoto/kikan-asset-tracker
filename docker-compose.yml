@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16
+    container_name: kikan-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kikan
+      POSTGRES_USER: kikan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kikan}
+    volumes:
+      - kikan_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kikan -d kikan"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build: ./backend
+    container_name: kikan-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://kikan:${POSTGRES_PASSWORD:-kikan}@db:5432/kikan
+      KIKAN_CERT_DIR: /certs
+      KIKAN_ARCHIVE_DIR: /archive
+      KIKAN_SECRET_KEY: ${KIKAN_SECRET_KEY:-dev-secret-change-me}
+      KIKAN_ADMIN_USER: ${KIKAN_ADMIN_USER:-admin}
+      KIKAN_ADMIN_PASSWORD: ${KIKAN_ADMIN_PASSWORD:-admin}
+      # KIKAN_TSA_URL: https://freetsa.org/tsr   # optionnel : horodatage PAdES-B-T
+    ports:
+      - "127.0.0.1:8080:8000"
+    volumes:
+      - kikan_certs:/certs
+      - kikan_archive:/archive
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    container_name: kikan-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      - api
+
+volumes:
+  kikan_pgdata:
+  kikan_certs:
+  kikan_archive:
