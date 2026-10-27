@@ -99,6 +99,11 @@ docker-compose.yml
   (SharePoint / DocuWare), synchro GLPI, rappels e-mail.
 - Durcissement production : migrations Alembic, secrets, certificat reconnu.
 
+## Développement
+
+Ce projet a été développé avec l'assistance d'une **intelligence artificielle**
+(Claude, d'Anthropic), sous la direction et la relecture de l'auteur.
+
 ## Licence
 
 Ce projet est distribué sous licence **GNU General Public License v3.0** (voir [LICENSE](LICENSE)).
