@@ -20,6 +20,7 @@ from collections import Counter
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from ..auth import get_current_account
@@ -28,6 +29,7 @@ from ..db import get_session
 from ..models import (
     Asset,
     AssetStatus,
+    Besoin,
     Assignment,
     AssignmentAsset,
     EmployeeStatus,
@@ -92,7 +94,12 @@ def stats(session: Session = Depends(get_session), scope: Scope = Depends(scope_
     nb_equipes = sum(1 for u in actifs_users if u.id in equipes)
     taux = round(100 * nb_equipes / len(actifs_users), 1) if actifs_users else 0
 
+    besoins = session.exec(
+        scope.users(select(func.count()).select_from(Besoin).join(User, User.id == Besoin.user_id)
+                    .where(Besoin.statut.in_(("demande", "en_preparation"))))).one()
+
     return {
+        "besoins_a_traiter": besoins,
         "actifs_total": len(assets),
         "actifs_par_statut": dict(par_statut),
         "top_modeles": top_modeles,

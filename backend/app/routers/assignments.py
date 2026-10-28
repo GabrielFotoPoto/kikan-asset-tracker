@@ -33,6 +33,7 @@ from ..models import (
     AssetStatus,
     Assignment,
     AssignmentAsset,
+    Besoin,
     Entite,
     Policy,
     Signature,
@@ -51,6 +52,7 @@ from ..charte import append_annex, resolve_policy
 from ..signing import seal_pdf
 from ..filestore import read_document, sha256_hex, store_document
 from ..scope import Scope, scope_dep, visible_assignment
+from .besoins import OUVERTS, settle
 
 router = APIRouter(
     prefix="/assignments", tags=["assignments"],
@@ -64,6 +66,7 @@ class AssignmentCreate(BaseModel):
     policy_id: int | None = None
     sans_charte: bool = False  # True : aucune charte jointe (sinon, la charte applicable est jointe d'office)
     cree_par: str | None = None
+    besoin_ids: list[int] = Field(default_factory=list, max_length=50)  # besoins soldes par cette remise
 
 
 class SignRequest(BaseModel):
@@ -85,10 +88,17 @@ def _assets_of(session: Session, assignment_id: int) -> list[Asset]:
 
 
 @router.post("", response_model=Assignment, status_code=201)
-def create_assignment(data: AssignmentCreate, session: Session = Depends(get_session)):
+def create_assignment(data: AssignmentCreate, session: Session = Depends(get_session),
+                      account: Account = Depends(get_current_account)):
     user = session.get(User, data.user_id)
     if not user:
         raise HTTPException(404, "Utilisateur introuvable")
+    for bid in dict.fromkeys(data.besoin_ids):  # verifie les besoins avant de creer quoi que ce soit
+        b = session.get(Besoin, bid)
+        if not b or b.user_id != user.id:
+            raise HTTPException(400, "Besoin inconnu ou d'un autre salarie")
+        if b.statut not in OUVERTS:
+            raise HTTPException(409, f"Le besoin {bid} est deja clos")
     if not data.asset_ids:
         raise HTTPException(400, "Au moins un actif est requis")
 
@@ -126,7 +136,10 @@ def create_assignment(data: AssignmentCreate, session: Session = Depends(get_ses
         asset.maj_le = datetime.utcnow()
         session.add(asset)
         session.add(AssignmentAsset(assignment_id=assignment.id, asset_id=asset.id))
+    settled = settle(session, data.besoin_ids, user.id, assignment.id, account.username)
     session.commit()
+    if settled:
+        audit(account.username, "besoins_soldes", target=str(assignment.id), detail=f"{settled} besoin(s)")
     session.refresh(assignment)
     return assignment
 

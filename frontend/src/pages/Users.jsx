@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import Autocomplete from "../components/Autocomplete.jsx";
@@ -152,6 +153,7 @@ export default function Users() {
                   <td>
                     <div className="row">
                       <button className="ghost" onClick={() => startEdit(u)}>Modifier</button>
+                      <Link to={`/besoins?user=${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Besoins</Link>
                       {canDelete && <ConfirmButton onConfirm={() => remove(u)}>Supprimer</ConfirmButton>}
                     </div>
                   </td>

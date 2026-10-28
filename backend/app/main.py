@@ -38,6 +38,7 @@ from .routers import (
     assignments,
     audit_log,
     auth,
+    besoins,
     entites,
     import_data,
     lifecycle,
@@ -142,3 +143,4 @@ app.include_router(stats.router)
 app.include_router(audit_log.router)
 app.include_router(storage_admin.router)
 app.include_router(mail_admin.router)
+app.include_router(besoins.router)

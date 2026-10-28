@@ -340,7 +340,7 @@ sys.path.insert(0, "/app")
 from app.main import app  # noqa: E402
 
 DATA = ("/users", "/assets", "/assignments", "/lifecycle", "/user-applications", "/applications", "/entites", "/policies",
-        "/reports", "/stats")
+        "/reports", "/stats", "/besoins")
 unscoped = []
 for route in app.routes:
     path = getattr(route, "path", "")

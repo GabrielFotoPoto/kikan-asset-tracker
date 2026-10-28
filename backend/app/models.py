@@ -247,6 +247,23 @@ class AccountScope(SQLModel, table=True):
     entite_id: int = Field(foreign_key="entite.id", primary_key=True)
 
 
+class Besoin(SQLModel, table=True):
+    """Besoin de materiel declare par les RH pour un salarie (arrivee), traite par l'informatique."""
+    __tablename__ = "besoins"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    type: str
+    quantite: int = 1
+    commentaire: Optional[str] = None
+    date_souhaitee: Optional[date] = None
+    statut: str = Field(default="demande", index=True)   # demande, en_preparation, satisfait, annule
+    cree_par: Optional[str] = None
+    traite_par: Optional[str] = None
+    assignment_id: Optional[int] = Field(default=None, foreign_key="assignments.id")  # remise qui a solde le besoin
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)
+    maj_le: NaiveDatetime = Field(default_factory=utcnow)
+
+
 class ReminderSent(SQLModel, table=True):
     """Rappels deja envoyes (par type, element et destinataire) : evite les doublons et fixe le rythme des relances."""
     __tablename__ = "reminder_sent"

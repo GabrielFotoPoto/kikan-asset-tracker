@@ -18,12 +18,13 @@
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, downloadFile, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 
 export default function Assignments() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { user } = useAuth();
   const writable = canWrite(user.role, "remises");
   const [users, setUsers] = useState([]);
@@ -32,7 +33,9 @@ export default function Assignments() {
   const [policies, setPolicies] = useState([]);
   const [charte, setCharte] = useState("auto");
   const [applicable, setApplicable] = useState(null);
-  const [userId, setUserId] = useState("");
+  const [userId, setUserId] = useState(params.get("user") || "");
+  const [besoins, setBesoins] = useState([]);
+  const [besoinIds, setBesoinIds] = useState([]);
   const [picked, setPicked] = useState([]);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -58,6 +61,13 @@ export default function Assignments() {
       .then(setApplicable).catch(() => setApplicable(null));
   }, [userId, users, policies]);
 
+  // Besoins ouverts du salarie choisi : proposes d'office, soldes par cette remise.
+  useEffect(() => {
+    if (!userId) { setBesoins([]); setBesoinIds([]); return; }
+    api.get(`/besoins/ouverts/${userId}`).then((b) => { setBesoins(b); setBesoinIds(b.map((x) => x.id)); })
+      .catch(() => { setBesoins([]); setBesoinIds([]); });
+  }, [userId]);
+
   const toggle = (id) =>
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
@@ -67,9 +77,9 @@ export default function Assignments() {
     if (!userId || picked.length === 0) { setErr("Choisir un salarie et au moins un actif."); return; }
     try {
       const choix = charte === "none" ? { sans_charte: true } : charte === "auto" ? {} : { policy_id: Number(charte) };
-      await api.post("/assignments", { user_id: Number(userId), asset_ids: picked, cree_par: "informatique", ...choix });
+      await api.post("/assignments", { user_id: Number(userId), asset_ids: picked, cree_par: "informatique", besoin_ids: besoinIds, ...choix });
       setUserId(""); setPicked([]); setCharte("auto");
-      setMsg("Affectation creee.");
+      setMsg(besoinIds.length ? `Affectation creee ; ${besoinIds.length} besoin(s) solde(s).` : "Affectation creee.");
       await load();
     } catch (ex) { setErr(errorText(ex)); }
   };
@@ -104,6 +114,19 @@ export default function Assignments() {
             <p className="muted" style={{ marginTop: 0 }}>
               {applicable ? `Sera jointe : ${applicable.titre} ${applicable.version} (${applicable.portee}).` : "Aucune charte applicable a ce salarie."}
             </p>
+          )}
+          {besoins.length > 0 && (
+            <div className="card" style={{ background: "var(--bg, #f4f6fa)" }}>
+              <strong>Besoins ouverts de ce salarie</strong>
+              <p className="muted" style={{ margin: "4px 0" }}>Les cases cochees seront soldees par cette remise.</p>
+              {besoins.map((b) => (
+                <label key={b.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={besoinIds.includes(b.id)}
+                         onChange={() => setBesoinIds((p) => (p.includes(b.id) ? p.filter((x) => x !== b.id) : [...p, b.id]))} />
+                  {b.quantite} x {b.type}{b.commentaire ? ` (${b.commentaire})` : ""}{b.date_souhaitee ? ` - souhaite le ${b.date_souhaitee}` : ""}
+                </label>
+              ))}
+            </div>
           )}
           <p className="muted" style={{ marginBottom: 6 }}>Materiel en stock a remettre :</p>
           {stock.length === 0 && <p className="muted">Aucun actif en stock.</p>}

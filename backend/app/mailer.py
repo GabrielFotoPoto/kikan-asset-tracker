@@ -42,7 +42,7 @@ DEFAULTS = {
     "mail_actif": "0", "mail_hote": "", "mail_port": "25", "mail_securite": "aucune", "mail_utilisateur": "",
     "mail_expediteur": "", "mail_verifier_cert": "1", "mail_liste": "", "mail_heure": "7",
     "rappel_renouv": "0", "rappel_renouv_jours": "90", "rappel_depart": "0", "rappel_depart_jours": "14",
-    "rappel_nonrestit": "0", "rappel_nonrestit_sem": "2",
+    "rappel_nonrestit": "0", "rappel_nonrestit_sem": "2", "rappel_besoins": "0", "rappel_besoins_jours": "14",
     "rapport_actif": "0", "rapport_jour": "1", "rapport_pj": "aucune",
 }
 
@@ -72,6 +72,8 @@ class MailConfig:
     depart_jours: int
     nonrestit: bool
     nonrestit_sem: int
+    besoins: bool
+    besoins_jours: int
     rapport: bool
     rapport_jour: int
     rapport_pj: str
@@ -108,6 +110,7 @@ def load_config(session: Session) -> MailConfig:
         renouv=g("rappel_renouv") == "1", renouv_jours=i("rappel_renouv_jours"),
         depart=g("rappel_depart") == "1", depart_jours=i("rappel_depart_jours"),
         nonrestit=g("rappel_nonrestit") == "1", nonrestit_sem=i("rappel_nonrestit_sem"),
+        besoins=g("rappel_besoins") == "1", besoins_jours=i("rappel_besoins_jours"),
         rapport=g("rapport_actif") == "1", rapport_jour=i("rapport_jour"),
         rapport_pj=g("rapport_pj") if g("rapport_pj") in PIECES_JOINTES else "aucune",
     )

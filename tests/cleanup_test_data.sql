@@ -12,6 +12,7 @@
 BEGIN;
 CREATE TEMP TABLE tu AS SELECT id FROM users WHERE matricule LIKE 'ZZ%' OR prenom LIKE 'ZZ%';
 CREATE TEMP TABLE ta AS SELECT id FROM assignments WHERE user_id IN (SELECT id FROM tu);
+DELETE FROM besoins WHERE user_id IN (SELECT id FROM tu) OR assignment_id IN (SELECT id FROM ta);
 DELETE FROM signatures WHERE assignment_id IN (SELECT id FROM ta);
 DELETE FROM assignment_assets WHERE assignment_id IN (SELECT id FROM ta);
 DELETE FROM assignments WHERE id IN (SELECT id FROM ta);

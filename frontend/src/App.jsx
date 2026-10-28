@@ -30,6 +30,7 @@ import Entites from "./pages/Entites.jsx";
 import Users from "./pages/Users.jsx";
 import Assets from "./pages/Assets.jsx";
 import Assignments from "./pages/Assignments.jsx";
+import Besoins from "./pages/Besoins.jsx";
 import Policies from "./pages/Policies.jsx";
 import Import from "./pages/Import.jsx";
 import Parametres from "./pages/Parametres.jsx";
@@ -88,6 +89,7 @@ export default function App() {
             <NavLink to="/utilisateurs">Utilisateurs</NavLink>
             <NavLink to="/materiel">Materiel</NavLink>
             <NavLink to="/acces">Acces applicatifs</NavLink>
+            <NavLink to="/besoins">Besoins</NavLink>
             <NavLink to="/remises">Remises</NavLink>
             <NavLink to="/chartes">Chartes</NavLink>
             <NavLink to="/sorties">Sorties</NavLink>
@@ -123,6 +125,7 @@ export default function App() {
             <Route path="/utilisateurs" element={<Users />} />
             <Route path="/materiel" element={<Assets />} />
             <Route path="/acces" element={<Acces />} />
+            <Route path="/besoins" element={<Besoins />} />
             <Route path="/remises" element={<Assignments />} />
             <Route path="/chartes" element={<Policies />} />
             <Route path="/sorties" element={<Departures />} />

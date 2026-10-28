@@ -32,6 +32,7 @@ from ..db import get_session
 from ..models import (
     Assignment,
     AssignmentAsset,
+    Besoin,
     EmployeeStatus,
     Setting,
     Signature,
@@ -123,6 +124,9 @@ def purge(session: Session = Depends(get_session)):
     supprimes = []
     documents: list[str] = []
     for user in candidats:
+        for besoin in session.exec(select(Besoin).where(Besoin.user_id == user.id)).all():
+            session.delete(besoin)  # references une remise : supprimes avant elles
+        session.flush()
         assignments = session.exec(
             select(Assignment).where(Assignment.user_id == user.id)
         ).all()

@@ -442,7 +442,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | B4 | **Rapport mensuel automatique** : généré, archivé dans le stockage et envoyé par e-mail. **Fait (2026-10-29)** : rapport envoyé chaque mois à l'informatique et à la liste (lien vers Kikan, pièce jointe Excel ou PDF facultative) ; l'**archivage dans le stockage** n'est pas fait (à voir avec B6) | SPEC |
 | B5 | **Connecteur GLPI** (synchronisation du matériel et des salariés, champs `source` et `id_externe`) | SPEC |
 | B6 | **Dépôt via l'API SharePoint Online et DocuWare** (SMB et WebDAV existent déjà) | SPEC |
-| B7 | **Besoins matériels saisis par les RH** à l'arrivée, repris par l'informatique | SPEC |
+| B7 | **Besoins matériels saisis par les RH** à l'arrivée, repris par l'informatique. **Fait (2026-10-30)** : page Besoins, quatre statuts (demande, en préparation, satisfait, annulé), type pris dans la liste du Paramétrage, périmètre des RH respecté, proposition automatique des besoins ouverts à la création d'une remise et solde avec elle, compteur du tableau de bord, rappel e-mail des arrivées proches non traitées, purge RGPD | SPEC |
 | B8 | **Import et export Excel (.xlsx)** en plus du CSV. **Fait (2026-10-28)** : import avec le même parcours que le CSV (première feuille visible, lignes vides ignorées, formules jamais évaluées), modèles Excel, export du rapport de détention, protections contre archives et XML piégés, macros et liens externes | Prop. |
 
 ### v0.3 - pilotage

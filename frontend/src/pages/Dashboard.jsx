@@ -18,17 +18,20 @@
  */
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api.js";
 
 export default function Dashboard() {
   const [users, setUsers] = useState([]);
   const [assets, setAssets] = useState([]);
+  const [besoins, setBesoins] = useState(0);
   const [err, setErr] = useState(null);
 
   useEffect(() => {
     Promise.all([api.get("/users"), api.get("/assets")])
       .then(([u, a]) => { setUsers(u); setAssets(a); })
       .catch((e) => setErr(e.message));
+    api.get("/stats").then((s) => setBesoins(s.besoins_a_traiter || 0)).catch(() => {});
   }, []);
 
   const byStatus = (s) => assets.filter((a) => a.statut === s).length;
@@ -43,6 +46,7 @@ export default function Dashboard() {
         <div className="card tile"><div className="n">{assets.length}</div><div className="l">Actifs</div></div>
         <div className="card tile"><div className="n">{byStatus("affecte")}</div><div className="l">Affectes</div></div>
         <div className="card tile"><div className="n">{byStatus("stock")}</div><div className="l">En stock</div></div>
+        <Link to="/besoins" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n">{besoins}</div><div className="l">Besoins a traiter</div></Link>
       </div>
 
       <div className="card">

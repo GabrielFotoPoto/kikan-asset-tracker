@@ -81,7 +81,7 @@ avant le premier démarrage, ou monter le certificat de l'organisation dans le v
 | Rôle | Droits |
 |---|---|
 | **informatique** | Tout : matériel, remises, restitutions, signatures, entités, import, paramétrage, RGPD, comptes, journal d'audit. |
-| **rh** | Cycle de vie des salariés (entrées, départs), restitutions, accès applicatifs. Lecture du reste. |
+| **rh** | Cycle de vie des salariés (entrées, départs), restitutions, accès applicatifs, besoins de matériel. Lecture du reste. |
 | **lecture** | Consultation et export uniquement. |
 
 > Cible v0.2 : authentification **SSO Microsoft 365 (Entra ID)** avec comptes nominatifs,
@@ -176,6 +176,30 @@ Les pages d'administration (comptes, paramétrage, stockage, journal d'audit, RG
 
 *Captures réalisées avec des données de démonstration fictives.*
 
+## Besoins de matériel
+
+Les **RH** déclarent le matériel nécessaire à un salarié, typiquement à son arrivée (salarié au statut « prévu ») ;
+l'**informatique** le prépare puis le remet. Page **Besoins** (lecture pour tous, saisie pour les RH et l'informatique).
+
+- **Un besoin** : un salarié, un type de matériel (de la liste du Paramétrage : les RH ne créent pas de types), une quantité,
+  des précisions courtes et une date souhaitée (par défaut, la date d'arrivée).
+- **Quatre statuts** : `demande`, `en préparation`, `satisfait`, `annulé`. La RH peut modifier ou annuler tant que le besoin
+  est en demande ; l'informatique le prend en charge, le remet en demande ou l'annule. **« Satisfait » ne s'obtient que par une
+  remise** : à la création d'une remise, les besoins ouverts du salarié sont proposés (cochés d'office) et soldés avec elle.
+- **Cloisonnement** : une RH ne voit et ne modifie que les besoins des salariés de son périmètre.
+- **Tableau de bord** : compteur « Besoins à traiter ». **E-mail** (Paramétrage, onglet E-mails) : rappel hebdomadaire à
+  l'informatique pour les arrivées proches dont le besoin n'est pas traité.
+- Un salarié qui a des besoins ne se supprime pas ; la purge RGPD les supprime avec lui. Les créations, changements de statut et
+  soldes sont tracés dans le journal d'audit (jamais le texte des précisions).
+
+![Une RH déclare un besoin pour un arrivant de son périmètre](docs/captures/besoins-saisie-rh.png)
+
+![L'informatique voit tous les besoins et les prend en charge](docs/captures/besoins-file-informatique.png)
+
+![À la création d'une remise, les besoins ouverts sont proposés et soldés](docs/captures/besoins-remise-solde.png)
+
+![Compteur du tableau de bord](docs/captures/besoins-tableau-de-bord.png)
+
 ## E-mails : rappels et rapport mensuel
 
 Kikan peut envoyer des e-mails automatiques par **le serveur SMTP de votre entreprise** (aucun serveur de messagerie n'est
@@ -185,7 +209,8 @@ embarqué). Tout est facultatif et désactivé par défaut : **Paramétrage, ong
   Le **mot de passe SMTP**, s'il en faut un, se règle par la variable `KIKAN_SMTP_PASSWORD` du fichier `.env` : il n'est
   jamais stocké en base ni affiché. Une **adresse de liste** (ex. `informatique@...`) peut s'ajouter aux comptes destinataires.
 - **Rappels automatiques** (un récapitulatif par personne et par jour, à l'heure choisie) : renouvellements de matériel
-  (informatique et liste), départs à venir avec du matériel encore détenu, matériel non restitué après la date de sortie.
+  (informatique et liste), départs à venir avec du matériel encore détenu, matériel non restitué après la date de sortie,
+  besoins de matériel non traités pour des arrivées proches (informatique et liste).
   Un rappel déjà envoyé n'est renvoyé qu'à l'échéance de relance. Une RH ne reçoit que les salariés de son périmètre.
 - **Rapport mensuel** : parc, remises et restitutions du mois, matériel non restitué, renouvellements ; envoyé à
   l'informatique et à la liste avec un lien vers les rapports (variable `KIKAN_PUBLIC_URL`). Une pièce jointe Excel ou PDF est
@@ -387,7 +412,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   modèles (A8, **fait**).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1, **fait**, à valider sur votre tenant), comptes cloisonnés par
   entité (B2, **fait**), rappels par e-mail (B3, **fait**), rapport mensuel automatique (B4, **fait**), connecteur GLPI (B5), dépôt via l'API
-  SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7), import et export Excel (B8, **fait**).
+  SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7, **fait**), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : statistiques exportables (C1), revue périodique des droits d'accès (C2), prévision des
   renouvellements (C3), étiquettes et QR codes (C4), pièces jointes (C5).
 - **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).

@@ -36,8 +36,8 @@ from . import appsettings, mailer
 from .audit import audit
 from .db import engine
 from .mailer import MailConfig, MailError
-from .models import (Account, Asset, AssetStatus, Assignment, AssignmentAsset, EmployeeStatus, Entite, ReminderSent,
-                     Role, User)
+from .models import (Account, Asset, AssetStatus, Assignment, AssignmentAsset, Besoin, EmployeeStatus, Entite,
+                     ReminderSent, Role, User)
 from .scope import GLOBAL, Scope, compute_scope
 
 log = logging.getLogger("kikan.reminders")
@@ -123,7 +123,21 @@ def _fmt(d: date) -> str:
 
 def collect(session: Session, cfg: MailConfig, today: date) -> dict[str, list[dict]]:
     """Elements a signaler, par type : {cle, entite_id, ligne}."""
-    out: dict[str, list[dict]] = {"renouv": [], "depart": [], "nonrestit": []}
+    out: dict[str, list[dict]] = {"renouv": [], "depart": [], "nonrestit": [], "besoins": []}
+    if cfg.besoins:
+        horizon = today + timedelta(days=cfg.besoins_jours)
+        rows = session.exec(select(Besoin, User).join(User, User.id == Besoin.user_id)
+                            .where(Besoin.statut.in_(("demande", "en_preparation")))).all()
+        for b, u in rows:
+            due = b.date_souhaitee or u.date_arrivee
+            if due is None or due > horizon:
+                continue
+            late = due < today
+            out["besoins"].append({"cle": "besoin:%d" % b.id, "entite_id": u.entite_id, "ligne":
+                                   "- %s %s (%s) : %d x %s, souhaite le %s%s [%s]" % (
+                                       clean(u.prenom), clean(u.nom), clean(u.matricule) or "sans matricule", b.quantite,
+                                       clean(b.type), _fmt(due), " (date depassee)" if late else "",
+                                       "en preparation" if b.statut == "en_preparation" else "a traiter")})
     if cfg.renouv:
         horizon = today + timedelta(days=cfg.renouv_jours)
         for a in session.exec(select(Asset).where(Asset.echeance_renouvellement.is_not(None),
@@ -154,6 +168,7 @@ TITRES = {
     "renouv": "Materiel dont le renouvellement approche",
     "depart": "Departs a venir avec du materiel a recuperer",
     "nonrestit": "Materiel non restitue apres la date de sortie",
+    "besoins": "Besoins de materiel pour des arrivees proches",
 }
 
 
@@ -167,13 +182,13 @@ def digests(session: Session, cfg: MailConfig, now: datetime) -> list[Digest]:
         if key not in sent or r.envoye_le > sent[key]:
             sent[key] = r.envoye_le
     period = {"renouv": timedelta(days=RELANCE_RENOUV_J), "depart": timedelta(days=RELANCE_DEPART_J),
-              "nonrestit": timedelta(weeks=max(1, cfg.nonrestit_sem))}
+              "nonrestit": timedelta(weeks=max(1, cfg.nonrestit_sem)), "besoins": timedelta(days=RELANCE_DEPART_J)}
     link = mailer.public_url()
     result = []
     for rcp in recipients(session, cfg):
         sections, marks, counts = [], [], {}
-        for kind in ("renouv", "depart", "nonrestit"):
-            if kind == "renouv" and not rcp.admin:
+        for kind in ("besoins", "renouv", "depart", "nonrestit"):
+            if kind in ("renouv", "besoins") and not rcp.admin:
                 continue
             lines = []
             for it in items[kind]:
@@ -323,7 +338,7 @@ def tick(now: datetime | None = None, *, force_rappels: bool = False, force_rapp
             errors: list[str] = []
             today = now.date().isoformat()
             due_time = now.hour >= cfg.heure
-            if (cfg.renouv or cfg.depart or cfg.nonrestit) and (
+            if (cfg.renouv or cfg.depart or cfg.nonrestit or cfg.besoins) and (
                     force_rappels or (not manual and due_time and appsettings.get(session, "mail_dernier_cycle") != today)):
                 result["rappels"] = run_reminders(session, cfg, now)
                 errors += result["rappels"]["erreurs"]

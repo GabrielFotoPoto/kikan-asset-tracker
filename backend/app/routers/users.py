@@ -26,6 +26,7 @@ from ..db import get_session
 from ..models import (
     Account,
     Assignment,
+    Besoin,
     EmployeeStatus,
     Entite,
     User,
@@ -136,6 +137,7 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
         {
             "affectation(s) de materiel": count(session, Assignment, Assignment.user_id == obj.id),
             "acces applicatif(s)": count(session, UserApplication, UserApplication.user_id == obj.id),
+            "besoin(s) de materiel": count(session, Besoin, Besoin.user_id == obj.id),
         },
         "Un salarie avec historique se conserve (statut sorti via la page Sorties) ; "
         "son effacement definitif releve de la purge RGPD.",
