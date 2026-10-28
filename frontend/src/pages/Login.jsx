@@ -18,7 +18,7 @@
  */
 
 import { useState } from "react";
-import { api, setToken } from "../api.js";
+import { api, errorText, setToken } from "../api.js";
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -33,9 +33,9 @@ export default function Login({ onLogin }) {
     try {
       const res = await api.post("/auth/login", { username, password });
       setToken(res.access_token);
-      onLogin({ username: res.username, role: res.role });
+      onLogin({ username: res.username, role: res.role, mustChange: res.must_change_password });
     } catch (ex) {
-      setErr(ex.message);
+      setErr(errorText(ex));
     } finally {
       setBusy(false);
     }

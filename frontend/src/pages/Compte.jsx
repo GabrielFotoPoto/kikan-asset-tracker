@@ -18,7 +18,7 @@
  */
 
 import { useState } from "react";
-import { api } from "../api.js";
+import { api, errorText, setToken } from "../api.js";
 import { useAuth } from "../auth.jsx";
 
 export default function Compte() {
@@ -34,11 +34,12 @@ export default function Compte() {
     setErr(null); setMsg(null);
     if (newPw !== confirm) { setErr("Les deux nouveaux mots de passe sont differents."); return; }
     try {
-      await api.post("/auth/change-password", { old_password: oldPw, new_password: newPw });
-      setMsg("Mot de passe modifie.");
+      const res = await api.post("/auth/change-password", { old_password: oldPw, new_password: newPw });
+      setToken(res.access_token);  // les autres sessions de ce compte sont fermees : on garde celle-ci
+      setMsg("Mot de passe modifie. Vos autres sessions ouvertes ont ete fermees.");
       setOldPw(""); setNewPw(""); setConfirm("");
     } catch (ex) {
-      try { setErr(JSON.parse(ex.message).detail || ex.message); } catch { setErr(ex.message); }
+      setErr(errorText(ex));
     }
   };
 

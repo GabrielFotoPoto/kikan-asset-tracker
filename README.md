@@ -124,6 +124,22 @@ changent pas.
 - Limites : `KIKAN_MAX_CHARTE_MB` (10 Mo), 60 pages. Le texte Markdown est rendu avec les polices standard du PDF
   (lettres accentuées courantes, pas les emojis).
 
+## Comptes
+
+La page **Comptes** (informatique) gère les comptes des équipes informatique, RH et lecture seule (les salariés
+n'ont pas de compte : ils signent sur la tablette). Comptes **nominatifs** : identifiant (3 à 64 caractères, minuscules,
+chiffres et `. _ - @`, unique sans tenir compte de la casse, non modifiable), nom, e-mail, rôle.
+
+- **Création et réinitialisation** : le serveur génère un **mot de passe provisoire** (`XXXX-XXXX-XXXX-XXXX`), affiché
+  **une seule fois** à l'administrateur (jamais relu, jamais journalisé). La personne doit le remplacer à sa première
+  connexion : tant que ce n'est pas fait, un écran dédié est seul accessible et le serveur refuse tout le reste.
+- **Sessions révoquées aussitôt** quand le mot de passe change ou est réinitialisé, quand le rôle change ou que le compte
+  est désactivé.
+- **Désactiver, réactiver, changer le rôle** ; pas de suppression (les journaux d'audit citent l'identifiant). On ne peut
+  ni désactiver son propre compte ni retirer le dernier compte informatique actif.
+- La **dernière connexion** de chaque compte est affichée, pour repérer les comptes dormants.
+- Le compte générique `admin` du premier démarrage se remplace par des comptes nominatifs, puis se désactive.
+
 ## Modification et suppression
 
 Les pages Entités, Utilisateurs, Matériel et Accès applicatifs (catalogue) offrent **Modifier** (formulaire
@@ -272,7 +288,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
 
 - **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
   chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), modification et suppression dans l'interface (A4, **fait**), interface de
-  paramétrage (A5, **fait**), gestion des comptes (A6), accès applicatifs dans le document de remise (A7), autocomplétion des
+  paramétrage (A5, **fait**), gestion des comptes (A6, **fait**), accès applicatifs dans le document de remise (A7), autocomplétion des
   modèles (A8).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par
   entité (B2), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API

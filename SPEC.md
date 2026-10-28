@@ -425,7 +425,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | A3 | **Page d'import CSV** dans l'interface (aperçu, rapport d'erreurs, modèles téléchargeables). **Fait (2026-10-28)** : simulation puis import réel du même fichier (empreinte), tout ou rien, rapport par ligne, erreurs exportables, modèles générés, ré-import sans doublon, audit | Écart |
 | A4 | **Modification et suppression dans l'interface** (entités, salariés, matériel, applications). **Fait (2026-10-28)** : suppression refusée avec message précis si l'élément a une histoire (désactiver ou archiver à la place), statuts cohérents avec la remise et la restitution, hiérarchie d'entités protégée, doublons refusés, champs modifiés journalisés ; catalogue des applications géré dans l'interface | Écart |
 | A5 | **Interface de paramétrage** : types d'actifs, services, fusion des marques et modèles, modèle de PDF (logo, mentions). **Fait (2026-10-28)** : listes souples, fusion avec aperçu, modèle de PDF figé et empreinte dans chaque document signé, état du scellement en lecture seule | Écart |
-| A6 | **Gestion des comptes dans l'interface** (créer, désactiver, réinitialiser) | Écart |
+| A6 | **Gestion des comptes dans l'interface** (créer, désactiver, réinitialiser). **Fait (2026-10-28)** : comptes nominatifs (nom, e-mail), mot de passe provisoire affiché une seule fois et changement imposé, sessions révoquées au changement de mot de passe, de rôle ou à la désactivation, identifiant contrôlé et unique sans tenir compte de la casse, dernière connexion | Écart |
 | A7 | **Option d'inclure les accès applicatifs** dans le document de remise | Écart |
 | A8 | **Autocomplétion des modèles** dans le formulaire matériel | Écart |
 

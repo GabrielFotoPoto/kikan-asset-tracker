@@ -216,11 +216,17 @@ class Service(SQLModel, table=True):
 
 class Account(SQLModel, table=True):
     __tablename__ = "accounts"
+    __table_args__ = (Index("uq_accounts_username_lower", func.lower(literal_column("username")), unique=True),)
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True)
     role: Role = Role.informatique
     actif: bool = True
     hashed_password: str = ""
+    nom_affiche: Optional[str] = None            # compte nominatif : nom de la personne
+    email: Optional[str] = None
+    must_change_password: bool = False           # mot de passe provisoire a remplacer
+    token_epoch: int = 0                         # incremente pour revoquer les sessions ouvertes
+    derniere_connexion: Optional[NaiveDatetime] = None
 
 
 class Setting(SQLModel, table=True):

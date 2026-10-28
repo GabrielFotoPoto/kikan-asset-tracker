@@ -27,6 +27,7 @@ import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from .db import engine, get_session
@@ -145,11 +146,12 @@ def client_ip(request: Request) -> str:
 
 # --- Jetons ---
 
-def create_access_token(username: str, role: str) -> str:
+def create_access_token(username: str, role: str, epoch: int = 0) -> str:
     now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
         "sub": username,
         "role": role,
+        "te": epoch,  # version de session du compte : change a chaque revocation
         "iat": now,
         "exp": now + datetime.timedelta(minutes=TOKEN_TTL_MIN),
     }
@@ -170,7 +172,19 @@ def actor_from_request(request: Request) -> str:
 _bearer = HTTPBearer(auto_error=False)
 
 
+# Tant que le mot de passe est provisoire, seules ces routes sont accessibles.
+ALLOWED_WHEN_PASSWORD_MUST_CHANGE = {"/auth/me", "/auth/change-password"}
+_PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"  # sans caracteres ambigus
+
+
+def generate_temp_password() -> str:
+    """Mot de passe provisoire (16 caracteres, ~90 bits) : XXXX-XXXX-XXXX-XXXX."""
+    chars = [secrets.choice(_PASSWORD_ALPHABET) for _ in range(16)]
+    return "-".join("".join(chars[i:i + 4]) for i in range(0, 16, 4))
+
+
 def get_current_account(
+    request: Request,
     cred: HTTPAuthorizationCredentials | None = Depends(_bearer),
     session: Session = Depends(get_session),
 ) -> Account:
@@ -181,10 +195,14 @@ def get_current_account(
     except jwt.PyJWTError:
         raise HTTPException(401, "Token invalide ou expire", headers={"WWW-Authenticate": "Bearer"})
     account = session.exec(
-        select(Account).where(Account.username == payload.get("sub"))
+        select(Account).where(func.lower(Account.username) == str(payload.get("sub", "")).lower())
     ).first()
     if not account or not account.actif:
         raise HTTPException(401, "Compte inconnu ou desactive", headers={"WWW-Authenticate": "Bearer"})
+    if int(payload.get("te", 0)) != account.token_epoch:
+        raise HTTPException(401, "Session revoquee, reconnectez-vous", headers={"WWW-Authenticate": "Bearer"})
+    if account.must_change_password and request.url.path not in ALLOWED_WHEN_PASSWORD_MUST_CHANGE:
+        raise HTTPException(403, "Changement de mot de passe requis")
     return account
 
 

@@ -18,9 +18,10 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 |---|---|
 | Authentification | Jetons JWT (HS256) à durée limitée (4 h par défaut), mots de passe hachés avec bcrypt, 401 systématique sans jeton valide. |
 | Secrets | Aucune clé ou mot de passe par défaut : `KIKAN_SECRET_KEY` absente = clé aléatoire (sessions perdues au redémarrage) ; en `KIKAN_ENV=production`, l'application **refuse de démarrer** sans clé de 32 caractères minimum. Le premier compte reçoit un mot de passe aléatoire affiché une seule fois dans les journaux. `POSTGRES_PASSWORD` est obligatoire. |
-| Mots de passe | 12 caractères minimum, 72 octets maximum (limite de bcrypt). Changement par l'utilisateur et réinitialisation par l'informatique. Le dernier compte informatique actif ne peut pas être désactivé ni rétrogradé. |
+| Mots de passe | 12 caractères minimum, 72 octets maximum (limite de bcrypt). Changement par l'utilisateur et réinitialisation par l'informatique : le mot de passe provisoire est généré par le serveur (16 caractères, environ 90 bits), affiché une seule fois, jamais journalisé, et son remplacement est imposé avant tout autre accès (refus côté serveur). Un nouveau mot de passe doit différer de l'ancien. Le dernier compte informatique actif ne peut pas être désactivé ni rétrogradé. |
 | Force brute | Verrouillage temporaire (15 min) après 5 échecs par couple compte + adresse IP, et limite globale par IP. Un attaquant distant ne peut pas verrouiller l'administrateur depuis une autre adresse. Temps de réponse identique que le compte existe ou non. |
 | Autorisations | Rôles `informatique`, `rh`, `lecture` appliqués côté serveur sur chaque routeur (jamais seulement dans l'interface). |
+| Sessions | Chaque compte porte une version de session portée par le jeton : changement de mot de passe, réinitialisation, changement de rôle et désactivation révoquent immédiatement les sessions ouvertes (sans attendre l'expiration). Identifiants normalisés (minuscules, caractères restreints) et uniques sans tenir compte de la casse, y compris pour le verrouillage des tentatives. |
 | Journal d'audit | Toute écriture, tout refus d'accès (401/403) et toute connexion (réussie, échouée, bloquée) sont journalisés (compte, action, statut, IP). Aucun corps de requête n'est enregistré (pas de mot de passe ni de donnée personnelle). Consultable par l'informatique, sans endpoint de modification ni de suppression. |
 | Transport | HTTPS obligatoire (TLS 1.2/1.3) : le port HTTP redirige vers HTTPS, HSTS activé. Certificat auto-signé généré au premier démarrage, remplaçable par celui de l'organisation. |
 | En-têtes | `Content-Security-Policy` stricte, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `Cache-Control: no-store` sur l'API, version des serveurs masquée. |
@@ -90,6 +91,9 @@ docker run --rm -v "$PWD/backend/requirements.txt:/r.txt:ro" -v "$PWD/tests/audi
 
 # Signature manuscrite : images invalides ou piégées, nom non falsifiable, preuves, PDF scellé, restitution
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/signature_check.py
+
+# Comptes : identifiant, mot de passe provisoire, changement imposé, révocation des sessions, garde-fous, audit
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/accounts_check.py
 
 # Paramétrage : types, services, fusion, modèle de PDF et logo (image piégée), état du scellement, rôles, audit
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/parametres_check.py

@@ -22,6 +22,8 @@ import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, getToken, setToken } from "./api.js";
 import { AuthContext } from "./auth.jsx";
 import Login from "./pages/Login.jsx";
+import ForcePassword from "./pages/ForcePassword.jsx";
+import Comptes from "./pages/Comptes.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Entites from "./pages/Entites.jsx";
 import Users from "./pages/Users.jsx";
@@ -49,7 +51,7 @@ export default function App() {
     window.addEventListener("kikan-unauth", onUnauth);
     if (getToken()) {
       api.get("/auth/me")
-        .then((a) => setUser({ username: a.username, role: a.role }))
+        .then((a) => setUser({ username: a.username, role: a.role, mustChange: a.must_change_password }))
         .catch(() => setToken(null))
         .finally(() => setChecking(false));
     } else {
@@ -62,6 +64,9 @@ export default function App() {
 
   if (checking) return null;
   if (!user) return <Login onLogin={setUser} />;
+  if (user.mustChange) {
+    return <ForcePassword user={user} onDone={() => setUser({ ...user, mustChange: false })} onLogout={logout} />;
+  }
 
   return (
     <AuthContext.Provider value={{ user }}>
@@ -83,6 +88,7 @@ export default function App() {
             <NavLink to="/rgpd">RGPD</NavLink>
             {user.role === "informatique" && <NavLink to="/import">Import</NavLink>}
             {user.role === "informatique" && <NavLink to="/parametres">Parametrage</NavLink>}
+            {user.role === "informatique" && <NavLink to="/comptes">Comptes</NavLink>}
             {user.role === "informatique" && <NavLink to="/stockage">Stockage</NavLink>}
             {user.role === "informatique" && <NavLink to="/journal">Journal d'audit</NavLink>}
             <NavLink to="/compte">Mon compte</NavLink>
@@ -109,6 +115,7 @@ export default function App() {
             <Route path="/rgpd" element={<Rgpd />} />
             <Route path="/import" element={user.role === "informatique" ? <Import /> : <Navigate to="/" />} />
             <Route path="/parametres" element={user.role === "informatique" ? <Parametres /> : <Navigate to="/" />} />
+            <Route path="/comptes" element={user.role === "informatique" ? <Comptes /> : <Navigate to="/" />} />
             <Route path="/stockage" element={<Stockage />} />
             <Route path="/journal" element={<Audit />} />
             <Route path="/compte" element={<Compte />} />
