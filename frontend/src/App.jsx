@@ -28,6 +28,7 @@ import Users from "./pages/Users.jsx";
 import Assets from "./pages/Assets.jsx";
 import Assignments from "./pages/Assignments.jsx";
 import Policies from "./pages/Policies.jsx";
+import Import from "./pages/Import.jsx";
 import Departures from "./pages/Departures.jsx";
 import Reports from "./pages/Reports.jsx";
 import Rgpd from "./pages/Rgpd.jsx";
@@ -79,6 +80,7 @@ export default function App() {
             <NavLink to="/rapports">Rapports</NavLink>
             <NavLink to="/statistiques">Statistiques</NavLink>
             <NavLink to="/rgpd">RGPD</NavLink>
+            {user.role === "informatique" && <NavLink to="/import">Import</NavLink>}
             {user.role === "informatique" && <NavLink to="/stockage">Stockage</NavLink>}
             {user.role === "informatique" && <NavLink to="/journal">Journal d'audit</NavLink>}
             <NavLink to="/compte">Mon compte</NavLink>
@@ -103,6 +105,7 @@ export default function App() {
             <Route path="/rapports" element={<Reports />} />
             <Route path="/statistiques" element={<Stats />} />
             <Route path="/rgpd" element={<Rgpd />} />
+            <Route path="/import" element={user.role === "informatique" ? <Import /> : <Navigate to="/" />} />
             <Route path="/stockage" element={<Stockage />} />
             <Route path="/journal" element={<Audit />} />
             <Route path="/compte" element={<Compte />} />

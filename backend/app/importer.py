@@ -21,17 +21,34 @@ import io
 from datetime import date
 
 
-def read_rows(raw: bytes) -> tuple[list[dict], str]:
-    """Decode UTF-8 (BOM gere), detecte le separateur ; ou , et renvoie les lignes."""
-    text = raw.decode("utf-8-sig")
+def decode_text(raw: bytes) -> tuple[str, str]:
+    """UTF-8 (BOM gere) en priorite, sinon Windows-1252 (export Excel francais)."""
+    try:
+        return raw.decode("utf-8-sig"), "UTF-8"
+    except UnicodeDecodeError:
+        return raw.decode("cp1252", errors="replace"), "Windows-1252"
+
+
+def read_csv(raw: bytes) -> tuple[list[dict], list[str], dict]:
+    """Lignes (dict), en-tetes nettoyes et informations de lecture (encodage, separateur)."""
+    if b"\x00" in raw[:4096]:
+        raise ValueError("fichier binaire, un CSV (texte) est attendu")
+    text, encoding = decode_text(raw)
     first = next((ligne for ligne in text.splitlines() if ligne.strip()), "")
     delim = ";" if first.count(";") >= first.count(",") else ","
     reader = csv.DictReader(io.StringIO(text), delimiter=delim)
+    headers = [(h or "").strip() for h in (reader.fieldnames or [])]
     rows = []
     for raw_row in reader:
         rows.append({(k or "").strip(): (v.strip() if isinstance(v, str) else v)
-                     for k, v in raw_row.items()})
-    return rows, delim
+                     for k, v in raw_row.items() if k is not None})
+    return rows, headers, {"encodage": encoding, "separateur": delim}
+
+
+def read_rows(raw: bytes) -> tuple[list[dict], str]:
+    """Compatibilite : lignes et separateur."""
+    rows, _, info = read_csv(raw)
+    return rows, info["separateur"]
 
 
 def as_bool(value, default: bool = True) -> bool:

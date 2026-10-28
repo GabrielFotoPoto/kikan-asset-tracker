@@ -134,3 +134,4 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .badge.ok { background: #e3f4e8; color: #17603a; }
 .warn { background: #fff7e0; border: 1px solid #ecd48a; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
 .ok-msg { color: #17603a; font-size: 13px; }
+.badge.bad { background: #fde8e8; color: #9b1c1c; }

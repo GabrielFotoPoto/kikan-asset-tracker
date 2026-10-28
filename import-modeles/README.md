@@ -1,9 +1,9 @@
 # Modèles d'import Kikan
 
-Fichiers CSV pour la reprise de l'existant. Même structure possible en Excel (.xlsx).
+Fichiers CSV pour la reprise de l'existant. L'import Excel (.xlsx) est prévu en v0.2 ; en attendant, enregistrer le classeur en CSV.
 
 ## Règles de format
-- **Encodage** : UTF-8.
+- **Encodage** : UTF-8 ou Windows-1252 (export Excel), détecté automatiquement.
 - **Séparateur** : `;` (ouverture directe dans Excel FR). L'import acceptera aussi `,` (détection auto).
 - **Dates** : format ISO `AAAA-MM-JJ` (ex. 2026-09-15).
 - **Booléens** : `oui` / `non`.
@@ -22,5 +22,9 @@ Priorité pour une première reprise : 1, 3, 4, 5. Les applications et accès pe
 saisir ensuite dans l'interface.
 
 ## Validation
-À l'import, chaque fichier est prévisualisé ; les lignes en erreur (code inconnu, date invalide,
-doublon de n° de série...) sont signalées et rejetées sans bloquer les lignes valides.
+
+Depuis l'interface (page **Import**), chaque fichier est d'abord **simule** : rien n'est ecrit tant que le
+rapport n'est pas propre. Les lignes en erreur (code inconnu, date invalide, doublon de n° de serie...)
+sont localisees par numero de ligne ; l'import reel est refuse tant qu'il reste une erreur (tout ou rien).
+L'import ne fait que **creer** : un element deja present (meme code, matricule, application ou acces) est ignore.
+Ces modeles sont aussi telechargeables depuis la page Import.

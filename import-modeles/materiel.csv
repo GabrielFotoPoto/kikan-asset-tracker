@@ -1,4 +1,3 @@
-identifiant_interne;type;marque;modele;numero_serie;date_achat;fin_garantie;echeance_renouvellement;statut;code_entite;notes
+﻿identifiant_interne;type;marque;modele;numero_serie;date_achat;fin_garantie;echeance_renouvellement;statut;code_entite;notes
 PC-0001;PC portable;Dell;Latitude 5550;SN-DELL-0001;2025-06-10;2028-06-10;2029-06-10;stock;SIEGE;
 PC-0002;PC portable;Lenovo;ThinkPad T14;SN-LEN-0002;2026-02-20;2029-02-20;2030-02-20;stock;FILIALE-A;
-TEL-0001;Smartphone;Samsung;Galaxy S24;SN-SAM-0001;2026-01-05;2028-01-05;2029-01-05;stock;SIEGE;

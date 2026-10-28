@@ -126,9 +126,21 @@ changent pas.
 
 ## Import de l'existant
 
-Des modèles CSV sont fournis dans [`import-modeles/`](import-modeles/) (un fichier par type,
-reliés par des codes). Format : UTF-8, séparateur `;`, dates `AAAA-MM-JJ`, booléens `oui/non`.
-Ordre conseillé : entités, applications, utilisateurs, matériel, affectations, accès.
+Page **Import** (informatique) : choix du type de fichier, aide colonne par colonne, **modèle CSV téléchargeable**
+(aussi dans [`import-modeles/`](import-modeles/)), puis dépôt du fichier.
+
+1. Le fichier est d'abord **simulé** : rien n'est écrit. Le rapport indique les lignes lues, à créer, ignorées et en
+   erreur (avec le numéro de ligne et le problème), et le détail ligne par ligne.
+2. Le bouton **Importer pour de bon** n'est actif que si la simulation est sans erreur (**tout ou rien**). L'import
+   réel traite exactement le fichier simulé (contrôle par empreinte SHA-256).
+3. Les erreurs se téléchargent en CSV pour corriger le fichier source.
+
+L'import **ne fait que créer** : un élément déjà présent (même code d'entité, matricule, application ou accès) est
+ignoré, ce qui permet de rejouer un fichier sans doublon. Format : UTF-8 ou Windows-1252 (export Excel), séparateur
+`;` ou `,` (détectés), dates `AAAA-MM-JJ`, booléens `oui/non`. Ordre conseillé : entités, applications, utilisateurs,
+matériel, affectations, accès. Plafonds : `KIKAN_MAX_IMPORT_MB` (5 Mo), `KIKAN_MAX_IMPORT_ROWS` (20 000 lignes).
+Chaque simulation et chaque import sont tracés dans le journal d'audit (type, compteurs, empreinte, sans contenu).
+Excel (.xlsx) est prévu en v0.2 (B8).
 
 ## Stockage des documents (PDF scellés)
 
@@ -197,6 +209,7 @@ backend/            API FastAPI
     audit.py        journal d'audit
     signing.py      scellement PAdES
     pdfgen.py       generation des PDF
+    importer.py     lecture CSV (encodage, separateur)
     charte.py       chartes deposees : validation, normalisation PDF, portees, annexe
     docx_convert.py appel du service de conversion Word
     routers/        endpoints (entites, users, assets, assignments,
@@ -216,7 +229,7 @@ docker-compose.yml
 Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1 est livrée.
 
 - **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
-  chartes d'usage (A2, **fait**), page d'import CSV (A3), modification et suppression dans l'interface (A4), interface de
+  chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), modification et suppression dans l'interface (A4), interface de
   paramétrage (A5), gestion des comptes (A6), accès applicatifs dans le document de remise (A7), autocomplétion des
   modèles (A8).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par
