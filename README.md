@@ -173,9 +173,22 @@ docker-compose.yml
 
 ## Feuille de route
 
-- **v0.2** : SSO Microsoft 365 (Entra ID), connecteurs API SharePoint Online et DocuWare (le dépôt sur lecteur
-  réseau SMB et sur partage WebDAV existe déjà), synchro GLPI, rappels e-mail.
-- Durcissement production : certificat reconnu, coffre pour la clé de scellement.
+Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1 est livrée.
+
+- **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1), gestion des
+  chartes d'usage (A2), page d'import CSV (A3), modification et suppression dans l'interface (A4), interface de
+  paramétrage (A5), gestion des comptes (A6), accès applicatifs dans le document de remise (A7), autocomplétion des
+  modèles (A8).
+- **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par
+  entité (B2), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API
+  SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7), import et export Excel (B8).
+- **v0.3 - pilotage** : statistiques exportables (C1), revue périodique des droits d'accès (C2), prévision des
+  renouvellements (C3), étiquettes et QR codes (C4), pièces jointes (C5).
+- **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).
+- **Sécurité et exploitation, en continu** : MFA locale (E1), certificat de scellement reconnu et clé dans un coffre
+  (E2), journal d'audit infalsifiable (E3), révocation des sessions (E4), intégration continue, Dependabot et images
+  publiées (E5), tests unitaires et d'interface (E6), sauvegarde et restauration (E7), accessibilité et thème
+  sombre (E8).
 
 ## Développement
 

@@ -407,11 +407,72 @@ Le détail des mesures, des risques acceptés et de la liste de contrôle de pro
 
 ## 13. Feuille de route
 
-- **v0.1** - §2 « Dans la v0.1 ».
-- **v0.2** - **SSO Microsoft 365 (Entra ID, OIDC/OAuth2), comptes nominatifs, mapping des roles
-  par groupes Entra** ; synchro GLPI (API REST) ; rappels e-mail ; planification des rapports.
-- **v0.3** - Statistiques de parc.
-- **v0.4** - Multi-organisations / multi-sites éventuel.
+Liste validée le 2026-10-28. Origines : **SPEC** (déjà prévu), **Écart** (promis par le SPEC mais non
+réalisé dans la v0.1), **Prop.** (proposition). Statut de toutes les lignes : à faire.
+
+### v0.1 (livrée)
+
+Périmètre du §2, réalisé : cycle de vie salarié, remises et restitutions signées et scellées, import CSV (API),
+reporting CSV et PDF, statistiques, accès applicatifs, rétention RGPD, authentification et rôles, journal
+d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le SPEC sont repris en v0.1.x.
+
+### v0.1.x - combler les écarts avec le SPEC (prioritaire)
+
+| # | Fonctionnalité | Origine |
+|---|---|---|
+| A1 | **Signature manuscrite à l'écran** (tactile ou souris) insérée dans le PDF, avec le signataire choisi depuis sa fiche plutôt que saisi librement | Écart |
+| A2 | **Gestion des chartes d'usage** : création, versions, choix à la remise, texte figé dans le PDF signé | Écart |
+| A3 | **Page d'import CSV** dans l'interface (aperçu, rapport d'erreurs, modèles téléchargeables) | Écart |
+| A4 | **Modification et suppression dans l'interface** (entités, salariés, matériel, applications) | Écart |
+| A5 | **Interface de paramétrage** : types d'actifs, services, fusion des marques et modèles, modèle de PDF (logo, mentions) | Écart |
+| A6 | **Gestion des comptes dans l'interface** (créer, désactiver, réinitialiser) | Écart |
+| A7 | **Option d'inclure les accès applicatifs** dans le document de remise | Écart |
+| A8 | **Autocomplétion des modèles** dans le formulaire matériel | Écart |
+
+### v0.2 - identité, intégrations, automatisation
+
+| # | Fonctionnalité | Origine |
+|---|---|---|
+| B1 | **SSO Microsoft 365 (Entra ID)** : groupes `Kikan-IT` et `Kikan-RH`, comptes nominatifs, MFA du tenant, comptes locaux en secours (§5ter) | SPEC |
+| B2 | **Comptes cloisonnés par entité** (global ou limité à une ou plusieurs filiales) | SPEC |
+| B3 | **Rappels par e-mail** : renouvellements, départs à venir, matériel non restitué | SPEC |
+| B4 | **Rapport mensuel automatique** : généré, archivé dans le stockage et envoyé par e-mail | SPEC |
+| B5 | **Connecteur GLPI** (synchronisation du matériel et des salariés, champs `source` et `id_externe`) | SPEC |
+| B6 | **Dépôt via l'API SharePoint Online et DocuWare** (SMB et WebDAV existent déjà) | SPEC |
+| B7 | **Besoins matériels saisis par les RH** à l'arrivée, repris par l'informatique | SPEC |
+| B8 | **Import et export Excel (.xlsx)** en plus du CSV | Prop. |
+
+### v0.3 - pilotage
+
+| # | Fonctionnalité | Origine |
+|---|---|---|
+| C1 | **Statistiques exportables** (CSV et PDF), avec filtres par entité et période | SPEC |
+| C2 | **Revue périodique des droits d'accès** : rapport « qui a accès à quoi » et campagne de validation (ISO A.5.18) | Prop. |
+| C3 | **Prévision des renouvellements** avec budget estimé | Prop. |
+| C4 | **Étiquettes et QR codes** sur le matériel, recherche par scan | Prop. |
+| C5 | **Pièces jointes** au matériel (facture, garantie) | Prop. |
+
+### v0.4 - montée en échelle
+
+| # | Fonctionnalité | Origine |
+|---|---|---|
+| D1 | **Multi-organisations / multi-sites** | SPEC |
+| D2 | **Interface multilingue** (français et anglais) | Prop. |
+| D3 | **API publique documentée** avec jetons d'accès | Prop. |
+| D4 | **Webhooks** vers des outils externes (par exemple n8n) | Prop. |
+
+### Sécurité et exploitation (en continu)
+
+| # | Fonctionnalité | Origine |
+|---|---|---|
+| E1 | **MFA locale (TOTP)** pour les comptes de secours | Prop. |
+| E2 | **Certificat de scellement reconnu**, clé dans un coffre, horodatage RFC 3161 activé par défaut | SPEC |
+| E3 | **Journal d'audit infalsifiable** (chaîné) et export vers un SIEM ou syslog | Prop. |
+| E4 | **Révocation des sessions** et durée de session paramétrable | Prop. |
+| E5 | **GitHub Actions** (tests, audit des dépendances), **Dependabot**, versions publiées et image Docker prête à l'emploi | Prop. |
+| E6 | **Tests unitaires** (pytest) et tests automatisés de l'interface | Prop. |
+| E7 | **Sauvegarde et restauration** documentées et testées | Prop. |
+| E8 | **Accessibilité** (RGAA/WCAG) et thème sombre | Prop. |
 
 ## 14. Décisions
 
@@ -442,6 +503,7 @@ Le détail des mesures, des risques acceptés et de la liste de contrôle de pro
 - **Accès applicatifs** : liste d'applications paramétrable, attribuée par RH ou informatique,
   avec **champ libre** par application ; soutient A.5.18 (§4.6, §6.5).
 - **Reprise de l'existant** : import **Excel/CSV** à colonnes définies (§6.4).
+- **Feuille de route** v0.1.x à v0.4 et sécurité en continu : liste validée le 2026-10-28 (§13).
 
 **Ouvertes :**
 1. **Formulation juridique** du document combinant réception du matériel + acceptation de la
