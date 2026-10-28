@@ -1,0 +1,12 @@
+# Serveur WebDAV de TEST (hacdias/webdav) : HTTPS avec certificat de test. Jamais en production.
+address: 0.0.0.0
+port: 8443
+tls: true
+cert: /ca/webdav.crt
+key: /ca/webdav.key
+prefix: /
+directory: /data
+permissions: CRUD
+users:
+  - username: kikan
+    password: kikan-test-pw-12345

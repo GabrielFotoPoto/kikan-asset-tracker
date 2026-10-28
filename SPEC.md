@@ -128,7 +128,7 @@ Ce qui fait la valeur de preuve :
 | horodatage | datetime | heure de l'autorité de temps si dispo |
 | empreinte_doc | texte | SHA-256 du PDF signé |
 | audit_json | json | IP, agent, étapes, consentement |
-| ged_reference | texte | id/URL du PDF scellé dans la GED |
+| ged_reference | texte | référence du PDF scellé : `<emplacement>:AAAA/fichier.pdf` (`local`, `smb` ou `webdav`) |
 
 ### 4.5 `entites` (filiales / entités)
 | champ | type | note |
@@ -244,9 +244,11 @@ sur la tablette.
 3. Sur la **tablette**, l'employé relit et **signe à la main** ; l'administrateur IT (connecté)
    est témoin de l'acte.
 4. Enregistrement du faisceau de preuves (§3), calcul de l'empreinte du document.
-5. **Scellement PAdES + horodatage**, **dépôt du PDF scellé dans le répertoire GED** configuré
-   (SharePoint / DocuWare / partage de fichiers), rangé **par année** (`AAAA/`), stockage du
-   **chemin/référence** + empreinte dans l'enregistrement `signatures`.
+5. **Scellement PAdES + horodatage**, puis **dépôt du PDF scellé sur l'emplacement configuré** (volume
+   local, **lecteur réseau SMB** ou **partage de fichiers web WebDAV**), rangé **par année** (`AAAA/`). Le PDF
+   est d'abord écrit en local, déposé, relu et vérifié (SHA-256) ; si le partage est indisponible, la
+   signature réussit et le dépôt est repris plus tard. Stockage de la **référence** + empreinte dans
+   l'enregistrement `signatures`.
 6. Le tableau de bord reflète la nouvelle détention.
 
 ### 6.2 Restitution / réforme (A.5.11)
@@ -320,7 +322,8 @@ Personnalisation maximale, sans toucher au code :
 - **Charte informatique** (texte, versions) - annexée au document de remise.
 - Modèle de PDF d'accusé (logo, mentions légales, pied de page).
 - Certificat de scellement (auto-signé) et autorité de temps.
-- **Répertoire de dépôt GED** (SharePoint / DocuWare / partage) et structure par année (`AAAA/`).
+- **Emplacement de dépôt des PDF** (local, lecteur réseau SMB, partage WebDAV), structure par année (`AAAA/`),
+  état et test de connexion (page Stockage ; les identifiants restent dans l'environnement).
 - **Durée de rétention RGPD** (§9).
 - Champs optionnels des fiches (matricule, etc.), services/départements.
 - Comptes applicatifs et **rôles** (RH / informatique / lecture seule - cf. §5bis).
@@ -367,14 +370,15 @@ Services :
 Déploiement **on-premise** (hébergé en interne, pas de cloud).
 
 Points d'attention :
-- **Stockage des PDF dans la GED** : les PDF scellés sont **déposés dans la GED** de
-  l'organisation (via son API/connecteur) ; la base ne garde que la **référence** + l'empreinte
-  SHA-256. La GED assure l'archivage de référence. Un volume local ne sert que de tampon
-  temporaire avant dépôt (à purger après confirmation).
+- **Stockage des PDF** : les PDF scellés sont déposés sur un **lecteur réseau (SMB)** ou un **partage de
+  fichiers web (WebDAV)** de l'organisation, ou restent sur le volume local ; la base ne garde que la
+  **référence** + l'empreinte SHA-256, recontrôlée à chaque lecture (détection d'altération). Le volume local
+  sert de tampon durable : il n'est purgé qu'après un dépôt vérifié, et conserve le document si le partage est
+  indisponible (reprise automatique).
 - **Base** PostgreSQL sur **volume nommé** persistant, avec sauvegardes.
 - **Secret de signature** : la **clé privée du certificat** n'est **jamais** dans l'image ni
   dans le dépôt ; elle est montée en *secret*/volume au démarrage, et lue via variable d'env.
-- **`.env`** pour les secrets (mot de passe Postgres, clé maître, accès GED), comme pour LiteLLM.
+- **`.env`** pour les secrets (mot de passe Postgres, clé maître, accès au partage), comme pour LiteLLM.
 - `restart: unless-stopped` + *healthchecks* ; l'`api` attend que `db` soit saine.
 - **Exposition réseau** : accessible sur le **réseau local** (la **tablette de signature** s'y
   connecte au moment de la remise) ; pas d'exposition Internet.
@@ -420,8 +424,9 @@ Le détail des mesures, des risques acceptés et de la liste de contrôle de pro
   **Kikan-IT** (informatique) et **Kikan-RH** (rh) ; hors de ces groupes = refuse ; auth locale
   (mot de passe) en secours/dev (§5ter).
 - Déploiement **on-premise**, conteneurs Docker (§11.1).
-- **Stockage des PDF dans un répertoire GED** (SharePoint / DocuWare / partage), **un dossier
-  par année** (`AAAA/`) ; dépôt de fichier, pas d'intégration API complexe (§6.1, §11.1).
+- **Stockage des PDF** sur **lecteur réseau (SMB)** ou **partage de fichiers web (WebDAV)**, **un dossier
+  par année** (`AAAA/`) ; dépôt de fichier, sans API propriétaire (§6.1, §11.1). Les connecteurs API
+  SharePoint Online et DocuWare sont reportés en v0.2.
 - **Charte informatique annexée** au document de remise (couvre A.5.10), versionnée et figée
   dans le PDF signé.
 - **Multi-entités / filiales** : salarié rattaché à une entité ; rapports filtrables par
@@ -441,7 +446,8 @@ Le détail des mesures, des risques acceptés et de la liste de contrôle de pro
 **Ouvertes :**
 1. **Formulation juridique** du document combinant réception du matériel + acceptation de la
    charte informatique (à faire relire RH / juridique).
-2. Hébergement exact du répertoire GED (SharePoint vs DocuWare vs partage) et chemin d'accès.
+2. Emplacement exact du dépôt (serveur de fichiers SMB ou partage WebDAV, nom du partage, compte de
+   service dédié) et besoin éventuel d'un connecteur API SharePoint Online / DocuWare.
 3. Format d'import proposé (§6.4, modèles dans `import-modeles/`) à valider : plusieurs
    fichiers liés, ou fichier unique à plat ?
 4. **Portée des comptes par entité** : accès global ou restreint à une/des filiale(s) dès la v0.1 ?

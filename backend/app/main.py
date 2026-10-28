@@ -15,17 +15,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import logging
 import os
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
 from .audit import audit
 from .auth import IS_PROD, MUTATING, actor_from_request, client_ip, ensure_bootstrap_account
 from .config import settings
-from .db import init_db
+from .db import engine, init_db
+from .filestore import StorageError, sync_pending
 from .routers import (
     applications,
     assets,
@@ -38,15 +43,32 @@ from .routers import (
     reports,
     rgpd,
     stats,
+    storage_admin,
     user_apps,
     users,
 )
+
+
+log = logging.getLogger("kikan.main")
+
+
+def _sync_storage_in_background() -> None:
+    """Au demarrage : depose les PDF restes dans le tampon local (partage indisponible auparavant)."""
+    try:
+        with Session(engine) as session:
+            result = sync_pending(session)
+        if result["pending"]:
+            log.warning("Depots en attente : %d, deposes : %d, echecs : %d",
+                        result["pending"], result["synced"], result["failed"])
+    except Exception:  # noqa: BLE001
+        log.exception("Synchronisation du stockage impossible au demarrage")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     ensure_bootstrap_account()
+    threading.Thread(target=_sync_storage_in_background, daemon=True).start()
     yield
 
 
@@ -65,6 +87,11 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.exception_handler(StorageError)
+async def storage_error_handler(request: Request, exc: StorageError):
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
 @app.middleware("http")
@@ -103,3 +130,4 @@ app.include_router(rgpd.router)
 app.include_router(user_apps.router)
 app.include_router(stats.router)
 app.include_router(audit_log.router)
+app.include_router(storage_admin.router)

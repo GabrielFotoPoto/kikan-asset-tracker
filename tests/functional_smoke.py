@@ -95,10 +95,14 @@ show("signature et scellement", s == 201 and sig.get("empreinte_doc"), f"HTTP {s
 s, pdf = call("GET", f"/assignments/{asg['id']}/document", token=T)
 show("telechargement du PDF scelle", s == 200 and pdf[:4] == b"%PDF", f"{len(pdf)} octets")
 try:
+    import io
+
     from pyhanko.pdf_utils.reader import PdfFileReader
     from pyhanko.sign.validation import validate_pdf_signature
-    path = sig["ged_reference"]
-    sg = PdfFileReader(open(path, "rb")).embedded_signatures[0]
+    # Le PDF est lu tel que l'API le sert (volume local, partage SMB ou WebDAV).
+    show("reference de stockage au format backend:cle", sig["ged_reference"].partition(":")[0] in ("local", "smb", "webdav"),
+         sig["ged_reference"])
+    sg = PdfFileReader(io.BytesIO(pdf)).embedded_signatures[0]
     try:
         st = validate_pdf_signature(sg)
         show("signature PAdES intacte et valide", st.intact and st.valid)
@@ -149,6 +153,18 @@ s, pg = j("POST", "/rgpd/purge", {})
 show("purge", s == 200 and pg["count"] >= 1)
 s, _ = j("GET", f"/users/{old['id']}")
 show("salarie purge introuvable", s == 404)
+
+# Salarie purge AVEC affectation, signature et document (ordre de suppression des tables liees).
+s, o3 = j("POST", "/users", {"nom": "Ancien", "prenom": "Affecte", "matricule": "ZZFN3", "statut": "actif"})
+s, a3 = j("POST", "/assets", {"type": "PC", "marque": "ZZFN-HP", "numero_serie": "ZZFN-SN3", "statut": "stock"})
+s, asg3 = j("POST", "/assignments", {"user_id": o3["id"], "asset_ids": [a3["id"]]})
+s, sg3 = j("POST", f"/assignments/{asg3['id']}/sign", {"signataire": "Ancien"})
+j("PUT", f"/users/{o3['id']}", {"nom": "Ancien", "prenom": "Affecte", "matricule": "ZZFN3",
+                                 "statut": "sorti", "date_sortie": "2019-01-01"})
+s, pg3 = j("POST", "/rgpd/purge", {})
+show("purge d'un salarie avec affectation et document", s == 200 and pg3.get("documents_supprimes", 0) >= 1, f"HTTP {s} {pg3}")
+s, _ = j("GET", f"/users/{o3['id']}")
+show("salarie avec affectation purge introuvable", s == 404)
 
 print("== Import (ecriture reelle) ==")
 def upload(kind, content):

@@ -1,0 +1,10 @@
+# Surcharge de test : monte le certificat du serveur WebDAV de test dans /testca (definir ensuite
+# KIKAN_WEBDAV_CA_BUNDLE=/testca/webdav.crt) pour verifier TLS.
+#   docker compose -f docker-compose.yml -f tests/storage-test.override.yml up -d api
+services:
+  api:
+    volumes:
+      - kikan_test_ca:/testca:ro
+volumes:
+  kikan_test_ca:
+    external: true

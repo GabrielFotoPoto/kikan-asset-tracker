@@ -93,6 +93,45 @@ Des modèles CSV sont fournis dans [`import-modeles/`](import-modeles/) (un fich
 reliés par des codes). Format : UTF-8, séparateur `;`, dates `AAAA-MM-JJ`, booléens `oui/non`.
 Ordre conseillé : entités, applications, utilisateurs, matériel, affectations, accès.
 
+## Stockage des documents (PDF scellés)
+
+Les remises et restitutions signées sont des PDF scellés, rangés **par année** (`AAAA/...`). Trois emplacements
+sont possibles, choisis dans `.env` avec `KIKAN_STORAGE_BACKEND` :
+
+| Valeur | Emplacement | Variables principales |
+|---|---|---|
+| `local` (défaut) | volume Docker du serveur | aucune |
+| `smb` | **lecteur réseau** Windows ou Samba (`\\serveur\partage`), SMB 3 chiffré, sans montage | `KIKAN_SMB_SERVER`, `KIKAN_SMB_SHARE`, `KIKAN_SMB_PATH`, `KIKAN_SMB_USER`, `KIKAN_SMB_PASSWORD`, `KIKAN_SMB_DOMAIN` |
+| `webdav` | **partage de fichiers web** (HTTPS, WebDAV) | `KIKAN_WEBDAV_URL`, `KIKAN_WEBDAV_USER` et `KIKAN_WEBDAV_PASSWORD` (ou `KIKAN_WEBDAV_TOKEN`), `KIKAN_WEBDAV_CA_BUNDLE` |
+
+Fonctionnement, pensé pour ne jamais perdre une preuve :
+
+- Le PDF est **toujours écrit d'abord en local**, puis déposé sur le partage, **relu et vérifié** (empreinte SHA-256).
+  Le tampon local n'est purgé qu'après ce dépôt vérifié.
+- Si le partage est **indisponible**, la signature réussit quand même : le document reste en local et sera déposé
+  plus tard, automatiquement au démarrage de l'API ou depuis la page **Stockage** (« Reprendre les dépôts en attente »).
+- À chaque lecture, l'empreinte est comparée à celle enregistrée à la signature : un fichier **altéré sur le partage
+  est détecté** (lecture refusée et alerte dans le journal d'audit).
+- La page **Stockage** (rôle informatique) affiche l'emplacement actif, le nombre de documents par emplacement,
+  permet de tester la connexion et de reprendre les dépôts en attente.
+- La purge RGPD supprime aussi les fichiers sur le partage, une fois la base validée.
+
+Pour un WebDAV avec un certificat d'autorité interne, déposer le certificat (PEM) dans `./ca/` et définir
+`KIKAN_WEBDAV_CA_BUNDLE=/ca/mon-autorite.pem`. L'HTTP simple est refusé par défaut.
+
+Changer d'emplacement : les nouveaux documents vont vers l'emplacement actif ; les anciens restent lisibles tant que
+les variables de leur emplacement d'origine sont conservées dans `.env`. Le passage de `local` vers `smb` ou `webdav`
+est automatique (les documents locaux sont déposés au démarrage).
+**Attention : ne supprimez ni ne déplacez jamais un partage tant que des documents y sont référencés** (la page
+Stockage indique leur nombre par emplacement) : ils ne seraient plus lisibles.
+
+Si le nom du serveur ou du partage est faux, l'opération est abandonnée au bout de `KIKAN_STORAGE_DEADLINE_SEC`
+(30 s par défaut) avec un message explicite, et la signature reste possible (dépôt différé).
+
+SharePoint et DocuWare : un partage WebDAV (par exemple SharePoint sur site) ou un lecteur réseau SMB fonctionnent
+directement. L'accès par l'API propre à SharePoint Online ou à DocuWare n'est pas géré (voir la feuille de route).
+Alternative sans code : monter le partage sur le serveur Docker (volume `cifs`) et laisser `KIKAN_STORAGE_BACKEND=local`.
+
 ## Migrations de la base de données
 
 Le schéma est géré par **Alembic** (`backend/migrations/`). Au démarrage, l'API applique automatiquement les
@@ -133,8 +172,8 @@ docker-compose.yml
 
 ## Feuille de route
 
-- **v0.2** : SSO Microsoft 365 (Entra ID), dépôt des PDF dans une GED réelle
-  (SharePoint / DocuWare), synchro GLPI, rappels e-mail.
+- **v0.2** : SSO Microsoft 365 (Entra ID), connecteurs API SharePoint Online et DocuWare (le dépôt sur lecteur
+  réseau SMB et sur partage WebDAV existe déjà), synchro GLPI, rappels e-mail.
 - Durcissement production : certificat reconnu, coffre pour la clé de scellement.
 
 ## Développement

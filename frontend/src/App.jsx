@@ -34,6 +34,7 @@ import Acces from "./pages/Acces.jsx";
 import Stats from "./pages/Stats.jsx";
 import Audit from "./pages/Audit.jsx";
 import Compte from "./pages/Compte.jsx";
+import Stockage from "./pages/Stockage.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -75,6 +76,7 @@ export default function App() {
             <NavLink to="/rapports">Rapports</NavLink>
             <NavLink to="/statistiques">Statistiques</NavLink>
             <NavLink to="/rgpd">RGPD</NavLink>
+            {user.role === "informatique" && <NavLink to="/stockage">Stockage</NavLink>}
             {user.role === "informatique" && <NavLink to="/journal">Journal d'audit</NavLink>}
             <NavLink to="/compte">Mon compte</NavLink>
           </nav>
@@ -96,6 +98,7 @@ export default function App() {
             <Route path="/rapports" element={<Reports />} />
             <Route path="/statistiques" element={<Stats />} />
             <Route path="/rgpd" element={<Rgpd />} />
+            <Route path="/stockage" element={<Stockage />} />
             <Route path="/journal" element={<Audit />} />
             <Route path="/compte" element={<Compte />} />
             <Route path="*" element={<Navigate to="/" />} />

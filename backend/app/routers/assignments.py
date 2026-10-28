@@ -16,14 +16,14 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import hashlib
-import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from ..audit import audit
 from ..auth import writer_guard
 from ..db import get_session
 from ..models import (
@@ -38,13 +38,12 @@ from ..models import (
 )
 from ..pdfgen import build_receipt
 from ..signing import seal_pdf
+from ..filestore import read_document, sha256_hex, store_document
 
 router = APIRouter(
     prefix="/assignments", tags=["assignments"],
     dependencies=[Depends(writer_guard("informatique"))],
 )
-
-ARCHIVE_DIR = os.environ.get("KIKAN_ARCHIVE_DIR", "/archive")
 
 
 class AssignmentCreate(BaseModel):
@@ -154,11 +153,8 @@ def sign_assignment(
     empreinte = hashlib.sha256(sealed).hexdigest()
 
     now = datetime.utcnow()
-    year_dir = os.path.join(ARCHIVE_DIR, str(now.year))
-    os.makedirs(year_dir, exist_ok=True)
-    path = os.path.join(year_dir, f"remise_{assignment_id}_{now:%Y%m%d%H%M%S}.pdf")
-    with open(path, "wb") as f:
-        f.write(sealed)
+    # Rangement par annee (AAAA/...) sur le stockage actif (volume, partage SMB ou WebDAV).
+    reference = store_document(f"{now.year}/remise_{assignment_id}_{now:%Y%m%d%H%M%S}.pdf", sealed)
 
     signature = Signature(
         assignment_id=assignment_id,
@@ -167,7 +163,7 @@ def sign_assignment(
         horodatage=now,
         empreinte_doc=empreinte,
         audit_json={"note": data.note, "nb_actifs": len(assets)},
-        ged_reference=path,
+        ged_reference=reference,
     )
     session.add(signature)
     session.commit()
@@ -180,6 +176,12 @@ def get_document(assignment_id: int, session: Session = Depends(get_session)):
     sig = session.exec(
         select(Signature).where(Signature.assignment_id == assignment_id)
     ).first()
-    if not sig or not sig.ged_reference or not os.path.exists(sig.ged_reference):
+    if not sig or not sig.ged_reference:
         raise HTTPException(404, "Document scelle introuvable")
-    return FileResponse(sig.ged_reference, media_type="application/pdf")
+    data = read_document(sig.ged_reference)
+    # Detection d'alteration du stockage : l'empreinte enregistree a la signature doit correspondre.
+    if sig.empreinte_doc and sha256_hex(data) != sig.empreinte_doc:
+        audit("systeme", "document_altere", target=sig.ged_reference, status=500)
+        raise HTTPException(500, "Integrite du document non verifiee (empreinte differente)")
+    return Response(content=data, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="remise_{assignment_id}.pdf"'})

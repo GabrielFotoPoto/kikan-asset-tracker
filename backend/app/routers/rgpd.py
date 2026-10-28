@@ -21,7 +21,6 @@ La suppression est en deux temps : previsualisation (liste) puis purge explicite
 (validee par l'admin dans l'interface).
 """
 import calendar
-import os
 from datetime import date
 
 from fastapi import APIRouter, Depends
@@ -39,6 +38,7 @@ from ..models import (
     User,
     UserApplication,
 )
+from ..filestore import delete_document
 
 router = APIRouter(
     prefix="/rgpd", tags=["rgpd"],
@@ -121,6 +121,7 @@ def purge_preview(session: Session = Depends(get_session)):
 def purge(session: Session = Depends(get_session)):
     candidats = _candidats(session)
     supprimes = []
+    documents: list[str] = []
     for user in candidats:
         assignments = session.exec(
             select(Assignment).where(Assignment.user_id == user.id)
@@ -131,22 +132,27 @@ def purge(session: Session = Depends(get_session)):
                 select(Signature).where(Signature.assignment_id == assignment.id)
             ).all()
             for sig in sigs:
-                if sig.ged_reference and os.path.isfile(sig.ged_reference):
-                    try:
-                        os.remove(sig.ged_reference)
-                    except OSError:
-                        pass
+                if sig.ged_reference:
+                    documents.append(sig.ged_reference)  # supprime apres la validation en base
                 session.delete(sig)
             for link in session.exec(
                 select(AssignmentAsset).where(AssignmentAsset.assignment_id == assignment.id)
             ).all():
                 session.delete(link)
+            # Sans relation declaree entre les modeles, SQLAlchemy ne garantit pas l'ordre des
+            # suppressions : on vide d'abord les enfants (signatures, liens) avant le parent.
+            session.flush()
             session.delete(assignment)
+        session.flush()
         for ua in session.exec(
             select(UserApplication).where(UserApplication.user_id == user.id)
         ).all():
             session.delete(ua)
+        session.flush()
         supprimes.append({"id": user.id, "nom": user.nom, "prenom": user.prenom})
         session.delete(user)
     session.commit()
-    return {"supprimes": supprimes, "count": len(supprimes)}
+    # Fichiers supprimes seulement une fois la base validee (volume local, partage SMB ou WebDAV).
+    for reference in documents:
+        delete_document(reference)
+    return {"supprimes": supprimes, "count": len(supprimes), "documents_supprimes": len(documents)}

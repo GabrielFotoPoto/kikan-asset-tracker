@@ -21,7 +21,6 @@ Accessible aux roles RH et informatique (la restitution peut etre conduite par
 l'un ou l'autre ; la remise a l'arrivee reste reservee a l'informatique).
 """
 import hashlib
-import os
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -42,13 +41,12 @@ from ..models import (
 )
 from ..pdfgen import build_receipt
 from ..signing import seal_pdf
+from ..filestore import store_document
 
 router = APIRouter(
     prefix="/lifecycle", tags=["lifecycle"],
     dependencies=[Depends(writer_guard("rh", "informatique"))],
 )
-
-ARCHIVE_DIR = os.environ.get("KIKAN_ARCHIVE_DIR", "/archive")
 
 
 class DepartRequest(BaseModel):
@@ -137,11 +135,8 @@ def restituer(data: RestitutionRequest, session: Session = Depends(get_session))
     empreinte = hashlib.sha256(sealed).hexdigest()
 
     now = datetime.utcnow()
-    year_dir = os.path.join(ARCHIVE_DIR, str(now.year))
-    os.makedirs(year_dir, exist_ok=True)
-    path = os.path.join(year_dir, f"restitution_{data.user_id}_{now:%Y%m%d%H%M%S}.pdf")
-    with open(path, "wb") as f:
-        f.write(sealed)
+    # Rangement par annee (AAAA/...) sur le stockage actif (volume, partage SMB ou WebDAV).
+    reference = store_document(f"{now.year}/restitution_{data.user_id}_{now:%Y%m%d%H%M%S}.pdf", sealed)
 
     # Marque les actifs rendus.
     for asset in assets:
@@ -168,7 +163,7 @@ def restituer(data: RestitutionRequest, session: Session = Depends(get_session))
         empreinte_doc=empreinte,
         audit_json={"type": "restitution", "assignments": sorted(assignment_ids),
                     "assets": [a.id for a in assets]},
-        ged_reference=path,
+        ged_reference=reference,
     )
     session.add(signature)
 

@@ -32,6 +32,25 @@ services:
       KIKAN_CORS_ORIGINS: ${KIKAN_CORS_ORIGINS:-http://localhost:3000,https://localhost:3443}
       KIKAN_CERT_DIR: /certs
       KIKAN_ARCHIVE_DIR: /archive
+      # Stockage des PDF scelles : local (volume), smb (lecteur reseau) ou webdav (partage web).
+      KIKAN_STORAGE_BACKEND: ${KIKAN_STORAGE_BACKEND:-local}
+      KIKAN_STORAGE_TIMEOUT_SEC: ${KIKAN_STORAGE_TIMEOUT_SEC:-15}
+      KIKAN_STORAGE_DEADLINE_SEC: ${KIKAN_STORAGE_DEADLINE_SEC:-30}
+      KIKAN_SMB_SERVER: ${KIKAN_SMB_SERVER:-}
+      KIKAN_SMB_SHARE: ${KIKAN_SMB_SHARE:-}
+      KIKAN_SMB_PATH: ${KIKAN_SMB_PATH:-}
+      KIKAN_SMB_USER: ${KIKAN_SMB_USER:-}
+      KIKAN_SMB_PASSWORD: ${KIKAN_SMB_PASSWORD:-}
+      KIKAN_SMB_DOMAIN: ${KIKAN_SMB_DOMAIN:-}
+      KIKAN_SMB_PORT: ${KIKAN_SMB_PORT:-445}
+      KIKAN_SMB_ENCRYPT: ${KIKAN_SMB_ENCRYPT:-true}
+      KIKAN_WEBDAV_URL: ${KIKAN_WEBDAV_URL:-}
+      KIKAN_WEBDAV_USER: ${KIKAN_WEBDAV_USER:-}
+      KIKAN_WEBDAV_PASSWORD: ${KIKAN_WEBDAV_PASSWORD:-}
+      KIKAN_WEBDAV_TOKEN: ${KIKAN_WEBDAV_TOKEN:-}
+      KIKAN_WEBDAV_VERIFY_TLS: ${KIKAN_WEBDAV_VERIFY_TLS:-true}
+      KIKAN_WEBDAV_CA_BUNDLE: ${KIKAN_WEBDAV_CA_BUNDLE:-}
+      KIKAN_WEBDAV_ALLOW_HTTP: ${KIKAN_WEBDAV_ALLOW_HTTP:-false}
       # KIKAN_TSA_URL: https://freetsa.org/tsr   # optionnel : horodatage PAdES-B-T
     # Acces direct a l'API reserve a la machine locale (dev, tests).
     ports:
@@ -39,6 +58,9 @@ services:
     volumes:
       - kikan_certs:/certs
       - kikan_archive:/archive
+      # Autorite de certification interne (PEM) pour un partage WebDAV : deposer le fichier dans ./ca
+      # puis definir KIKAN_WEBDAV_CA_BUNDLE=/ca/<fichier>.pem
+      - ${KIKAN_CA_DIR:-./ca}:/ca:ro
     read_only: true
     tmpfs:
       - /tmp
