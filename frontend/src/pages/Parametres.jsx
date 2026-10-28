@@ -26,6 +26,7 @@ const TABS = [
   ["services", "Services"],
   ["marques", "Marques et modeles"],
   ["pdf", "Modele de PDF"],
+  ["auth", "Authentification"],
   ["etat", "Etat du scellement"],
 ];
 
@@ -336,8 +337,136 @@ function Etat({ setErr }) {
   );
 }
 
+
+const SSO_MOTIFS = {
+  role: "aucun role Kikan (Kikan.IT ou Kikan.RH) dans le jeton",
+  mfa: "la MFA n'apparait pas dans le jeton (reglage : exiger la MFA)",
+  jeton: "le jeton n'a pas pu etre verifie",
+  session: "la connexion a expire ou a ete interrompue",
+  idp: "Microsoft a refuse la connexion",
+  echange: "l'echange avec Microsoft a echoue",
+  reseau: "Microsoft est injoignable depuis le serveur",
+  compte: "compte inconnu ou desactive",
+  config: "configuration incoherente",
+};
+
+// Connexion Microsoft 365 (SSO) : etat de la configuration, reglages, tests, activation.
+function AuthSso({ setErr, setMsg }) {
+  const [data, setData] = useState(null);
+  const [form, setForm] = useState(null);
+
+  const load = async () => {
+    const d = await api.get("/auth/sso/admin/etat");
+    setData(d);
+    setForm(d.reglages);
+  };
+  useEffect(() => {
+    load().catch((e) => setErr(errorText(e)));
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("sso_test") === "ok") setMsg("Test de connexion reussi : votre identite Microsoft 365 est reconnue avec le role informatique.");
+    if (q.get("sso_test") === "refuse") setErr("Test de connexion refuse : " + (SSO_MOTIFS[q.get("motif")] || "motif inconnu") + ".");
+    if (q.get("sso_test")) window.history.replaceState(null, "", "/parametres");
+  }, []);
+
+  const run = async (fn, okMsg) => {
+    setErr(null); setMsg(null);
+    try { const r = await fn(); if (okMsg) setMsg(typeof okMsg === "function" ? okMsg(r) : okMsg); await load(); } catch (ex) { setErr(errorText(ex)); }
+  };
+
+  if (!data || !form) return <div className="card"><p className="muted">Chargement...</p></div>;
+  const c = data.config;
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
+  const t = data.test;
+
+  return (
+    <div>
+      <div className="card">
+        <h3>Etat de la connexion Microsoft 365</h3>
+        <p>
+          <span className={data.actif ? "badge ok" : "badge"}>{data.actif ? "SSO active" : "SSO desactive"}</span>{" "}
+          <span className={c.configure ? "badge ok" : "badge bad"}>{c.configure ? "environnement configure" : "environnement incomplet"}</span>
+        </p>
+        {data.avertissement && <p className="warn">{data.avertissement}</p>}
+        <table>
+          <tbody>
+            <tr><td>Tenant</td><td>{c.tenant || "non renseigne"}</td></tr>
+            <tr><td>Identifiant client</td><td>{c.client_id || "non renseigne"}</td></tr>
+            <tr><td>Secret du client</td><td>{c.secret_present ? "present dans .env (jamais affiche)" : "absent"}</td></tr>
+            <tr><td>Autorite</td><td>{c.autorite}</td></tr>
+            <tr><td>Adresse publique</td><td>{c.public_url || "non renseignee"}</td></tr>
+            <tr><td>Adresse de retour a declarer dans Entra</td><td><code style={{ wordBreak: "break-all" }}>{c.redirect_uri || "-"}</code></td></tr>
+          </tbody>
+        </table>
+        {c.manque.length > 0 && <p className="muted">Variables a renseigner dans <code>.env</code> : {c.manque.join(", ")} (voir docs/SSO.md).</p>}
+      </div>
+
+      <div className="card">
+        <h3>Reglages</h3>
+        <form className="grid" onSubmit={(e) => { e.preventDefault(); run(() => api.put("/auth/sso/admin/reglages", { ...form, ttl: Number(form.ttl) }), "Reglages enregistres."); }}>
+          <label>Connexion par mot de passe (SSO actif)
+            <select value={form.mode_local} onChange={set("mode_local")}>
+              <option value="secours">Comptes de secours uniquement</option>
+              <option value="autorise">Autorisee pour tous les comptes locaux</option>
+            </select>
+          </label>
+          <label>Duree de session (minutes, 30 a 720)
+            <input type="number" min={30} max={720} value={form.ttl} onChange={set("ttl")} />
+          </label>
+          <label>Role d'application : informatique<input value={form.role_it} maxLength={100} onChange={set("role_it")} /></label>
+          <label>Role d'application : RH<input value={form.role_rh} maxLength={100} onChange={set("role_rh")} /></label>
+          <label>Expiration du secret client (rappel)<input type="date" value={form.secret_expire} onChange={set("secret_expire")} /></label>
+          <label className="check"><input type="checkbox" checked={form.creation_auto} onChange={set("creation_auto")} /><span>Creer automatiquement le compte a la premiere connexion</span></label>
+          <label className="check"><input type="checkbox" checked={form.exiger_mfa} onChange={set("exiger_mfa")} /><span>Exiger que la MFA apparaisse dans le jeton Microsoft</span></label>
+          <div style={{ alignSelf: "end" }}><button type="submit">Enregistrer</button></div>
+        </form>
+        <p className="muted">La duree de session s'applique a toutes les nouvelles connexions (locales et Microsoft 365). Comptes de secours : {data.comptes_secours}.</p>
+      </div>
+
+      <div className="card">
+        <h3>Tests et activation</h3>
+        <div className="row" style={{ marginBottom: 12 }}>
+          <button className="ghost" disabled={!c.configure} onClick={() => run(() => api.post("/auth/sso/admin/tester-config", {}), (r) => `Configuration valide : ${r.cles} cle(s) de signature trouvee(s).`)}>
+            Tester la configuration
+          </button>
+          <button className="ghost" disabled={!c.configure} onClick={async () => {
+            setErr(null); setMsg(null);
+            try { const r = await api.post("/auth/sso/admin/test-start", {}); window.location.href = r.url; } catch (ex) { setErr(errorText(ex)); }
+          }}>
+            Tester ma connexion Microsoft 365
+          </button>
+        </div>
+        {t && (
+          <p className="muted">
+            Dernier test : {t.upn} (role {t.role}{t.mfa ? ", MFA presente" : ", MFA absente"}), par {t.par}, le {new Date(t.ts * 1000).toLocaleString("fr-FR")}.
+          </p>
+        )}
+        {!data.actif && data.blocages.length > 0 && (
+          <div className="warn" style={{ marginBottom: 12 }}>
+            <b>Pour activer le SSO :</b>
+            <ul style={{ margin: "6px 0 0 18px" }}>{data.blocages.map((b) => <li key={b}>{b}</li>)}</ul>
+          </div>
+        )}
+        <div className="row">
+          {!data.actif && (
+            <button disabled={data.blocages.length > 0} onClick={() => run(() => api.post("/auth/sso/admin/activer", {}), "Connexion Microsoft 365 activee.")}>Activer le SSO</button>
+          )}
+          {data.actif && (
+            <ConfirmButton confirmLabel="Confirmer la desactivation" onConfirm={() => run(() => api.post("/auth/sso/admin/desactiver", {}), "Connexion Microsoft 365 desactivee : la connexion par mot de passe est de nouveau ouverte.")}>
+              Desactiver le SSO
+            </ConfirmButton>
+          )}
+        </div>
+        <p className="muted">
+          Une activation demande un test de connexion reussi de votre part (moins de 30 minutes) et au moins un compte local de secours.
+          Desactiver le SSO rend immediatement la connexion par mot de passe a tous les comptes locaux.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Parametres() {
-  const [tab, setTab] = useState("types");
+  const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get("sso_test") ? "auth" : "types"));
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
   const go = (t) => { setTab(t); setErr(null); setMsg(null); };
@@ -360,6 +489,7 @@ export default function Parametres() {
       )}
       {tab === "marques" && <MergeTool setErr={setErr} setMsg={setMsg} />}
       {tab === "pdf" && <PdfTemplate setErr={setErr} setMsg={setMsg} />}
+      {tab === "auth" && <AuthSso setErr={setErr} setMsg={setMsg} />}
       {tab === "etat" && <Etat setErr={setErr} />}
     </div>
   );

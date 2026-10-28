@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -37,6 +37,7 @@ from ..auth import (
 )
 from ..db import get_session
 from ..models import Account, Role
+from .. import sso_policy
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -109,6 +110,7 @@ class AccountUpdate(BaseModel):
     password: str | None = None
     nom_affiche: str | None = None
     email: str | None = None
+    secours: bool | None = None
 
     @field_validator("email")
     @classmethod
@@ -136,6 +138,16 @@ class AccountOut(BaseModel):
     email: str | None = None
     must_change_password: bool = False
     derniere_connexion: datetime | None = None
+    source_auth: str = "local"
+    sso_upn: str | None = None
+    sso_lie: bool = False
+    secours: bool = False
+
+    @classmethod
+    def from_account(cls, a: "Account") -> "AccountOut":
+        out = cls.model_validate(a)
+        out.sso_lie = bool(a.sso_oid)
+        return out
 
 
 class AccountCreated(AccountOut):
@@ -165,6 +177,10 @@ def login(data: LoginRequest, request: Request, session: Session = Depends(get_s
         audit(data.username, "login_echec", ip=ip, status=401)
         raise HTTPException(401, "Identifiants invalides")
 
+    if not sso_policy.local_login_allowed(session, account):
+        login_limiter.success(ip, data.username)
+        audit(account.username, "login_local_refuse", ip=ip, status=403, detail="reserve a Microsoft 365 ou aux comptes de secours")
+        raise HTTPException(403, "Connexion par mot de passe reservee aux comptes de secours : utilisez Microsoft 365")
     login_limiter.success(ip, data.username)
     account.derniere_connexion = datetime.utcnow()
     session.add(account)
@@ -220,7 +236,7 @@ def _other_admin_exists(session: Session, exclude_id: int) -> bool:
             dependencies=[Depends(require_roles("informatique"))])
 def list_accounts(session: Session = Depends(get_session)):
     rows = session.exec(select(Account)).all()
-    return sorted(rows, key=lambda a: a.username)
+    return [AccountOut.from_account(a) for a in sorted(rows, key=lambda a: a.username)]
 
 
 @router.post("/accounts", response_model=AccountCreated, status_code=201)
@@ -269,6 +285,17 @@ def update_account(
     if removes_admin and not _other_admin_exists(session, target.id):
         raise HTTPException(409, "Impossible : ce serait le dernier compte informatique actif")
 
+    if data.role is not None and data.role != target.role and target.sso_oid:
+        raise HTTPException(409, "Le role de ce compte est gere par Microsoft 365 (roles d'application Entra)")
+    if data.secours is not None and data.secours != target.secours:
+        if data.secours and target.source_auth == "sso":
+            raise HTTPException(409, "Ce compte a ete cree par Microsoft 365 : il n'a pas de mot de passe local")
+        if not data.secours and target.role == Role.informatique and target.actif and sso_policy.is_active(session) \
+                and sso_policy.breakglass_count(session, exclude_id=target.id) < 1:
+            raise HTTPException(409, "Impossible : ce serait le dernier compte de secours actif")
+    if (data.actif is False) and target.role == Role.informatique and target.secours and target.source_auth == "local" \
+            and sso_policy.is_active(session) and sso_policy.breakglass_count(session, exclude_id=target.id) < 1:
+        raise HTTPException(409, "Impossible : ce serait le dernier compte de secours actif")
     changed = []
     revoke = False
     if data.actif is not None and data.actif != target.actif:
@@ -286,7 +313,12 @@ def update_account(
     if "email" in data.model_fields_set and data.email != target.email:
         target.email = data.email
         changed.append("email")
+    if data.secours is not None and data.secours != target.secours:
+        target.secours = data.secours
+        changed.append("secours")
     if data.password is not None:
+        if target.source_auth == "sso":
+            raise HTTPException(409, "Ce compte est gere par Microsoft 365 : pas de mot de passe local")
         check_password_policy(data.password)
         target.hashed_password = hash_password(data.password)
         changed.append("password")
@@ -308,6 +340,8 @@ def reset_password(account_id: int, session: Session = Depends(get_session),
     target = session.get(Account, account_id)
     if not target:
         raise HTTPException(404, "Compte introuvable")
+    if target.source_auth == "sso":
+        raise HTTPException(409, "Ce compte est gere par Microsoft 365 : pas de mot de passe local")
     provisional = generate_temp_password()
     target.hashed_password = hash_password(provisional)
     target.must_change_password = True
@@ -316,3 +350,54 @@ def reset_password(account_id: int, session: Session = Depends(get_session),
     session.commit()
     audit(admin.username, "mot_de_passe_reinitialise", target=target.username)
     return ResetResult(mot_de_passe_provisoire=provisional)
+
+
+class LierSso(BaseModel):
+    upn: str = Field(max_length=200)
+
+    @field_validator("upn")
+    @classmethod
+    def _upn(cls, v: str) -> str:
+        v = (v or "").strip().lower()
+        if not EMAIL_RE.match(v):
+            raise ValueError("Nom d'utilisateur Microsoft invalide (adresse du type prenom.nom@domaine)")
+        return v
+
+
+@router.post("/accounts/{account_id}/lier-sso", response_model=AccountOut)
+def link_sso(account_id: int, data: LierSso, session: Session = Depends(get_session),
+             admin: Account = Depends(require_roles("informatique"))):
+    """Prepare la liaison d'un compte local a Microsoft 365 : la premiere connexion SSO de ce nom d'utilisateur
+    Microsoft est rattachee a ce compte (jamais de rapprochement automatique par e-mail)."""
+    target = session.get(Account, account_id)
+    if not target:
+        raise HTTPException(404, "Compte introuvable")
+    if target.sso_oid:
+        raise HTTPException(409, "Ce compte est deja lie a un compte Microsoft 365")
+    if session.exec(select(Account).where(func.lower(Account.sso_upn) == data.upn, Account.id != target.id)).first():
+        raise HTTPException(409, "Ce nom d'utilisateur Microsoft est deja associe a un autre compte")
+    target.sso_upn = data.upn
+    session.add(target)
+    session.commit()
+    session.refresh(target)
+    audit(admin.username, "compte_lie_sso", target=target.username, detail=f"upn : {data.upn}")
+    return AccountOut.from_account(target)
+
+
+@router.post("/accounts/{account_id}/delier-sso", response_model=AccountOut)
+def unlink_sso(account_id: int, session: Session = Depends(get_session),
+               admin: Account = Depends(require_roles("informatique"))):
+    target = session.get(Account, account_id)
+    if not target:
+        raise HTTPException(404, "Compte introuvable")
+    if target.source_auth == "sso":
+        raise HTTPException(409, "Ce compte a ete cree par Microsoft 365 : desactivez-le plutot que de le delier")
+    if not (target.sso_oid or target.sso_upn):
+        raise HTTPException(409, "Ce compte n'est pas lie a Microsoft 365")
+    target.sso_oid, target.sso_upn = None, None
+    target.token_epoch += 1
+    session.add(target)
+    session.commit()
+    session.refresh(target)
+    audit(admin.username, "compte_delie_sso", target=target.username)
+    return AccountOut.from_account(target)

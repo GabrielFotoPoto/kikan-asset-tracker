@@ -31,7 +31,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from .db import engine, get_session
-from .models import Account, Role
+from .models import Account, Role, Setting
 
 log = logging.getLogger("kikan.security")
 
@@ -146,6 +146,18 @@ def client_ip(request: Request) -> str:
 
 # --- Jetons ---
 
+def _ttl_minutes() -> int:
+    """Duree de session reglable dans le parametrage (30 min a 12 h) ; sinon la valeur de l'environnement."""
+    try:
+        with Session(engine) as session:
+            row = session.get(Setting, "session_ttl_min")
+        if row and row.value:
+            return max(30, min(720, int(row.value)))
+    except Exception:  # noqa: BLE001  (base indisponible ou valeur invalide : on retombe sur la valeur par defaut)
+        pass
+    return TOKEN_TTL_MIN
+
+
 def create_access_token(username: str, role: str, epoch: int = 0) -> str:
     now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
@@ -153,7 +165,7 @@ def create_access_token(username: str, role: str, epoch: int = 0) -> str:
         "role": role,
         "te": epoch,  # version de session du compte : change a chaque revocation
         "iat": now,
-        "exp": now + datetime.timedelta(minutes=TOKEN_TTL_MIN),
+        "exp": now + datetime.timedelta(minutes=_ttl_minutes()),
     }
     return jwt.encode(payload, SECRET, algorithm=ALGO)
 

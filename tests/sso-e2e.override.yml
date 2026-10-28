@@ -1,0 +1,17 @@
+# Kikan - SSO : essai dans un navigateur avec le faux fournisseur d'identite interactif (tests/sso_mock_idp.py).
+# Instance de DEVELOPPEMENT uniquement.
+#
+#   docker compose -f docker-compose.yml -f tests/sso-e2e.override.yml up -d api
+#   (demarrer le faux fournisseur dans le conteneur et un frontal HTTP sur le port 3100 : voir tests/sso_mock_idp.py)
+#   docker compose up -d api      # retour a la configuration normale
+services:
+  api:
+    environment:
+      KIKAN_PUBLIC_URL: http://localhost:3100
+      KIKAN_SSO_TENANT_ID: 11111111-2222-3333-4444-555555555555
+      KIKAN_SSO_CLIENT_ID: kikan-test-client
+      KIKAN_SSO_CLIENT_SECRET: test-secret-for-mock-idp
+      KIKAN_SSO_AUTHORITY: http://127.0.0.1:9910
+    ports:
+      - "127.0.0.1:8080:8000"
+      - "127.0.0.1:9910:9910"

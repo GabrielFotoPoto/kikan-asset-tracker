@@ -21,6 +21,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 | Mots de passe | 12 caractères minimum, 72 octets maximum (limite de bcrypt). Changement par l'utilisateur et réinitialisation par l'informatique : le mot de passe provisoire est généré par le serveur (16 caractères, environ 90 bits), affiché une seule fois, jamais journalisé, et son remplacement est imposé avant tout autre accès (refus côté serveur). Un nouveau mot de passe doit différer de l'ancien. Le dernier compte informatique actif ne peut pas être désactivé ni rétrogradé. |
 | Force brute | Verrouillage temporaire (15 min) après 5 échecs par couple compte + adresse IP, et limite globale par IP. Un attaquant distant ne peut pas verrouiller l'administrateur depuis une autre adresse. Temps de réponse identique que le compte existe ou non. |
 | Autorisations | Rôles `informatique`, `rh`, `lecture` appliqués côté serveur sur chaque routeur (jamais seulement dans l'interface). |
+| Connexion Microsoft 365 | Facultative, activable seulement après un test de connexion réussi de l'administrateur et en présence d'un compte local de secours. OpenID Connect, code d'autorisation avec PKCE ; un seul tenant (émetteur et `tid` fixés) ; jeton RS256 uniquement, signature par les clés du tenant, public, expiration, `nonce` vérifiés ; `state` à usage unique lié au navigateur par un cookie (HttpOnly, SameSite, Secure) ; adresse de retour fixée par la configuration ; aucune redirection suivie lors des appels sortants ; découverte et clés refusées si elles sortent de l'autorité configurée. Rôle issu des rôles d'application Entra et resynchronisé à chaque connexion ; MFA exigible ; session remise par un ticket à usage unique de 60 secondes (jamais de jeton dans l'adresse). Secret du client uniquement dans l'environnement. Les refus d'accès (rôle, MFA, compte) ne comptent pas dans la limitation de tentatives ; les échecs de protocole oui. |
 | Sessions | Chaque compte porte une version de session portée par le jeton : changement de mot de passe, réinitialisation, changement de rôle et désactivation révoquent immédiatement les sessions ouvertes (sans attendre l'expiration). Identifiants normalisés (minuscules, caractères restreints) et uniques sans tenir compte de la casse, y compris pour le verrouillage des tentatives. |
 | Journal d'audit | Toute écriture, tout refus d'accès (401/403) et toute connexion (réussie, échouée, bloquée) sont journalisés (compte, action, statut, IP). Aucun corps de requête n'est enregistré (pas de mot de passe ni de donnée personnelle). Consultable par l'informatique, sans endpoint de modification ni de suppression. |
 | Transport | HTTPS obligatoire (TLS 1.2/1.3) : le port HTTP redirige vers HTTPS, HSTS activé. Certificat auto-signé généré au premier démarrage, remplaçable par celui de l'organisation. |
@@ -60,8 +61,11 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
   politique CSP stricte (aucun script externe ni en ligne) et la durée de vie courte. Les jetons ne sont
   pas révocables individuellement (désactiver le compte les invalide, car le compte est revérifié à chaque requête).
 - **Limiteur de tentatives en mémoire**, mono-processus : réinitialisé au redémarrage de l'API.
-- **Pas d'authentification multifacteur en local.** Cible v0.2 : SSO Microsoft 365 (Entra ID) avec MFA du tenant,
-  comptes nominatifs, rôles par groupes. Les comptes locaux sont alors un secours.
+- **Pas d'authentification multifacteur en local.** Le SSO Microsoft 365 (facultatif) délègue la MFA au tenant ; les comptes
+  locaux sont alors un secours. Une MFA locale (TOTP) reste prévue pour ces comptes de secours (E1).
+- **SSO : session ouverte non révoquée par Entra.** Retirer quelqu'un d'Entra ne ferme pas sa session Kikan en cours ; elle expire
+  (durée réglable de 30 minutes à 12 heures). Désactiver le compte dans Kikan la coupe aussitôt. Penser au renouvellement du secret
+  du client Microsoft (24 mois au maximum) : un secret expiré arrête la connexion SSO (les comptes de secours restent utilisables).
 - **Certificats auto-signés** (TLS et scellement des PDF) : valides techniquement, affichés « non approuvés » tant
   que la racine de l'organisation n'est pas installée sur les postes.
 - **Clé privée du scellement non chiffrée** dans son volume (protégée par les droits `0600`). Un coffre ou un HSM est
@@ -99,6 +103,11 @@ docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api p
 
 # Accès applicatifs dans l'accusé de remise : option, instantané figé, empreinte, preuve
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/acces_pdf_check.py
+
+# Connexion Microsoft 365 : faux fournisseur d'identité (jetons hostiles, état, rejeu, rôles, liaison, secours). Prérequis : tests/sso-test.override.yml
+docker compose -f docker-compose.yml -f tests/sso-test.override.yml up -d api
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/sso_check.py
+docker compose up -d --force-recreate api
 
 # Comptes : identifiant, mot de passe provisoire, changement imposé, révocation des sessions, garde-fous, audit
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/accounts_check.py

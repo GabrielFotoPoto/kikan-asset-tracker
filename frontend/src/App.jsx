@@ -23,6 +23,7 @@ import { api, getToken, setToken } from "./api.js";
 import { AuthContext } from "./auth.jsx";
 import Login from "./pages/Login.jsx";
 import ForcePassword from "./pages/ForcePassword.jsx";
+import SsoReturn from "./pages/SsoReturn.jsx";
 import Comptes from "./pages/Comptes.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Entites from "./pages/Entites.jsx";
@@ -63,7 +64,7 @@ export default function App() {
   const logout = () => { setToken(null); setUser(null); };
 
   if (checking) return null;
-  if (!user) return <Login onLogin={setUser} />;
+  if (!user) return window.location.pathname === "/sso" ? <SsoReturn onLogin={setUser} /> : <Login onLogin={setUser} />;
   if (user.mustChange) {
     return <ForcePassword user={user} onDone={() => setUser({ ...user, mustChange: false })} onLogout={logout} />;
   }

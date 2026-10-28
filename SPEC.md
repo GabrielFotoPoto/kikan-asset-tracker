@@ -224,8 +224,8 @@ sur la tablette.
 - Concerne les **utilisateurs de l'application** (equipes informatique / RH). Les salaries qui
   recoivent du materiel ne se connectent pas (ils signent sur la tablette).
 
-> Etat actuel du code : authentification locale (JWT + mot de passe) operationnelle. Le SSO
-> Microsoft 365 est la cible (v0.2), voir Feuille de route.
+> Etat actuel du code : authentification locale (JWT + mot de passe) et SSO Microsoft 365 facultatif
+> (page Parametrage, onglet Authentification ; procedure dans docs/SSO.md).
 
 ## 6. Flux fonctionnels
 
@@ -433,7 +433,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 
 | # | Fonctionnalité | Origine |
 |---|---|---|
-| B1 | **SSO Microsoft 365 (Entra ID)** : groupes `Kikan-IT` et `Kikan-RH`, comptes nominatifs, MFA du tenant, comptes locaux en secours (§5ter) | SPEC |
+| B1 | **SSO Microsoft 365 (Entra ID)** : groupes `Kikan-IT` et `Kikan-RH`, comptes nominatifs, MFA du tenant, comptes locaux en secours (§5ter). **Fait (2026-10-28)** : option activable, rôles d'application Entra attribués aux groupes, jeton vérifié de bout en bout, création et resynchronisation du rôle à chaque connexion, liaison explicite des comptes locaux, mode de secours, durée de session réglable (E4) ; testé contre un faux fournisseur d'identité, **à valider sur le tenant réel** (docs/SSO.md) | SPEC |
 | B2 | **Comptes cloisonnés par entité** (global ou limité à une ou plusieurs filiales) | SPEC |
 | B3 | **Rappels par e-mail** : renouvellements, départs à venir, matériel non restitué | SPEC |
 | B4 | **Rapport mensuel automatique** : généré, archivé dans le stockage et envoyé par e-mail | SPEC |

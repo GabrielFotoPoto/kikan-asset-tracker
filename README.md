@@ -124,6 +124,23 @@ changent pas.
 - Limites : `KIKAN_MAX_CHARTE_MB` (10 Mo), 60 pages. Le texte Markdown est rendu avec les polices standard du PDF
   (lettres accentuées courantes, pas les emojis).
 
+## Connexion Microsoft 365 (option)
+
+La connexion par Microsoft 365 (Entra ID) est **facultative** : tant qu'elle n'est pas activée, Kikan fonctionne en connexion
+locale. Procédure complète dans [`docs/SSO.md`](docs/SSO.md).
+
+- **Principe** : OpenID Connect (code d'autorisation avec PKCE) côté serveur, **un seul tenant**, MFA du tenant. Le rôle vient des
+  **rôles d'application** Entra `Kikan.IT` et `Kikan.RH` (noms modifiables), attribués à vos groupes ; toute autre personne est refusée.
+- **Comptes** : nominatifs, créés à la première connexion d'un membre autorisé (identifiant stable Entra, jamais l'e-mail), rôle
+  **resynchronisé à chaque connexion**. Un compte local existant se lie explicitement (page Comptes), jamais par e-mail.
+- **Configuration** : `.env` (`KIKAN_PUBLIC_URL`, `KIKAN_SSO_TENANT_ID`, `KIKAN_SSO_CLIENT_ID`, `KIKAN_SSO_CLIENT_SECRET`) ; le secret
+  n'est jamais stocké en base ni affiché. Puis **Paramétrage, Authentification** : test de la configuration, test de connexion,
+  réglages (mode de connexion par mot de passe, création automatique des comptes, MFA exigée, noms des rôles, durée de session) et activation.
+- **Garde-fous** : l'activation exige un test de connexion réussi de l'administrateur qui l'active et au moins un **compte local de
+  secours** (case « Secours » de la page Comptes). Désactiver le SSO rend aussitôt la connexion par mot de passe.
+- **Session** : durée réglable de 30 minutes à 12 heures (toutes connexions). Retirer quelqu'un d'Entra n'interrompt pas sa session
+  ouverte (limite documentée) ; désactiver son compte dans Kikan la coupe immédiatement.
+
 ## Comptes
 
 La page **Comptes** (informatique) gère les comptes des équipes informatique, RH et lecture seule (les salariés
@@ -294,6 +311,8 @@ backend/            API FastAPI
     pdfgen.py       generation des PDF
     importer.py     lecture CSV (encodage, separateur)
     xlsx_io.py      lecture et ecriture de classeurs Excel (.xlsx), modeles et export
+    sso.py          connexion Microsoft 365 (OpenID Connect, verification du jeton)
+    sso_policy.py   reglages du SSO et regles de connexion locale
     rules.py        regles de modification et de suppression protegee
     catalogs.py     listes souples (types d'actifs, services)
     asset_catalog.py catalogue marques/modeles : recherche assistee, graphie canonique
@@ -321,7 +340,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), modification et suppression dans l'interface (A4, **fait**), interface de
   paramétrage (A5, **fait**), gestion des comptes (A6, **fait**), accès applicatifs dans le document de remise (A7, **fait**), autocomplétion des
   modèles (A8, **fait**).
-- **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par
+- **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1, **fait**, à valider sur votre tenant), comptes cloisonnés par
   entité (B2), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API
   SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : statistiques exportables (C1), revue périodique des droits d'accès (C2), prévision des

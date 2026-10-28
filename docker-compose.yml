@@ -31,6 +31,14 @@ services:
       KIKAN_TOKEN_TTL_MIN: ${KIKAN_TOKEN_TTL_MIN:-240}
       KIKAN_SIGNATURE_MANUSCRITE_OBLIGATOIRE: ${KIKAN_SIGNATURE_MANUSCRITE_OBLIGATOIRE:-true}
       KIKAN_MAX_CHARTE_MB: ${KIKAN_MAX_CHARTE_MB:-10}
+      # Connexion Microsoft 365 (Entra ID), facultative : activee ensuite dans Parametrage, onglet Authentification.
+      KIKAN_PUBLIC_URL: ${KIKAN_PUBLIC_URL:-}
+      KIKAN_SSO_TENANT_ID: ${KIKAN_SSO_TENANT_ID:-}
+      KIKAN_SSO_CLIENT_ID: ${KIKAN_SSO_CLIENT_ID:-}
+      KIKAN_SSO_CLIENT_SECRET: ${KIKAN_SSO_CLIENT_SECRET:-}
+      KIKAN_SSO_AUTHORITY: ${KIKAN_SSO_AUTHORITY:-https://login.microsoftonline.com}
+      KIKAN_SSO_CA_BUNDLE: ${KIKAN_SSO_CA_BUNDLE:-}
+      KIKAN_SSO_PROXY: ${KIKAN_SSO_PROXY:-}
       # Conversion des chartes Word en PDF (service isole, sans acces Internet). Vide = desactivee.
       KIKAN_WORD_CONVERTER_URL: ${KIKAN_WORD_CONVERTER_URL:-http://converter:8090}
       KIKAN_CORS_ORIGINS: ${KIKAN_CORS_ORIGINS:-http://localhost:3000,https://localhost:3443}

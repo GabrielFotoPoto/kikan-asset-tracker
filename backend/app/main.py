@@ -43,6 +43,7 @@ from .routers import (
     parametres,
     policies,
     reports,
+    sso,
     rgpd,
     stats,
     storage_admin,
@@ -123,6 +124,7 @@ app.include_router(auth.router)
 app.include_router(entites.router)
 app.include_router(policies.router)
 app.include_router(parametres.router)
+app.include_router(sso.router)
 app.include_router(users.router)
 app.include_router(assets.router)
 app.include_router(applications.router)

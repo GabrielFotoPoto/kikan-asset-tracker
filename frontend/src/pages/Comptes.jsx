@@ -34,6 +34,7 @@ export default function Comptes() {
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
   const [secret, setSecret] = useState(null);
+  const [linking, setLinking] = useState(null);
   const [copied, setCopied] = useState(false);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -77,6 +78,20 @@ export default function Comptes() {
       setMsg(`Mot de passe de ${a.username} reinitialise : ses sessions ouvertes sont fermees.`);
       load();
     } catch (ex) { setErr(errorText(ex)); }
+  };
+
+  const link = async (a, upn) => {
+    clear();
+    try {
+      await api.post(`/auth/accounts/${a.id}/lier-sso`, { upn });
+      setMsg(`Liaison preparee : la premiere connexion Microsoft 365 de ${upn} sera rattachee au compte ${a.username}.`);
+      load();
+    } catch (ex) { setErr(errorText(ex)); }
+  };
+
+  const unlink = async (a) => {
+    clear();
+    try { await api.post(`/auth/accounts/${a.id}/delier-sso`, {}); setMsg(`Compte ${a.username} delie de Microsoft 365.`); load(); } catch (ex) { setErr(errorText(ex)); }
   };
 
   const copy = async () => {
@@ -131,7 +146,7 @@ export default function Comptes() {
 
       <div className="card">
         <table>
-          <thead><tr><th>Identifiant</th><th>Nom</th><th>E-mail</th><th>Role</th><th>Etat</th><th>Derniere connexion</th><th></th></tr></thead>
+          <thead><tr><th>Identifiant</th><th>Nom</th><th>E-mail</th><th>Role</th><th>Origine</th><th>Secours</th><th>Etat</th><th>Derniere connexion</th><th></th></tr></thead>
           <tbody>
             {items.map((a) => {
               const me = a.username === user.username;
@@ -143,10 +158,20 @@ export default function Comptes() {
                   <td>{edit ? <input value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} /> : (a.email || "-")}</td>
                   <td>
                     {edit ? (
-                      <select value={editing.role} onChange={(e) => setEditing({ ...editing, role: e.target.value })}>
+                      <select value={editing.role} disabled={a.sso_lie} title={a.sso_lie ? "Role gere par Microsoft 365" : ""} onChange={(e) => setEditing({ ...editing, role: e.target.value })}>
                         {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                       </select>
                     ) : (ROLES.find(([v]) => v === a.role)?.[1] || a.role)}
+                  </td>
+                  <td>
+                    {a.source_auth === "sso" ? <span className="badge">Microsoft 365</span> : a.sso_lie ? <span className="badge">local + Microsoft 365</span> : <span className="badge">local</span>}
+                    {a.sso_upn && <div className="muted">{a.sso_upn}{a.sso_lie ? "" : " (liaison en attente)"}</div>}
+                  </td>
+                  <td>
+                    {a.source_auth === "sso" ? "-" : (
+                      <input type="checkbox" checked={a.secours} title="Compte de secours : connexion par mot de passe autorisee quand le SSO est actif"
+                             onChange={(e) => update(a, { secours: e.target.checked }, `Compte ${a.username} : secours ${e.target.checked ? "active" : "retire"}.`)} />
+                    )}
                   </td>
                   <td>
                     <span className={a.actif ? "badge ok" : "badge bad"}>{a.actif ? "actif" : "desactive"}</span>
@@ -163,7 +188,17 @@ export default function Comptes() {
                       ) : (
                         <>
                           <button className="ghost" onClick={() => setEditing({ id: a.id, nom_affiche: a.nom_affiche || "", email: a.email || "", role: a.role })}>Modifier</button>
-                          <ConfirmButton confirmLabel="Confirmer la reinitialisation" onConfirm={() => reset(a)}>Reinitialiser le mot de passe</ConfirmButton>
+                          {a.source_auth !== "sso" && <ConfirmButton confirmLabel="Confirmer la reinitialisation" onConfirm={() => reset(a)}>Reinitialiser le mot de passe</ConfirmButton>}
+                          {a.source_auth !== "sso" && !a.sso_lie && (linking && linking.id === a.id ? (
+                            <span className="row">
+                              <input value={linking.upn} placeholder="prenom.nom@domaine" onChange={(e) => setLinking({ ...linking, upn: e.target.value })} />
+                              <button onClick={async () => { await link(a, linking.upn); setLinking(null); }}>Lier</button>
+                              <button className="ghost" onClick={() => setLinking(null)}>Annuler</button>
+                            </span>
+                          ) : <button className="ghost" onClick={() => setLinking({ id: a.id, upn: a.sso_upn || "" })}>Lier a Microsoft 365</button>)}
+                          {a.source_auth !== "sso" && (a.sso_lie || a.sso_upn) && (
+                            <ConfirmButton confirmLabel="Confirmer" onConfirm={() => unlink(a)}>Delier de Microsoft 365</ConfirmButton>
+                          )}
                           {a.actif
                             ? (!me && <ConfirmButton confirmLabel="Confirmer la desactivation" onConfirm={() => update(a, { actif: false }, `Compte ${a.username} desactive.`)}>Desactiver</ConfirmButton>)
                             : <button className="ghost" onClick={() => update(a, { actif: true }, `Compte ${a.username} reactive.`)}>Reactiver</button>}

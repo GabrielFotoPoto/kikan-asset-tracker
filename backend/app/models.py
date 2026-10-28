@@ -227,6 +227,14 @@ class Account(SQLModel, table=True):
     must_change_password: bool = False           # mot de passe provisoire a remplacer
     token_epoch: int = 0                         # incremente pour revoquer les sessions ouvertes
     derniere_connexion: Optional[NaiveDatetime] = None
+    source_auth: str = "local"                   # local | sso (Microsoft 365)
+    sso_oid: Optional[str] = Field(default=None, unique=True)  # identifiant stable Entra (jamais l'e-mail)
+    sso_upn: Optional[str] = None                # nom d'utilisateur Microsoft (liaison ou dernier connu)
+    secours: bool = False                        # compte local de secours (connexion par mot de passe autorisee)
+
+    @property
+    def sso_lie(self) -> bool:
+        return bool(self.sso_oid)
 
 
 class Setting(SQLModel, table=True):
