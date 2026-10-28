@@ -26,6 +26,7 @@ from sqlmodel import Session, select
 from ..audit import audit
 from ..auth import client_ip, get_current_account, writer_guard
 from ..db import get_session
+from .policies import read_pdf
 from ..models import (
     Account,
     Asset,
@@ -44,6 +45,7 @@ from ..signature_image import (
     SignatureImageError,
     prepare_signature,
 )
+from ..charte import append_annex, resolve_policy
 from ..signing import seal_pdf
 from ..filestore import read_document, sha256_hex, store_document
 
@@ -57,6 +59,7 @@ class AssignmentCreate(BaseModel):
     user_id: int
     asset_ids: list[int]
     policy_id: int | None = None
+    sans_charte: bool = False  # True : aucune charte jointe (sinon, la charte applicable est jointe d'office)
     cree_par: str | None = None
 
 
@@ -94,9 +97,19 @@ def create_assignment(data: AssignmentCreate, session: Session = Depends(get_ses
             raise HTTPException(409, f"Actif {aid} deja affecte")
         assets.append(asset)
 
+    policy_id = None
+    if data.policy_id is not None:
+        chosen = session.get(Policy, data.policy_id)
+        if not chosen or chosen.statut != "active" or not chosen.fichier_ref:
+            raise HTTPException(400, "Charte inconnue ou archivee")
+        policy_id = chosen.id
+    elif not data.sans_charte:
+        applicable = resolve_policy(session, user.entite_id)  # entite, parents, puis charte globale
+        policy_id = applicable.id if applicable else None
+
     assignment = Assignment(
         user_id=data.user_id,
-        policy_id=data.policy_id,
+        policy_id=policy_id,
         cree_par=data.cree_par,
         statut="en_cours",
     )
@@ -156,7 +169,10 @@ def recap(assignment_id: int, session: Session = Depends(get_session)):
              "numero_serie": a.numero_serie, "identifiant_interne": a.identifiant_interne}
             for a in _assets_of(session, assignment_id)
         ],
-        "charte": {"version": policy.version, "texte": policy.texte} if policy else None,
+        "charte": {
+            "id": policy.id, "titre": policy.titre, "version": policy.version, "nb_pages": policy.nb_pages,
+            "sha256": policy.sha256, "texte": policy.texte,
+        } if policy else None,
     }
 
 
@@ -195,18 +211,24 @@ def sign_assignment(
         for a in assets
     ]
 
+    # La charte jointe est relue depuis le stockage et son empreinte controlee avant d'etre annexee.
+    charte_pdf = read_pdf(policy) if policy and policy.fichier_ref else None
     now = datetime.utcnow()
     pdf = build_receipt(
         user=user_d,
         entite_nom=entite.nom if entite else None,
         assets=assets_d,
-        policy_text=policy.texte if policy else None,
+        policy_text=policy.texte if policy and not charte_pdf else None,
+        charte_info={"titre": policy.titre, "version": policy.version, "sha256": policy.sha256,
+                     "nb_pages": policy.nb_pages} if charte_pdf else None,
         kind="remise",
         signature_png=signature_png,
         signataire=signataire,
         temoin=account.username,
         signed_at=now,
     )
+    if charte_pdf:
+        pdf = append_annex(pdf, charte_pdf)
     sealed = seal_pdf(pdf, reason="Remise de materiel", name=signataire)
     empreinte = hashlib.sha256(sealed).hexdigest()
 
@@ -225,6 +247,8 @@ def sign_assignment(
             "temoin": account.username, "ip": client_ip(request),
             "user_agent": (request.headers.get("user-agent") or "")[:200],
             "image": image_meta, "traits": data.strokes, "duree_ms": data.duration_ms,
+            "charte": {"id": policy.id, "titre": policy.titre, "version": policy.version,
+                       "sha256": policy.sha256, "entite_id": policy.entite_id} if charte_pdf else None,
         },
         ged_reference=reference,
     )

@@ -40,6 +40,7 @@ from .routers import (
     entites,
     import_data,
     lifecycle,
+    policies,
     reports,
     rgpd,
     stats,
@@ -119,6 +120,7 @@ def health():
 
 app.include_router(auth.router)
 app.include_router(entites.router)
+app.include_router(policies.router)
 app.include_router(users.router)
 app.include_router(assets.router)
 app.include_router(applications.router)

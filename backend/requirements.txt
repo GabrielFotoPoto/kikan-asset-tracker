@@ -34,6 +34,8 @@ pydantic_core==2.50.1
 pyHanko==0.38.0
 pyhanko-certvalidator==0.33.0
 PyJWT==2.15.1
+pypdf==6.21.3
+pypdfium2==5.14.0
 pyspnego==0.12.4
 python-dotenv==1.2.4
 python-multipart==0.0.32

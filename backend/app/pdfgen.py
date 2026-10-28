@@ -42,6 +42,7 @@ def build_receipt(
     entite_nom: str | None,
     assets: list[dict],
     policy_text: str | None = None,
+    charte_info: dict | None = None,
     title: str = "Accuse de remise de materiel",
     kind: str = "remise",
     signature_png: bytes | None = None,
@@ -95,6 +96,12 @@ def build_receipt(
 
     if kind == "restitution":
         declaration = "Je reconnais avoir restitue le materiel ci-dessus."
+    elif charte_info:
+        declaration = (
+            "Je reconnais avoir recu le materiel ci-dessus et accepte la charte informatique "
+            f"({charte_info['titre']}, version {charte_info['version']}, empreinte {charte_info['sha256'][:8]}), "
+            f"jointe en annexe de ce document ({charte_info['nb_pages']} page(s))."
+        )
     elif policy_text:
         declaration = "Je reconnais avoir recu le materiel ci-dessus et accepte la charte informatique."
     else:

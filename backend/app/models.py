@@ -20,6 +20,7 @@ from enum import Enum
 from typing import Optional
 
 from pydantic import NaiveDatetime
+from sqlalchemy import Index, func, literal_column, text
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -170,11 +171,29 @@ class Signature(SQLModel, table=True):
 # --- Parametrage ---
 
 class Policy(SQLModel, table=True):
+    """Charte informatique deposee (PDF, Markdown ou Word). Portee : globale (entite_id vide) ou propre
+    a une entite. Une seule version active par portee ; les anciennes sont archivees, jamais supprimees."""
     __tablename__ = "policies"
+    __table_args__ = (
+        Index("uq_policy_active_scope", func.coalesce(literal_column("entite_id"), 0), unique=True,
+              postgresql_where=text("statut = 'active'")),
+    )
     id: Optional[int] = Field(default=None, primary_key=True)
     version: str
-    texte: Optional[str] = None
+    texte: Optional[str] = None  # ancien format (texte brut), conserve pour compatibilite
     date_version: Optional[date] = None
+    titre: Optional[str] = None
+    entite_id: Optional[int] = Field(default=None, foreign_key="entite.id")
+    format_source: Optional[str] = None   # pdf | markdown | docx
+    statut: str = "active"                # active | archivee
+    fichier_ref: Optional[str] = None     # PDF normalise (reference de stockage)
+    sha256: Optional[str] = None          # empreinte du PDF normalise
+    source_ref: Optional[str] = None      # fichier d'origine tel que depose
+    source_sha256: Optional[str] = None
+    source_nom: Optional[str] = None
+    nb_pages: Optional[int] = None
+    depose_par: Optional[str] = None
+    depose_le: Optional[NaiveDatetime] = None
 
 
 class AssetType(SQLModel, table=True):
