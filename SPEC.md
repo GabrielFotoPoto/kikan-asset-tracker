@@ -350,7 +350,7 @@ brique open source est **pyHanko** (Python) ; la garder native évite un composa
 - **React** - interface (front) ; adaptée au paramétrage riche et à l'autocomplétion.
 - **FastAPI** (Python) - API REST.
 - **PostgreSQL** - base de données (cohérent avec l'environnement Docker existant : LiteLLM, n8n).
-- **SQLModel / SQLAlchemy** - ORM ; **Alembic** - migrations.
+- **SQLModel / SQLAlchemy** - ORM ; **Alembic** - migrations appliquées automatiquement au démarrage (reprise d'une base préexistante par marquage de la révision initiale).
 - **pyHanko** - signature/scellement PAdES, horodatage RFC 3161.
 - **WeasyPrint** (HTML→PDF) ou **ReportLab** - génération des PDF.
 

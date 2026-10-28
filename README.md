@@ -93,18 +93,36 @@ Des modèles CSV sont fournis dans [`import-modeles/`](import-modeles/) (un fich
 reliés par des codes). Format : UTF-8, séparateur `;`, dates `AAAA-MM-JJ`, booléens `oui/non`.
 Ordre conseillé : entités, applications, utilisateurs, matériel, affectations, accès.
 
+## Migrations de la base de données
+
+Le schéma est géré par **Alembic** (`backend/migrations/`). Au démarrage, l'API applique automatiquement les
+migrations en attente. Une base créée avant Alembic est reprise sans toucher à ses données.
+
+Après une modification de `backend/app/models.py`, générer la migration correspondante (le conteneur est en lecture
+seule : on monte le dossier des migrations), relire le fichier créé, puis redémarrer :
+
+```bash
+docker compose run --rm --no-deps -v "$PWD/backend/migrations:/app/migrations" api alembic revision --autogenerate -m "description du changement"
+docker compose up --build -d api
+```
+
+Vérifier qu'aucune dérive n'existe entre le modèle et la base : `docker compose exec api alembic check`
+(« No new upgrade operations detected » attendu).
+
 ## Structure du projet
 
 ```
 backend/            API FastAPI
   app/
     models.py       modele de donnees (SQLModel)
+    db.py           connexion et application des migrations au demarrage
     auth.py         authentification JWT, mots de passe, limitation des tentatives
     audit.py        journal d'audit
     signing.py      scellement PAdES
     pdfgen.py       generation des PDF
     routers/        endpoints (entites, users, assets, assignments,
                     lifecycle, import, reports, rgpd, stats, acces, auth, audit)
+backend/migrations/ migrations Alembic du schema
 frontend/           application React (Vite + Nginx, HTTPS)
 import-modeles/     modeles CSV pour la reprise de l'existant
 tests/              tests de securite, non-regression, audit des dependances
@@ -117,7 +135,7 @@ docker-compose.yml
 
 - **v0.2** : SSO Microsoft 365 (Entra ID), dépôt des PDF dans une GED réelle
   (SharePoint / DocuWare), synchro GLPI, rappels e-mail.
-- Durcissement production : migrations Alembic, secrets, certificat reconnu.
+- Durcissement production : certificat reconnu, coffre pour la clé de scellement.
 
 ## Développement
 
