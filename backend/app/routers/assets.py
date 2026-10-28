@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from ..auth import get_current_account, writer_guard
+from ..asset_catalog import AssetCatalog
 from ..catalogs import canonical_type
 from ..db import get_session
 from ..models import Account, Asset, AssetBase, AssetStatus, AssetType, AssignmentAsset, Entite
@@ -46,16 +47,18 @@ def list_assets(
     return session.exec(stmt).all()
 
 
-@router.get("/catalogue/marques", response_model=list[str])
+@router.get("/catalogue/marques")
 def catalogue_marques(
-    q: str | None = Query(default=None), session: Session = Depends(get_session)
+    q: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=50),
+    detail: bool = False,
+    session: Session = Depends(get_session),
 ):
-    """Autocompletion des marques deja saisies."""
-    rows = session.exec(select(Asset.marque).distinct()).all()
-    values = sorted({m for m in rows if m})
-    if q:
-        values = [m for m in values if q.lower() in m.lower()]
-    return values
+    """Marques deja saisies : recherche partielle (casse et accents ignores), plus utilisees d'abord.
+
+    detail=true renvoie [{nom, count}] ; sinon une simple liste de noms."""
+    items = AssetCatalog(session).suggest_marques(q, limit)
+    return items if detail else [i["nom"] for i in items]
 
 
 @router.get("/catalogue/types", response_model=list[str])
@@ -65,19 +68,25 @@ def catalogue_types(session: Session = Depends(get_session)):
     return sorted(rows, key=str.lower)
 
 
-@router.get("/catalogue/modeles", response_model=list[str])
+@router.get("/catalogue/modeles")
 def catalogue_modeles(
     marque: str | None = None,
+    type: str | None = None,
     q: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=50),
+    detail: bool = False,
     session: Session = Depends(get_session),
 ):
-    """Autocompletion des modeles, optionnellement filtree par marque."""
-    stmt = select(Asset.modele, Asset.marque).distinct()
-    rows = session.exec(stmt).all()
-    values = sorted({mo for mo, ma in rows if mo and (marque is None or ma == marque)})
-    if q:
-        values = [m for m in values if q.lower() in m.lower()]
-    return values
+    """Modeles deja saisis, filtres par marque ; ceux deja vus avec ce type passent en premier."""
+    items = AssetCatalog(session).suggest_modeles(marque, type, q, limit)
+    return items if detail else [i["nom"] for i in items]
+
+
+def _canonical_names(session: Session, data: AssetBase) -> None:
+    """Marque et modele : a la casse, aux accents et aux espaces pres, reprend la graphie la plus utilisee."""
+    catalog = AssetCatalog(session)
+    data.marque = catalog.canon_marque(data.marque)
+    data.modele = catalog.canon_modele(data.marque, data.modele)
 
 
 def _check_asset(session: Session, data: AssetBase, own_id: int | None) -> None:
@@ -93,6 +102,7 @@ def create_asset(data: AssetBase, session: Session = Depends(get_session)):
         raise HTTPException(409, "Le statut affecte ou rendu s'obtient par la remise ou la restitution")
     _check_asset(session, data, None)
     data.type = canonical_type(session, data.type)
+    _canonical_names(session, data)
     obj = Asset.model_validate(data)
     session.add(obj)
     session.commit()
@@ -118,6 +128,7 @@ def update_asset(
         raise HTTPException(404, "Actif introuvable")
     _check_asset(session, data, obj.id)
     data.type = canonical_type(session, data.type)
+    _canonical_names(session, data)
     new = data.model_dump()
     # Les statuts affecte et rendu viennent de la remise et de la restitution, pas d'une saisie manuelle.
     if new["statut"] != obj.statut:

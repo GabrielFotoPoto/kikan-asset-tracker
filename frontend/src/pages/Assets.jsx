@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
+import Autocomplete from "../components/Autocomplete.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
 
 const FILTRES = ["stock", "affecte", "rendu", "reforme"];
@@ -37,7 +38,6 @@ export default function Assets() {
   const writable = canWrite(user.role, "materiel");
   const [items, setItems] = useState([]);
   const [entites, setEntites] = useState([]);
-  const [marques, setMarques] = useState([]);
   const [types, setTypes] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
@@ -48,7 +48,6 @@ export default function Assets() {
   const load = () => api.get("/assets" + (filtre ? `?statut=${filtre}` : "")).then(setItems).catch((e) => setErr(errorText(e)));
   useEffect(() => { api.get("/entites").then(setEntites); }, []);
   useEffect(() => { load(); }, [filtre]);
-  useEffect(() => { api.get("/assets/catalogue/marques").then(setMarques).catch(() => {}); }, [items]);
   useEffect(() => { api.get("/assets/catalogue/types").then(setTypes).catch(() => {}); }, [items]);
 
   const lockedStatus = editing && editing.statut === "affecte";
@@ -107,14 +106,20 @@ export default function Assets() {
         <form className="grid" onSubmit={submit}>
           <label>Id interne<input value={form.identifiant_interne} onChange={set("identifiant_interne")} /></label>
           <label>Type
-            <input list="types" value={form.type} onChange={set("type")} placeholder="PC portable, Smartphone..." />
-            <datalist id="types">{types.map((t) => <option key={t} value={t} />)}</datalist>
+            <Autocomplete value={form.type} items={types} placeholder="PC portable, Smartphone..." nouveau="Nouveau type"
+                          onChange={(v) => setForm({ ...form, type: v })} />
           </label>
           <label>Marque
-            <input list="marques" value={form.marque} onChange={set("marque")} />
-            <datalist id="marques">{marques.map((m) => <option key={m} value={m} />)}</datalist>
+            <Autocomplete value={form.marque} nouveau="Nouvelle marque"
+                          fetcher={(q) => api.get(`/assets/catalogue/marques?detail=true&q=${encodeURIComponent(q)}`)}
+                          onChange={(v) => setForm({ ...form, marque: v })} />
           </label>
-          <label>Modele<input value={form.modele} onChange={set("modele")} /></label>
+          <label>Modele
+            <Autocomplete value={form.modele} nouveau="Nouveau modele"
+                          placeholder={form.marque ? "Modeles de cette marque" : "Choisissez d'abord la marque"}
+                          fetcher={(q) => api.get(`/assets/catalogue/modeles?detail=true&marque=${encodeURIComponent(form.marque || "")}&type=${encodeURIComponent(form.type || "")}&q=${encodeURIComponent(q)}`)}
+                          onChange={(v) => setForm({ ...form, modele: v })} />
+          </label>
           <label>N de serie<input value={form.numero_serie} onChange={set("numero_serie")} /></label>
           <label>Statut
             <select value={form.statut} disabled={lockedStatus} onChange={set("statut")}>

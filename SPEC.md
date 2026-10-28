@@ -427,7 +427,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | A5 | **Interface de paramétrage** : types d'actifs, services, fusion des marques et modèles, modèle de PDF (logo, mentions). **Fait (2026-10-28)** : listes souples, fusion avec aperçu, modèle de PDF figé et empreinte dans chaque document signé, état du scellement en lecture seule | Écart |
 | A6 | **Gestion des comptes dans l'interface** (créer, désactiver, réinitialiser). **Fait (2026-10-28)** : comptes nominatifs (nom, e-mail), mot de passe provisoire affiché une seule fois et changement imposé, sessions révoquées au changement de mot de passe, de rôle ou à la désactivation, identifiant contrôlé et unique sans tenir compte de la casse, dernière connexion | Écart |
 | A7 | **Option d'inclure les accès applicatifs** dans le document de remise. **Fait (2026-10-28)** : réglage global (désactivé par défaut), instantané figé des accès accordés sur applications actives, empreinte contrôlée entre l'écran et la signature, preuve enregistrée | Écart |
-| A8 | **Autocomplétion des modèles** dans le formulaire matériel | Écart |
+| A8 | **Autocomplétion des modèles** dans le formulaire matériel. **Fait (2026-10-28)** : composant de saisie assistée (type, marque, modèle, service), recherche insensible à la casse et aux accents, modèles filtrés par marque et classés par type, graphie canonique à l'enregistrement et à l'import ; catalogue déduit du matériel | Écart |
 
 ### v0.2 - identité, intégrations, automatisation
 

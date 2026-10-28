@@ -93,6 +93,9 @@ docker run --rm -v "$PWD/backend/requirements.txt:/r.txt:ro" -v "$PWD/tests/audi
 # Signature manuscrite : images invalides ou piégées, nom non falsifiable, preuves, PDF scellé, restitution
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/signature_check.py
 
+# Autocomplétion : recherche (casse, accents), classement, graphie canonique à la saisie et à l'import
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/catalogue_check.py
+
 # Accès applicatifs dans l'accusé de remise : option, instantané figé, empreinte, preuve
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/acces_pdf_check.py
 

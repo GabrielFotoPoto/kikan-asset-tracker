@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
+import Autocomplete from "../components/Autocomplete.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
 
 // Le depart (en_depart, sorti) se declare depuis la page Sorties, avec restitution du materiel.
@@ -114,8 +115,8 @@ export default function Users() {
             </select>
           </label>
           <label>Service
-            <input list="services" value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} />
-            <datalist id="services">{services.map((s) => <option key={s} value={s} />)}</datalist>
+            <Autocomplete value={form.service} items={services} nouveau="Nouveau service"
+                          onChange={(v) => setForm({ ...form, service: v })} />
           </label>
           <label>Statut
             <select value={form.statut} disabled={locked} onChange={(e) => setForm({ ...form, statut: e.target.value })}>

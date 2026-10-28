@@ -228,8 +228,14 @@ s, lu = j("GET", "/users?q=ZZPA-U3")
 show("import : service rattache a la graphie de la liste", s == 200 and lu and lu[0]["service"] == "ZZPA-Comptabilite", lu[0]["service"] if lu else None)
 
 print("== Fusion des marques et modeles ==")
-for i, m in enumerate(("ZZPA-dell", "ZZPA-DELL", "ZZPA-DELL", "ZZPA Dell Technologies")):
-    j("POST", "/assets", {"marque": m, "modele": "Latitude" if i < 2 else "LATITUDE", "numero_serie": f"ZZPA-M{i}", "statut": "stock"})
+# Variantes "historiques" inserees directement en base : depuis A8 le formulaire et l'API les normalisent.
+from sqlmodel import Session as _Session  # noqa: E402
+from app.db import engine as _engine  # noqa: E402
+from app.models import Asset as _Asset  # noqa: E402
+with _Session(_engine) as _ses:
+    for i, m in enumerate(("ZZPA-dell", "ZZPA-DELL", "ZZPA-DELL", "ZZPA Dell Technologies")):
+        _ses.add(_Asset(marque=m, modele="Latitude" if i < 2 else "LATITUDE", numero_serie=f"ZZPA-M{i}", statut="stock"))
+    _ses.commit()
 s, mq = j("GET", "/parametres/marques")
 counts = {x["nom"]: x["count"] for x in mq}
 show("liste des marques avec effectifs", counts.get("ZZPA-dell") == 1 and counts.get("ZZPA-DELL") == 2 and counts.get("ZZPA Dell Technologies") == 1, counts)

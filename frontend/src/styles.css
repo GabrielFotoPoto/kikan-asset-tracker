@@ -137,3 +137,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .badge.bad { background: #fde8e8; color: #9b1c1c; }
 .danger { background: #b32020; color: #fff; }
 .danger:hover { background: #8f1818; }
+.ac-wrap { position: relative; display: flex; flex-direction: column; gap: 2px; }
+.ac-list { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; margin: 2px 0 0; padding: 4px 0; list-style: none; background: #fff; border: 1px solid #c3ccd9; border-radius: 8px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); max-height: 260px; overflow-y: auto; }
+.ac-item { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; cursor: pointer; font-size: 14px; min-height: 36px; align-items: center; }
+.ac-item[aria-selected="true"] { background: #e8eef7; }

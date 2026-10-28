@@ -159,6 +159,22 @@ Le refus indique précisément ce qui bloque (« utilisé par 3 salariés... »)
 jour ses filiales ; les boucles de parenté, les codes, matricules, numéros de série et identifiants internes en double
 sont refusés. Le journal d'audit conserve les **noms des champs modifiés**, jamais leurs valeurs.
 
+## Saisie assistée du matériel
+
+Dans le formulaire matériel, **Type, Marque et Modèle** (et **Service** sur la fiche salarié) proposent des suggestions pendant
+la saisie : recherche partielle **insensible à la casse et aux accents** (« lenovo » trouve « Lénovo »), valeurs qui commencent
+par la saisie d'abord, puis celles qui la contiennent, puis les plus utilisées, avec le nombre de matériels concernés.
+Navigation au clavier (flèches, Entrée, Échap) et au doigt.
+
+- Les **modèles sont filtrés par la marque choisie** ; si le type est renseigné, les modèles déjà vus avec ce type passent en premier
+  (classement seulement, jamais un blocage).
+- Une valeur **inédite** est acceptée et ajoutée au catalogue ; un rappel « Nouvelle marque » ou « Proche de Dell » s'affiche.
+- **Graphie canonique** : à l'enregistrement (formulaire, API et import), une marque ou un modèle qui ne diffère d'une entrée
+  existante que par la casse, les accents ou les espaces reprend la graphie la plus utilisée (la ponctuation reste significative :
+  « T14 » et « T-14 » sont distincts). Les données déjà saisies ne sont pas modifiées : l'outil de fusion du Paramétrage sert à les nettoyer.
+
+Le catalogue est déduit du matériel saisi (pas de table dédiée), donc toujours cohérent avec la fusion.
+
 ## Paramétrage
 
 La page **Paramétrage** (informatique) regroupe :
@@ -273,6 +289,8 @@ backend/            API FastAPI
     importer.py     lecture CSV (encodage, separateur)
     rules.py        regles de modification et de suppression protegee
     catalogs.py     listes souples (types d'actifs, services)
+    asset_catalog.py catalogue marques/modeles : recherche assistee, graphie canonique
+    acces_remise.py acces applicatifs dans l'accuse de remise
     pdf_template.py modele de PDF (logo, mentions, pied de page)
     charte.py       chartes deposees : validation, normalisation PDF, portees, annexe
     docx_convert.py appel du service de conversion Word
@@ -295,7 +313,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
 - **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
   chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), modification et suppression dans l'interface (A4, **fait**), interface de
   paramétrage (A5, **fait**), gestion des comptes (A6, **fait**), accès applicatifs dans le document de remise (A7, **fait**), autocomplétion des
-  modèles (A8).
+  modèles (A8, **fait**).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par
   entité (B2), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API
   SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7), import et export Excel (B8).

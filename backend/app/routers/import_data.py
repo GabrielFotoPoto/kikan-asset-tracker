@@ -25,6 +25,7 @@ from sqlmodel import Session, select
 
 from ..audit import audit
 from ..auth import get_current_account, require_roles, writer_guard
+from ..asset_catalog import AssetCatalog
 from ..catalogs import canonical_service, canonical_type
 from ..db import get_session
 from ..importer import as_bool, as_date, as_str, read_csv
@@ -275,6 +276,7 @@ def _import_materiel(rows, session, rep):
     emap = _entite_map(session)
     existing_sn = {a.numero_serie for a in session.exec(select(Asset)).all() if a.numero_serie}
     existing_id = {a.identifiant_interne for a in session.exec(select(Asset)).all() if a.identifiant_interne}
+    catalog = AssetCatalog(session)  # un seul instantane pour tout le fichier : les variantes se rejoignent
     for i, row in enumerate(rows, start=2):
         rep.total += 1
         sn = as_str(row.get("numero_serie"))
@@ -298,10 +300,12 @@ def _import_materiel(rows, session, rep):
         except ValueError as exc:
             rep.error(i, f"valeur invalide: {exc}")
             continue
+        marque = catalog.canon_marque(as_str(row.get("marque")))
+        modele = catalog.canon_modele(marque, as_str(row.get("modele")))
         session.add(Asset(
             identifiant_interne=as_str(row.get("identifiant_interne")),
-            type=canonical_type(session, as_str(row.get("type"))), marque=as_str(row.get("marque")),
-            modele=as_str(row.get("modele")), numero_serie=sn,
+            type=canonical_type(session, as_str(row.get("type"))), marque=marque,
+            modele=modele, numero_serie=sn,
             date_achat=d_achat, fin_garantie=d_gar, echeance_renouvellement=d_ren,
             statut=statut, entite_id=entite_id, notes=as_str(row.get("notes")),
             source="import",
