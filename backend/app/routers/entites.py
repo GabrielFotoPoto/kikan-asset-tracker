@@ -22,6 +22,7 @@ from sqlmodel import Session, select
 from ..auth import get_current_account, writer_guard
 from ..db import get_session
 from ..models import Account, Application, Asset, Entite, EntiteBase, Policy, User
+from ..scope import Scope, scope_dep
 from ..rules import audit_change, changed_fields, count, refuse_delete, taken
 
 router = APIRouter(
@@ -62,8 +63,8 @@ def _check_parent(session: Session, code: str, parent_code: str | None, own_id: 
 
 
 @router.get("", response_model=list[Entite])
-def list_entites(session: Session = Depends(get_session)):
-    return session.exec(select(Entite)).all()
+def list_entites(session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    return session.exec(scope.where(select(Entite), Entite.id)).all()
 
 
 @router.post("", response_model=Entite, status_code=201)
@@ -79,9 +80,9 @@ def create_entite(data: EntiteBase, session: Session = Depends(get_session)):
 
 
 @router.get("/{entite_id}", response_model=Entite)
-def get_entite(entite_id: int, session: Session = Depends(get_session)):
+def get_entite(entite_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
     obj = session.get(Entite, entite_id)
-    if not obj:
+    if not obj or not scope.allows(obj.id):
         raise HTTPException(404, "Entite introuvable")
     return obj
 

@@ -21,6 +21,8 @@ DELETE FROM assignment_assets WHERE asset_id IN (SELECT id FROM assets WHERE num
 DELETE FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%';
 DELETE FROM user_applications WHERE application_id IN (SELECT id FROM applications WHERE nom LIKE 'ZZ%');
 DELETE FROM applications WHERE nom LIKE 'ZZ%';
+DELETE FROM account_scopes WHERE account_id IN (SELECT id FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE '%@exemple.test' OR sso_upn LIKE '%@exemple.test')
+  OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
 UPDATE assignments SET policy_id = NULL WHERE policy_id IN (SELECT id FROM policies WHERE titre LIKE 'ZZ%');
 DELETE FROM policies WHERE titre LIKE 'ZZ%' OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
 DELETE FROM entite WHERE code LIKE 'ZZ%';

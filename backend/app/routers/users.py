@@ -33,6 +33,7 @@ from ..models import (
     UserApplication,
     UserBase,
 )
+from ..scope import Scope, require_in_scope, scope_dep, visible_user
 from ..rules import audit_change, changed_fields, count, refuse_delete, taken
 
 router = APIRouter(
@@ -47,8 +48,9 @@ def list_users(
     entite_id: int | None = None,
     statut: EmployeeStatus | None = None,
     q: str | None = Query(default=None, description="recherche nom/prenom/matricule"),
+    scope: Scope = Depends(scope_dep),
 ):
-    stmt = select(User)
+    stmt = scope.users(select(User))
     if entite_id is not None:
         stmt = stmt.where(User.entite_id == entite_id)
     if statut is not None:
@@ -71,7 +73,8 @@ def _check_entite(session: Session, entite_id: int | None) -> None:
 
 
 @router.post("", response_model=User, status_code=201)
-def create_user(data: UserBase, session: Session = Depends(get_session)):
+def create_user(data: UserBase, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    require_in_scope(scope, data.entite_id)
     taken(session, User, User.matricule, data.matricule, None, "Matricule")
     _check_entite(session, data.entite_id)
     data.service = canonical_service(session, data.service)
@@ -90,21 +93,18 @@ def catalogue_services(session: Session = Depends(get_session)):
 
 
 @router.get("/{user_id}", response_model=User)
-def get_user(user_id: int, session: Session = Depends(get_session)):
-    obj = session.get(User, user_id)
-    if not obj:
-        raise HTTPException(404, "Utilisateur introuvable")
-    return obj
+def get_user(user_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    return visible_user(session, scope, user_id)
 
 
 @router.put("/{user_id}", response_model=User)
 def update_user(
     user_id: int, data: UserBase,
     session: Session = Depends(get_session), account: Account = Depends(get_current_account),
+    scope: Scope = Depends(scope_dep),
 ):
-    obj = session.get(User, user_id)
-    if not obj:
-        raise HTTPException(404, "Utilisateur introuvable")
+    obj = visible_user(session, scope, user_id)
+    require_in_scope(scope, data.entite_id)  # ni sortir un salarie du perimetre, ni y en introduire un hors perimetre
     taken(session, User, User.matricule, data.matricule, obj.id, "Matricule")
     _check_entite(session, data.entite_id)
     data.service = canonical_service(session, data.service)

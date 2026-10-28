@@ -27,6 +27,7 @@ from ..auth import get_current_account, writer_guard
 from ..db import get_session
 from ..filestore import StorageError, delete_document, is_pending, read_document, sha256_hex, store_document
 from ..models import Account, Entite, Policy
+from ..scope import GLOBAL, Scope, scope_dep
 
 router = APIRouter(
     prefix="/policies", tags=["policies"],
@@ -49,9 +50,9 @@ def view(session: Session, p: Policy) -> dict:
     }
 
 
-def _get(session: Session, policy_id: int) -> Policy:
+def _get(session: Session, policy_id: int, scope: Scope = GLOBAL) -> Policy:
     p = session.get(Policy, policy_id)
-    if not p or not p.fichier_ref:
+    if not p or not p.fichier_ref or not scope.allows_policy(p.entite_id):
         raise HTTPException(404, "Charte introuvable")
     return p
 
@@ -68,15 +69,17 @@ def read_pdf(p: Policy) -> bytes:
 
 
 @router.get("")
-def list_policies(session: Session = Depends(get_session)):
-    rows = session.exec(select(Policy).where(Policy.fichier_ref.is_not(None))).all()
+def list_policies(session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    rows = [p for p in session.exec(select(Policy).where(Policy.fichier_ref.is_not(None))).all() if scope.allows_policy(p.entite_id)]
     rows.sort(key=lambda p: (p.statut != "active", p.entite_id is not None, -(p.id or 0)))
     return [view(session, p) for p in rows]
 
 
 @router.get("/applicable")
-def applicable(entite_id: int | None = None, session: Session = Depends(get_session)):
+def applicable(entite_id: int | None = None, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
     """Charte qui serait jointe a une remise pour cette entite (entite, puis parents, puis globale)."""
+    if entite_id is not None and not scope.allows(entite_id):
+        return None  # entite hors perimetre : rien n'est revele
     p = charte.resolve_policy(session, entite_id)
     return view(session, p) if p else None
 
@@ -130,23 +133,23 @@ def upload_policy(
 
 
 @router.get("/{policy_id}/page/{page}")
-def page_image(policy_id: int, page: int, session: Session = Depends(get_session)):
-    p = _get(session, policy_id)
+def page_image(policy_id: int, page: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    p = _get(session, policy_id, scope)
     if page < 1 or page > (p.nb_pages or 0):
         raise HTTPException(404, "Page introuvable")
     return Response(charte.render_page_png(read_pdf(p), page - 1), media_type="image/png")
 
 
 @router.get("/{policy_id}/fichier")
-def download_pdf(policy_id: int, session: Session = Depends(get_session)):
-    p = _get(session, policy_id)
+def download_pdf(policy_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    p = _get(session, policy_id, scope)
     return Response(read_pdf(p), media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="charte_{p.id}_{p.version}.pdf"'})
 
 
 @router.get("/{policy_id}/source")
-def download_source(policy_id: int, session: Session = Depends(get_session)):
-    p = _get(session, policy_id)
+def download_source(policy_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    p = _get(session, policy_id, scope)
     try:
         data = read_document(p.source_ref)
     except StorageError as exc:

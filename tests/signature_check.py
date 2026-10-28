@@ -121,11 +121,11 @@ SIGN_OK = {"consent": True, "signature_image": data_url(GOOD), "strokes": 4, "du
 
 
 def ensure_account(name, role):
-    s, b = call("POST", "/auth/accounts", {"username": name, "password": RH_PW, "role": role}, ADM)
+    s, b = call("POST", "/auth/accounts", {"username": name, "password": RH_PW, "role": role, "portee_globale": True}, ADM)
     if s == 409:
         accs = json.loads(call("GET", "/auth/accounts", token=ADM)[1])
         acc = next(a for a in accs if a["username"] == name)
-        call("PUT", f"/auth/accounts/{acc['id']}", {"actif": True, "role": role, "password": RH_PW}, ADM)
+        call("PUT", f"/auth/accounts/{acc['id']}", {"actif": True, "role": role, "password": RH_PW, "portee_globale": True}, ADM)
         return acc["id"]
     return json.loads(b)["id"]
 

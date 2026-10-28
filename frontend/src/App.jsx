@@ -46,6 +46,7 @@ import Sign from "./pages/Sign.jsx";
 export default function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
+  const [portee, setPortee] = useState(null);
 
   useEffect(() => {
     const onUnauth = () => setUser(null);
@@ -60,6 +61,12 @@ export default function App() {
     }
     return () => window.removeEventListener("kikan-unauth", onUnauth);
   }, []);
+
+  // Portee effective du compte (relue apres connexion) : bandeau si aucun perimetre n'est defini.
+  useEffect(() => {
+    if (!user) { setPortee(null); return; }
+    api.get("/auth/me").then((a) => setPortee(a.portee)).catch(() => {});
+  }, [user?.username]);
 
   const logout = () => { setToken(null); setUser(null); };
 
@@ -86,7 +93,7 @@ export default function App() {
             <NavLink to="/sorties">Sorties</NavLink>
             <NavLink to="/rapports">Rapports</NavLink>
             <NavLink to="/statistiques">Statistiques</NavLink>
-            <NavLink to="/rgpd">RGPD</NavLink>
+            {user.role === "informatique" && <NavLink to="/rgpd">RGPD</NavLink>}
             {user.role === "informatique" && <NavLink to="/import">Import</NavLink>}
             {user.role === "informatique" && <NavLink to="/parametres">Parametrage</NavLink>}
             {user.role === "informatique" && <NavLink to="/comptes">Comptes</NavLink>}
@@ -97,10 +104,19 @@ export default function App() {
           <div className="account">
             <div className="who">{user.username}</div>
             <div className="role">{user.role}</div>
+            {user.role !== "informatique" && portee && !portee.vide && (
+              <div className="role" title="Perimetre de votre compte">{portee.globale ? "toute l'organisation" : "perimetre limite"}</div>
+            )}
             <button className="ghost" onClick={logout}>Se deconnecter</button>
           </div>
         </aside>
         <main className="main">
+          {portee?.vide && (
+            <div className="card" role="alert">
+              <strong>Aucun perimetre n'est defini pour votre compte.</strong>{" "}
+              Vous ne voyez aucune donnee : demandez a un administrateur informatique de definir vos entites.
+            </div>
+          )}
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/entites" element={<Entites />} />
@@ -113,7 +129,7 @@ export default function App() {
             <Route path="/signer/:mode/:id" element={<Sign />} />
             <Route path="/rapports" element={<Reports />} />
             <Route path="/statistiques" element={<Stats />} />
-            <Route path="/rgpd" element={<Rgpd />} />
+            <Route path="/rgpd" element={user.role === "informatique" ? <Rgpd /> : <Navigate to="/" />} />
             <Route path="/import" element={user.role === "informatique" ? <Import /> : <Navigate to="/" />} />
             <Route path="/parametres" element={user.role === "informatique" ? <Parametres /> : <Navigate to="/" />} />
             <Route path="/comptes" element={user.role === "informatique" ? <Comptes /> : <Navigate to="/" />} />

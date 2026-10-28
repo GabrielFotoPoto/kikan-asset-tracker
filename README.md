@@ -341,7 +341,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   paramétrage (A5, **fait**), gestion des comptes (A6, **fait**), accès applicatifs dans le document de remise (A7, **fait**), autocomplétion des
   modèles (A8, **fait**).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1, **fait**, à valider sur votre tenant), comptes cloisonnés par
-  entité (B2), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API
+  entité (B2, **fait**), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API
   SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : statistiques exportables (C1), revue périodique des droits d'accès (C2), prévision des
   renouvellements (C3), étiquettes et QR codes (C4), pièces jointes (C5).

@@ -198,9 +198,12 @@ Objectif : accélérer les saisies suivantes en réutilisant ce qui a déjà ét
 - **Accès applicatifs** (§6.5) : attribuables par **les RH ou l'informatique**.
 - **Lecture seule** *(optionnel, plus tard)* : consultation et export des rapports (RSSI, direction).
 
-> **Portée par entité** (point de conception) : pour un usage multi-filiales, un compte peut être
-> global ou **restreint à une ou plusieurs entités** (ex. une RH ne voit que sa filiale). À
-> préciser (v0.1 simple = global, ou scoping dès le départ).
+> **Portée par entité** (B2, fait) : les comptes RH et lecture sont **globaux** ou **limités à une ou
+> plusieurs entités** (leurs sous-entités sont incluses ; ex. une RH ne voit que sa filiale). Les comptes
+> **informatique** sont toujours globaux. Les données sans entité ne sont visibles que des comptes globaux ;
+> hors périmètre, un élément est « introuvable » (404). Un nouveau compte RH ou lecture n'a aucun périmètre
+> tant qu'un administrateur n'en définit pas un. Les listes de suggestions (types, services, marques) et la
+> charte globale restent communes.
 
 Les employés ne sont **pas** des comptes connectés : ils sont des fiches (`users`) et signent
 sur la tablette.
@@ -434,7 +437,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | # | Fonctionnalité | Origine |
 |---|---|---|
 | B1 | **SSO Microsoft 365 (Entra ID)** : groupes `Kikan-IT` et `Kikan-RH`, comptes nominatifs, MFA du tenant, comptes locaux en secours (§5ter). **Fait (2026-10-28)** : option activable, rôles d'application Entra attribués aux groupes, jeton vérifié de bout en bout, création et resynchronisation du rôle à chaque connexion, liaison explicite des comptes locaux, mode de secours, durée de session réglable (E4) ; testé contre un faux fournisseur d'identité, **à valider sur le tenant réel** (docs/SSO.md) | SPEC |
-| B2 | **Comptes cloisonnés par entité** (global ou limité à une ou plusieurs filiales) | SPEC |
+| B2 | **Comptes cloisonnés par entité** (global ou limité à une ou plusieurs filiales). **Fait (2026-10-28)** : les comptes RH et lecture sont globaux ou limités à des entités (sous-entités incluses), les comptes informatique sont toujours globaux (administrateurs) ; filtrage serveur sur toutes les lectures et écritures (404 hors périmètre), nouveaux comptes RH et lecture sans périmètre tant qu'il n'est pas défini, pages d'administration réservées à l'informatique, test d'inventaire des routes | SPEC |
 | B3 | **Rappels par e-mail** : renouvellements, départs à venir, matériel non restitué | SPEC |
 | B4 | **Rapport mensuel automatique** : généré, archivé dans le stockage et envoyé par e-mail | SPEC |
 | B5 | **Connecteur GLPI** (synchronisation du matériel et des salariés, champs `source` et `id_externe`) | SPEC |

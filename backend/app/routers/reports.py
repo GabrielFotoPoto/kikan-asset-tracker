@@ -29,6 +29,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .. import xlsx_io
+from ..scope import GLOBAL, Scope, scope_dep
 from ..pdf_template import footer_callback, header_flowables, load_template, mentions_flowables
 from sqlmodel import Session, select
 
@@ -57,7 +58,7 @@ COLUMNS = [
 ]
 
 
-def _rows(session: Session, entite_id: int | None, service: str | None) -> list[dict]:
+def _rows(session: Session, entite_id: int | None, service: str | None, scope: Scope = GLOBAL) -> list[dict]:
     encours = {a.id: a for a in session.exec(
         select(Assignment).where(Assignment.statut == "en_cours")).all()}
     asset_to_assignment = {}
@@ -73,6 +74,8 @@ def _rows(session: Session, entite_id: int | None, service: str | None) -> list[
             continue
         user = session.get(User, assignment.user_id)
         if not user:
+            continue
+        if not scope.allows(user.entite_id):
             continue
         if entite_id is not None and user.entite_id != entite_id:
             continue
@@ -151,8 +154,9 @@ def holdings_report(
     entite_id: int | None = None,
     service: str | None = None,
     session: Session = Depends(get_session),
+    scope: Scope = Depends(scope_dep),
 ):
-    rows = _rows(session, entite_id, service)
+    rows = _rows(session, entite_id, service, scope)
     jour = date.today().isoformat()
     if format == "csv":
         return Response(

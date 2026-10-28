@@ -231,10 +231,20 @@ class Account(SQLModel, table=True):
     sso_oid: Optional[str] = Field(default=None, unique=True)  # identifiant stable Entra (jamais l'e-mail)
     sso_upn: Optional[str] = None                # nom d'utilisateur Microsoft (liaison ou dernier connu)
     secours: bool = False                        # compte local de secours (connexion par mot de passe autorisee)
+    # Portee (comptes RH et lecture) : globale, ou limitee aux entites de `account_scopes` et a leurs sous-entites.
+    # Les comptes informatique sont TOUJOURS globaux (administrateurs), quelle que soit cette valeur.
+    portee_globale: bool = True
 
     @property
     def sso_lie(self) -> bool:
         return bool(self.sso_oid)
+
+
+class AccountScope(SQLModel, table=True):
+    """Entites auxquelles un compte RH ou lecture est limite (leurs sous-entites sont incluses)."""
+    __tablename__ = "account_scopes"
+    account_id: int = Field(foreign_key="accounts.id", primary_key=True)
+    entite_id: int = Field(foreign_key="entite.id", primary_key=True)
 
 
 class Setting(SQLModel, table=True):

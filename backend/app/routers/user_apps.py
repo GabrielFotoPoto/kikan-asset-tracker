@@ -26,6 +26,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from ..auth import get_current_account, writer_guard
+from ..scope import Scope, scope_dep, visible_user
 from ..db import get_session
 from ..models import Account, Application, User, UserApplication
 
@@ -42,9 +43,8 @@ class AccesInput(BaseModel):
 
 
 @router.get("/users/{user_id}/applications")
-def list_acces(user_id: int, session: Session = Depends(get_session)):
-    if not session.get(User, user_id):
-        raise HTTPException(404, "Utilisateur introuvable")
+def list_acces(user_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    visible_user(session, scope, user_id)
     apps = {a.id: a for a in session.exec(select(Application)).all()}
     rows = session.exec(
         select(UserApplication).where(UserApplication.user_id == user_id)
@@ -69,10 +69,11 @@ def set_acces(
     data: AccesInput,
     session: Session = Depends(get_session),
     account: Account = Depends(get_current_account),
+    scope: Scope = Depends(scope_dep),
 ):
-    if not session.get(User, user_id):
-        raise HTTPException(404, "Utilisateur introuvable")
-    if not session.get(Application, data.application_id):
+    visible_user(session, scope, user_id)
+    app = session.get(Application, data.application_id)
+    if not app or (app.entite_id is not None and not scope.allows(app.entite_id)):
         raise HTTPException(404, "Application introuvable")
     # Upsert sur (user_id, application_id).
     existing = session.exec(
@@ -102,9 +103,10 @@ def set_acces(
 
 
 @router.delete("/user-applications/{ua_id}", status_code=204)
-def delete_acces(ua_id: int, session: Session = Depends(get_session)):
+def delete_acces(ua_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
     row = session.get(UserApplication, ua_id)
-    if not row:
+    user = session.get(User, row.user_id) if row else None
+    if not row or not user or not scope.allows(user.entite_id):
         raise HTTPException(404, "Acces introuvable")
     session.delete(row)
     session.commit()

@@ -33,7 +33,7 @@ from .. import appsettings, sso, sso_policy
 from ..audit import audit
 from ..auth import client_ip, create_access_token, hash_password, login_limiter, require_roles
 from ..db import get_session
-from ..models import Account, Role
+from ..models import Account, AccountScope, Role
 from .auth import USERNAME_RE, TokenResponse
 
 router = APIRouter(prefix="/auth/sso", tags=["sso"])
@@ -100,11 +100,19 @@ def _resolve_account(session: Session, claims: dict, role: Role, cfg: dict) -> A
         if session.exec(select(Account).where(func.lower(Account.username) == username)).first():
             raise sso.SsoError("compte", "identifiant deja utilise par un autre compte : liaison necessaire")
         account = Account(username=username, role=role, actif=True, hashed_password=hash_password(secrets.token_urlsafe(48)),
-                          source_auth="sso", secours=False)
+                          source_auth="sso", secours=False,
+                          portee_globale=(role == Role.informatique))  # RH : aucune portee tant qu'un administrateur n'en definit pas
         created = True
     if not account.actif:
         raise sso.SsoError("compte", "compte desactive dans Kikan")
     changed_role = (not created) and account.role != role
+    if changed_role:
+        if role == Role.informatique:
+            account.portee_globale = True
+        elif account.role == Role.informatique:  # retrograde par Microsoft : plus de portee tant qu'elle n'est pas redefinie
+            account.portee_globale = False
+            for row in session.exec(select(AccountScope).where(AccountScope.account_id == account.id)).all():
+                session.delete(row)
     account.sso_oid, account.sso_upn, account.role = oid, upn or account.sso_upn, role
     account.nom_affiche = name or account.nom_affiche
     account.email = email or account.email

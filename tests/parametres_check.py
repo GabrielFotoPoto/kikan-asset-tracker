@@ -91,11 +91,11 @@ def msg(r):
 
 
 def ensure_account(name, role):
-    s, b, _ = call("POST", "/auth/accounts", {"username": name, "password": PW, "role": role}, ADM)
+    s, b, _ = call("POST", "/auth/accounts", {"username": name, "password": PW, "role": role, "portee_globale": True}, ADM)
     if s == 409:
         accs = json.loads(call("GET", "/auth/accounts", token=ADM)[1])
         acc = next(a for a in accs if a["username"] == name)
-        call("PUT", f"/auth/accounts/{acc['id']}", {"actif": True, "role": role, "password": PW}, ADM)
+        call("PUT", f"/auth/accounts/{acc['id']}", {"actif": True, "role": role, "password": PW, "portee_globale": True}, ADM)
         return acc["id"]
     return json.loads(b)["id"]
 

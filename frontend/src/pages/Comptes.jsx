@@ -23,7 +23,35 @@ import { useAuth } from "../auth.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
 
 const ROLES = [["informatique", "Informatique"], ["rh", "RH"], ["lecture", "Lecture seule"]];
-const empty = { username: "", nom_affiche: "", email: "", role: "rh" };
+const empty = { username: "", nom_affiche: "", email: "", role: "rh", portee: { globale: false, ids: [] } };
+
+// Portee d'un compte RH ou lecture : toute l'organisation, ou des entites choisies (sous-entites incluses).
+function ScopePicker({ value, entites, onChange }) {
+  const { globale, ids } = value;
+  const toggle = (id) => onChange({ globale: false, ids: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id] });
+  return (
+    <div className="scope-picker">
+      <label className="row"><input type="radio" checked={globale} onChange={() => onChange({ globale: true, ids: [] })} /> Toute l'organisation</label>
+      <label className="row"><input type="radio" checked={!globale} onChange={() => onChange({ globale: false, ids })} /> Entites choisies (sous-entites incluses)</label>
+      {!globale && (
+        <div className="muted" style={{ columns: 2, marginLeft: 20 }}>
+          {entites.map((e) => (
+            <label key={e.id} style={{ display: "block" }}>
+              <input type="checkbox" checked={ids.includes(e.id)} onChange={() => toggle(e.id)} /> {e.nom}
+            </label>
+          ))}
+          {entites.length === 0 && <span>Aucune entite : creez-en dans la page Entites.</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function scopeLabel(a, entites) {
+  if (a.role === "informatique" || a.portee_globale) return "Toute l'organisation";
+  if (!a.entites.length) return "Aucune (a definir)";
+  return a.entites.map((id) => entites.find((e) => e.id === id)?.nom || "?").join(", ");
+}
 
 const fmt = (d) => (d ? d.replace("T", " ").slice(0, 16) : "jamais");
 
@@ -31,6 +59,7 @@ const fmt = (d) => (d ? d.replace("T", " ").slice(0, 16) : "jamais");
 export default function Comptes() {
   const { user } = useAuth();
   const [items, setItems] = useState([]);
+  const [entites, setEntites] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
   const [secret, setSecret] = useState(null);
@@ -40,7 +69,7 @@ export default function Comptes() {
   const [msg, setMsg] = useState(null);
 
   const load = () => api.get("/auth/accounts").then(setItems).catch((e) => setErr(errorText(e)));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api.get("/entites").then(setEntites).catch(() => {}); }, []);
 
   const clear = () => { setErr(null); setMsg(null); };
   const showSecret = (username, pwd) => { setSecret({ username, pwd }); setCopied(false); };
@@ -52,6 +81,7 @@ export default function Comptes() {
       const r = await api.post("/auth/accounts", {
         username: form.username, role: form.role,
         nom_affiche: form.nom_affiche || null, email: form.email || null,
+        ...(form.role === "informatique" ? {} : { portee_globale: form.portee.globale, entites: form.portee.ids }),
       });
       setForm(empty);
       showSecret(r.username, r.mot_de_passe_provisoire);
@@ -139,6 +169,12 @@ export default function Comptes() {
               {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </label>
+          {form.role !== "informatique" && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <strong>Perimetre</strong>
+              <ScopePicker value={form.portee} entites={entites} onChange={(portee) => setForm({ ...form, portee })} />
+            </div>
+          )}
           <div style={{ alignSelf: "end" }}><button type="submit">Creer le compte</button></div>
         </form>
         <p className="muted">Identifiant : 3 a 64 caracteres, minuscules, chiffres et . _ - @ (non modifiable ensuite). Un mot de passe provisoire est genere.</p>
@@ -146,7 +182,7 @@ export default function Comptes() {
 
       <div className="card">
         <table>
-          <thead><tr><th>Identifiant</th><th>Nom</th><th>E-mail</th><th>Role</th><th>Origine</th><th>Secours</th><th>Etat</th><th>Derniere connexion</th><th></th></tr></thead>
+          <thead><tr><th>Identifiant</th><th>Nom</th><th>E-mail</th><th>Role</th><th>Perimetre</th><th>Origine</th><th>Secours</th><th>Etat</th><th>Derniere connexion</th><th></th></tr></thead>
           <tbody>
             {items.map((a) => {
               const me = a.username === user.username;
@@ -162,6 +198,11 @@ export default function Comptes() {
                         {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                       </select>
                     ) : (ROLES.find(([v]) => v === a.role)?.[1] || a.role)}
+                  </td>
+                  <td>
+                    {edit && editing.role !== "informatique" ? (
+                      <ScopePicker value={editing.portee} entites={entites} onChange={(portee) => setEditing({ ...editing, portee })} />
+                    ) : scopeLabel(a, entites)}
                   </td>
                   <td>
                     {a.source_auth === "sso" ? <span className="badge">Microsoft 365</span> : a.sso_lie ? <span className="badge">local + Microsoft 365</span> : <span className="badge">local</span>}
@@ -182,12 +223,12 @@ export default function Comptes() {
                     <div className="row">
                       {edit ? (
                         <>
-                          <button onClick={() => update(a, { nom_affiche: editing.nom_affiche, email: editing.email, role: editing.role }, `Compte ${a.username} modifie.`)}>Enregistrer</button>
+                          <button onClick={() => update(a, { nom_affiche: editing.nom_affiche, email: editing.email, role: editing.role, ...(editing.role === "informatique" ? {} : { portee_globale: editing.portee.globale, entites: editing.portee.ids }) }, `Compte ${a.username} modifie.`)}>Enregistrer</button>
                           <button className="ghost" onClick={() => setEditing(null)}>Annuler</button>
                         </>
                       ) : (
                         <>
-                          <button className="ghost" onClick={() => setEditing({ id: a.id, nom_affiche: a.nom_affiche || "", email: a.email || "", role: a.role })}>Modifier</button>
+                          <button className="ghost" onClick={() => setEditing({ id: a.id, nom_affiche: a.nom_affiche || "", email: a.email || "", role: a.role, portee: { globale: a.role !== "informatique" && a.portee_globale, ids: a.entites || [] } })}>Modifier</button>
                           {a.source_auth !== "sso" && <ConfirmButton confirmLabel="Confirmer la reinitialisation" onConfirm={() => reset(a)}>Reinitialiser le mot de passe</ConfirmButton>}
                           {a.source_auth !== "sso" && !a.sso_lie && (linking && linking.id === a.id ? (
                             <span className="row">

@@ -28,6 +28,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..auth import client_ip, get_current_account, writer_guard
+from ..scope import Scope, scope_dep, visible_user
 from ..db import get_session
 from ..models import (
     Account,
@@ -91,15 +92,14 @@ def _holdings(session: Session, user_id: int) -> list[tuple[Asset, int]]:
 
 
 @router.get("/holdings/{user_id}", response_model=list[Asset])
-def holdings(user_id: int, session: Session = Depends(get_session)):
+def holdings(user_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    visible_user(session, scope, user_id)
     return [a for a, _ in _holdings(session, user_id)]
 
 
 @router.post("/depart/{user_id}")
-def declarer_depart(user_id: int, data: DepartRequest, session: Session = Depends(get_session)):
-    user = session.get(User, user_id)
-    if not user:
-        raise HTTPException(404, "Utilisateur introuvable")
+def declarer_depart(user_id: int, data: DepartRequest, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    user = visible_user(session, scope, user_id)
     user.statut = EmployeeStatus.en_depart
     user.date_sortie = data.date_sortie
     user.maj_le = datetime.utcnow()
@@ -119,11 +119,9 @@ def declarer_depart(user_id: int, data: DepartRequest, session: Session = Depend
 
 
 @router.get("/recap/{user_id}")
-def recap(user_id: int, session: Session = Depends(get_session)):
+def recap(user_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
     """Recapitulatif affiche sur la tablette avant la signature de la restitution."""
-    user = session.get(User, user_id)
-    if not user:
-        raise HTTPException(404, "Utilisateur introuvable")
+    user = visible_user(session, scope, user_id)
     entite = session.get(Entite, user.entite_id) if user.entite_id else None
     return {
         "signature_obligatoire": HANDWRITTEN_REQUIRED,
@@ -144,10 +142,9 @@ def restituer(
     request: Request,
     session: Session = Depends(get_session),
     account: Account = Depends(get_current_account),
+    scope: Scope = Depends(scope_dep),
 ):
-    user = session.get(User, data.user_id)
-    if not user:
-        raise HTTPException(404, "Utilisateur introuvable")
+    user = visible_user(session, scope, data.user_id)
 
     held = _holdings(session, data.user_id)
     if data.asset_ids is not None:

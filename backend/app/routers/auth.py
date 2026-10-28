@@ -36,7 +36,8 @@ from ..auth import (
     verify_password,
 )
 from ..db import get_session
-from ..models import Account, Role
+from ..models import Account, AccountScope, Entite, Role
+from ..scope import compute_scope
 from .. import sso_policy
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -84,6 +85,9 @@ class AccountCreate(BaseModel):
     email: str | None = None
     # Facultatif : sans mot de passe, un mot de passe provisoire est genere (affiche une seule fois).
     password: str | None = None
+    # Portee des comptes RH et lecture (l'informatique voit toujours tout). Absente : aucune portee, a definir.
+    portee_globale: bool | None = None
+    entites: list[int] = Field(default_factory=list, max_length=200)
 
     @field_validator("username")
     @classmethod
@@ -111,6 +115,8 @@ class AccountUpdate(BaseModel):
     nom_affiche: str | None = None
     email: str | None = None
     secours: bool | None = None
+    portee_globale: bool | None = None
+    entites: list[int] | None = Field(default=None, max_length=200)
 
     @field_validator("email")
     @classmethod
@@ -142,6 +148,9 @@ class AccountOut(BaseModel):
     sso_upn: str | None = None
     sso_lie: bool = False
     secours: bool = False
+    portee_globale: bool = True
+    entites: list[int] = []          # entites choisies (les sous-entites sont incluses automatiquement)
+    portee: dict | None = None       # portee effective du compte connecte (/auth/me)
 
     @classmethod
     def from_account(cls, a: "Account") -> "AccountOut":
@@ -191,9 +200,32 @@ def login(data: LoginRequest, request: Request, session: Session = Depends(get_s
                          must_change_password=account.must_change_password)
 
 
+def account_out(session: Session, account: Account) -> AccountOut:
+    out = AccountOut.from_account(account)
+    out.entites = sorted(r.entite_id for r in session.exec(select(AccountScope).where(AccountScope.account_id == account.id)).all())
+    return out
+
+
+def _set_scope(session: Session, account: Account, globale: bool, entites: list[int]) -> None:
+    ids = sorted(set(entites))
+    if ids and {e.id for e in session.exec(select(Entite).where(Entite.id.in_(ids))).all()} != set(ids):
+        raise HTTPException(400, "Entite inconnue dans la portee")
+    if globale and ids:
+        raise HTTPException(400, "Une portee globale n'a pas de liste d'entites")
+    account.portee_globale = globale
+    for row in session.exec(select(AccountScope).where(AccountScope.account_id == account.id)).all():
+        session.delete(row)
+    session.flush()
+    for eid in ids:
+        session.add(AccountScope(account_id=account.id, entite_id=eid))
+
+
 @router.get("/me", response_model=AccountOut)
-def me(account: Account = Depends(get_current_account)):
-    return account
+def me(account: Account = Depends(get_current_account), session: Session = Depends(get_session)):
+    out = account_out(session, account)
+    scope = compute_scope(session, account)
+    out.portee = {"globale": scope.globale, "vide": scope.vide, "entites": sorted(scope.ids)}
+    return out
 
 
 @router.post("/change-password", response_model=TokenResponse)
@@ -236,7 +268,15 @@ def _other_admin_exists(session: Session, exclude_id: int) -> bool:
             dependencies=[Depends(require_roles("informatique"))])
 def list_accounts(session: Session = Depends(get_session)):
     rows = session.exec(select(Account)).all()
-    return [AccountOut.from_account(a) for a in sorted(rows, key=lambda a: a.username)]
+    scopes: dict[int, list[int]] = {}
+    for r in session.exec(select(AccountScope)).all():
+        scopes.setdefault(r.account_id, []).append(r.entite_id)
+    out = []
+    for a in sorted(rows, key=lambda a: a.username):
+        item = AccountOut.from_account(a)
+        item.entites = sorted(scopes.get(a.id, []))
+        out.append(item)
+    return out
 
 
 @router.post("/accounts", response_model=AccountCreated, status_code=201)
@@ -257,12 +297,18 @@ def create_account(data: AccountCreate, session: Session = Depends(get_session),
         nom_affiche=data.nom_affiche,
         email=data.email,
         must_change_password=provisional is not None,  # mot de passe choisi par l'appelant : pas de changement force
+        portee_globale=(data.role == Role.informatique),  # RH et lecture : aucune portee tant qu'elle n'est pas definie
     )
+    if data.role == Role.informatique and (data.portee_globale is False or data.entites):
+        raise HTTPException(400, "Les comptes informatique sont administrateurs : acces a toute l'organisation")
     session.add(account)
+    session.flush()
+    if data.role != Role.informatique and (data.portee_globale is not None or data.entites):
+        _set_scope(session, account, bool(data.portee_globale), data.entites)
     session.commit()
     session.refresh(account)
     audit(admin.username, "compte_cree", target=account.username, detail=f"role : {account.role.value}")
-    return AccountCreated(**AccountOut.model_validate(account).model_dump(), mot_de_passe_provisoire=provisional)
+    return AccountCreated(**account_out(session, account).model_dump(), mot_de_passe_provisoire=provisional)
 
 
 @router.put("/accounts/{account_id}", response_model=AccountOut)
@@ -297,6 +343,7 @@ def update_account(
             and sso_policy.is_active(session) and sso_policy.breakglass_count(session, exclude_id=target.id) < 1:
         raise HTTPException(409, "Impossible : ce serait le dernier compte de secours actif")
     changed = []
+    old_role = target.role
     revoke = False
     if data.actif is not None and data.actif != target.actif:
         target.actif = data.actif
@@ -325,12 +372,26 @@ def update_account(
         revoke = True
     if revoke:
         target.token_epoch += 1  # les sessions ouvertes de ce compte sont revoquees
+    # Portee : l'informatique est toujours globale ; un compte qui quitte l'informatique repart sans portee.
+    scope_before = (target.portee_globale, sorted(r.entite_id for r in session.exec(select(AccountScope).where(AccountScope.account_id == target.id)).all()))
+    if target.role == Role.informatique:
+        if data.portee_globale is False or data.entites:
+            raise HTTPException(400, "Les comptes informatique sont administrateurs : acces a toute l'organisation")
+        _set_scope(session, target, True, [])
+    else:
+        if old_role == Role.informatique:  # un administrateur retrograde repart sans portee
+            _set_scope(session, target, False, [])
+        if data.portee_globale is not None or data.entites is not None:
+            _set_scope(session, target, bool(data.portee_globale), data.entites or [])
+    scope_after = (target.portee_globale, sorted(r.entite_id for r in session.exec(select(AccountScope).where(AccountScope.account_id == target.id)).all()))
+    if scope_after != scope_before:
+        changed.append("portee")
     session.add(target)
     session.commit()
     session.refresh(target)
     audit(admin.username, "compte_modifie", target=target.username,
           detail=",".join(changed) if changed else "aucun changement")
-    return target
+    return account_out(session, target)
 
 
 @router.post("/accounts/{account_id}/reset-password", response_model=ResetResult)

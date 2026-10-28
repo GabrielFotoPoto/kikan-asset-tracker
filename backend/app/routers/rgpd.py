@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from ..auth import writer_guard
+from ..auth import require_roles
 from ..db import get_session
 from ..models import (
     Assignment,
@@ -42,7 +42,7 @@ from ..filestore import delete_document
 
 router = APIRouter(
     prefix="/rgpd", tags=["rgpd"],
-    dependencies=[Depends(writer_guard("informatique"))],
+    dependencies=[Depends(require_roles("informatique"))],
 )
 
 RETENTION_KEY = "retention_apres_sortie_mois"

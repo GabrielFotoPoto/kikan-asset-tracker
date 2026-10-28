@@ -22,6 +22,7 @@ from sqlmodel import Session, select
 from ..auth import get_current_account, writer_guard
 from ..db import get_session
 from ..models import Account, Application, ApplicationBase, Entite, UserApplication
+from ..scope import Scope, scope_dep
 from ..rules import audit_change, changed_fields, count, refuse_delete
 
 router = APIRouter(
@@ -32,9 +33,11 @@ router = APIRouter(
 
 @router.get("", response_model=list[Application])
 def list_applications(
-    session: Session = Depends(get_session), entite_id: int | None = None
+    session: Session = Depends(get_session), entite_id: int | None = None, scope: Scope = Depends(scope_dep)
 ):
     stmt = select(Application)
+    if not scope.globale:  # catalogue commun (sans entite) et applications des entites de la portee
+        stmt = stmt.where(Application.entite_id.is_(None) | Application.entite_id.in_(scope.ids))
     if entite_id is not None:
         stmt = stmt.where(Application.entite_id == entite_id)
     return session.exec(stmt).all()
@@ -65,9 +68,9 @@ def create_application(data: ApplicationBase, session: Session = Depends(get_ses
 
 
 @router.get("/{application_id}", response_model=Application)
-def get_application(application_id: int, session: Session = Depends(get_session)):
+def get_application(application_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
     obj = session.get(Application, application_id)
-    if not obj:
+    if not obj or (obj.entite_id is not None and not scope.allows(obj.entite_id)):
         raise HTTPException(404, "Application introuvable")
     return obj
 

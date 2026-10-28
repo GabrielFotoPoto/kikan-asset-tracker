@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
 from ..auth import get_current_account
+from ..scope import Scope, scope_dep
 from ..db import get_session
 from ..models import (
     Asset,
@@ -41,8 +42,8 @@ router = APIRouter(
 
 
 @router.get("")
-def stats(session: Session = Depends(get_session)):
-    assets = session.exec(select(Asset)).all()
+def stats(session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    assets = session.exec(scope.where(select(Asset), Asset.entite_id)).all()
     entites = {e.id: e.nom for e in session.exec(select(Entite)).all()}
 
     # Actif -> salarie detenteur (affectation en cours).
@@ -52,7 +53,7 @@ def stats(session: Session = Depends(get_session)):
     for link in session.exec(select(AssignmentAsset)).all():
         if link.assignment_id in encours:
             asset_user[link.asset_id] = encours[link.assignment_id].user_id
-    users = {u.id: u for u in session.exec(select(User)).all()}
+    users = {u.id: u for u in session.exec(scope.users(select(User))).all()}
 
     affecte = [a for a in assets if a.statut == AssetStatus.affecte]
 

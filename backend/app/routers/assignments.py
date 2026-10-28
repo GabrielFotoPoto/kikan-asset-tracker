@@ -50,6 +50,7 @@ from .. import acces_remise
 from ..charte import append_annex, resolve_policy
 from ..signing import seal_pdf
 from ..filestore import read_document, sha256_hex, store_document
+from ..scope import Scope, scope_dep, visible_assignment
 
 router = APIRouter(
     prefix="/assignments", tags=["assignments"],
@@ -131,19 +132,16 @@ def create_assignment(data: AssignmentCreate, session: Session = Depends(get_ses
 
 
 @router.get("", response_model=list[Assignment])
-def list_assignments(session: Session = Depends(get_session), user_id: int | None = None):
-    stmt = select(Assignment)
+def list_assignments(session: Session = Depends(get_session), user_id: int | None = None, scope: Scope = Depends(scope_dep)):
+    stmt = scope.assignments(select(Assignment))
     if user_id is not None:
         stmt = stmt.where(Assignment.user_id == user_id)
     return session.exec(stmt).all()
 
 
 @router.get("/{assignment_id}", response_model=Assignment)
-def get_assignment(assignment_id: int, session: Session = Depends(get_session)):
-    obj = session.get(Assignment, assignment_id)
-    if not obj:
-        raise HTTPException(404, "Affectation introuvable")
-    return obj
+def get_assignment(assignment_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    return visible_assignment(session, scope, assignment_id)
 
 
 def _already_signed(session: Session, assignment_id: int) -> bool:
@@ -153,11 +151,9 @@ def _already_signed(session: Session, assignment_id: int) -> bool:
 
 
 @router.get("/{assignment_id}/recap")
-def recap(assignment_id: int, session: Session = Depends(get_session)):
+def recap(assignment_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
     """Recapitulatif affiche sur la tablette avant signature."""
-    assignment = session.get(Assignment, assignment_id)
-    if not assignment:
-        raise HTTPException(404, "Affectation introuvable")
+    assignment = visible_assignment(session, scope, assignment_id)
     user = session.get(User, assignment.user_id)
     entite = session.get(Entite, user.entite_id) if user and user.entite_id else None
     policy = session.get(Policy, assignment.policy_id) if assignment.policy_id else None
@@ -275,7 +271,8 @@ def sign_assignment(
 
 
 @router.get("/{assignment_id}/document")
-def get_document(assignment_id: int, session: Session = Depends(get_session)):
+def get_document(assignment_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    visible_assignment(session, scope, assignment_id)
     sig = session.exec(
         select(Signature).where(Signature.assignment_id == assignment_id)
     ).first()

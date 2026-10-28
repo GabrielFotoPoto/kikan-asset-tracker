@@ -25,6 +25,7 @@ from ..asset_catalog import AssetCatalog
 from ..catalogs import canonical_type
 from ..db import get_session
 from ..models import Account, Asset, AssetBase, AssetStatus, AssetType, AssignmentAsset, Entite
+from ..scope import Scope, scope_dep
 from ..rules import audit_change, changed_fields, count, refuse_delete, taken
 
 router = APIRouter(
@@ -38,8 +39,9 @@ def list_assets(
     session: Session = Depends(get_session),
     entite_id: int | None = None,
     statut: AssetStatus | None = None,
+    scope: Scope = Depends(scope_dep),
 ):
-    stmt = select(Asset)
+    stmt = scope.where(select(Asset), Asset.entite_id)
     if entite_id is not None:
         stmt = stmt.where(Asset.entite_id == entite_id)
     if statut is not None:
@@ -111,9 +113,9 @@ def create_asset(data: AssetBase, session: Session = Depends(get_session)):
 
 
 @router.get("/{asset_id}", response_model=Asset)
-def get_asset(asset_id: int, session: Session = Depends(get_session)):
+def get_asset(asset_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
     obj = session.get(Asset, asset_id)
-    if not obj:
+    if not obj or not scope.allows(obj.entite_id):
         raise HTTPException(404, "Actif introuvable")
     return obj
 
