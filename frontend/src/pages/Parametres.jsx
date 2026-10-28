@@ -25,6 +25,7 @@ const TABS = [
   ["types", "Types d'actifs"],
   ["services", "Services"],
   ["marques", "Marques et modeles"],
+  ["mail", "E-mails"],
   ["pdf", "Modele de PDF"],
   ["auth", "Authentification"],
   ["etat", "Etat du scellement"],
@@ -465,6 +466,142 @@ function AuthSso({ setErr, setMsg }) {
   );
 }
 
+const row = { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, margin: "4px 0" };
+const num = { width: 70 };
+
+// E-mails : serveur SMTP externe, rappels automatiques et rapport mensuel.
+function Courriel({ setErr, setMsg }) {
+  const [data, setData] = useState(null);
+  const [f, setF] = useState(null);
+  const [apercu, setApercu] = useState(null);
+
+  const load = async () => {
+    const d = await api.get("/mail/config");
+    setData(d);
+    setF(d.config);
+  };
+  useEffect(() => { load().catch((e) => setErr(errorText(e))); }, []);
+
+  const run = async (fn, okMsg) => {
+    setErr(null); setMsg(null);
+    try { const r = await fn(); if (okMsg) setMsg(typeof okMsg === "function" ? okMsg(r) : okMsg); return r; } catch (ex) { setErr(errorText(ex)); }
+  };
+
+  if (!data || !f) return <div className="card"><p className="muted">Chargement...</p></div>;
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
+  const setN = (k) => (e) => setF({ ...f, [k]: Number(e.target.value) });
+  const save = () => run(async () => { const d = await api.put("/mail/config", f); setData(d); setF(d.config); return d; }, "Reglages enregistres.");
+  const summary = (r) => {
+    const x = r.resultat || {};
+    const parts = Object.entries(x).map(([k, v]) => `${k === "rapport" ? "rapport" : "rappels"} : ${v.envoyes} message(s)${v.erreurs.length ? `, ${v.erreurs.length} erreur(s)` : ""}`);
+    return parts.length ? "Execution terminee - " + parts.join(" ; ") : "Rien a envoyer pour le moment.";
+  };
+
+  return (
+    <div>
+      <div className="card">
+        <h3>Serveur de messagerie (SMTP)</h3>
+        <p className="muted">
+          Kikan n'embarque aucun serveur de messagerie : indiquez celui de votre entreprise. Un serveur interne sans
+          authentification ni chiffrement est possible (securite « aucune ») ; preferez STARTTLS ou SSL des qu'il les propose.
+        </p>
+        <div className="grid">
+          <label>Serveur<input value={f.hote} onChange={set("hote")} placeholder="smtp.entreprise.local" /></label>
+          <label>Port<input type="number" min="1" max="65535" value={f.port} onChange={setN("port")} /></label>
+          <label>Securite
+            <select value={f.securite} onChange={set("securite")}>
+              <option value="aucune">Aucune (reseau interne)</option>
+              <option value="starttls">STARTTLS</option>
+              <option value="ssl">SSL / TLS</option>
+            </select>
+          </label>
+          <label>Identifiant (si le serveur en exige un)<input value={f.utilisateur} onChange={set("utilisateur")} autoComplete="off" /></label>
+          <label>Adresse d'expedition<input value={f.expediteur} onChange={set("expediteur")} placeholder="kikan@entreprise.local" /></label>
+          <label>Adresse de liste (en plus des comptes, recoit tout)<input value={f.liste} onChange={set("liste")} placeholder="informatique@entreprise.local" /></label>
+        </div>
+        <label style={row}><input type="checkbox" style={{ width: "auto" }} checked={f.verifier_cert} onChange={set("verifier_cert")} />
+          Verifier le certificat du serveur (STARTTLS et SSL)</label>
+        <p className="muted">
+          Mot de passe SMTP : {data.mot_de_passe_defini ? <span className="badge ok">defini</span> : <span className="badge">non defini</span>}{" "}
+          (variable <code>KIKAN_SMTP_PASSWORD</code> du fichier .env, jamais stocke en base ni affiche).
+          {!data.lien_defini && " La variable KIKAN_PUBLIC_URL n'est pas definie : les e-mails n'auront pas de lien vers Kikan."}
+        </p>
+      </div>
+
+      <div className="card">
+        <h3>Rappels automatiques</h3>
+        <p className="muted">
+          Un recapitulatif par personne et par jour, a l'heure choisie. L'informatique et l'adresse de liste recoivent tout ; une RH
+          ne recoit que les salaries de son perimetre. Un rappel deja envoye n'est renvoye qu'a l'echeance de relance.
+        </p>
+        <label style={row}><input type="checkbox" style={{ width: "auto" }} checked={f.renouv} onChange={set("renouv")} />
+          Renouvellements : materiel dont l'echeance tombe dans les <input type="number" min="1" max="730" style={num} value={f.renouv_jours} onChange={setN("renouv_jours")} /> jours
+          (informatique, relance tous les 30 jours)</label>
+        <label style={row}><input type="checkbox" style={{ width: "auto" }} checked={f.depart} onChange={set("depart")} />
+          Departs a venir : sortie dans les <input type="number" min="1" max="90" style={num} value={f.depart_jours} onChange={setN("depart_jours")} /> jours avec du materiel
+          encore detenu (relance chaque semaine)</label>
+        <label style={row}><input type="checkbox" style={{ width: "auto" }} checked={f.nonrestit} onChange={set("nonrestit")} />
+          Materiel non restitue apres la date de sortie, relance toutes les <input type="number" min="1" max="12" style={num} value={f.nonrestit_sem} onChange={setN("nonrestit_sem")} /> semaine(s)</label>
+        <label style={row}>Heure d'envoi :
+          <input type="number" min="0" max="23" style={num} value={f.heure} onChange={setN("heure")} /> h (heure du serveur)</label>
+      </div>
+
+      <div className="card">
+        <h3>Rapport mensuel</h3>
+        <p className="muted">
+          Un recapitulatif du parc, des remises et restitutions du mois, du materiel non restitue et des renouvellements, envoye a
+          l'informatique et a l'adresse de liste, avec un lien vers les rapports de Kikan.
+        </p>
+        <label style={row}><input type="checkbox" style={{ width: "auto" }} checked={f.rapport} onChange={set("rapport")} />
+          Envoyer le rapport chaque mois, a partir du jour <input type="number" min="1" max="28" style={num} value={f.rapport_jour} onChange={setN("rapport_jour")} /></label>
+        <label style={row}>Piece jointe :
+          <select style={{ width: "auto" }} value={f.rapport_pj} onChange={set("rapport_pj")}>
+            <option value="aucune">Aucune (lien seulement, recommande)</option>
+            <option value="xlsx">Excel (detentions par salarie)</option>
+            <option value="pdf">PDF (detentions par salarie)</option>
+          </select></label>
+      </div>
+
+      <div className="card">
+        <label style={row}><input type="checkbox" style={{ width: "auto" }} checked={f.actif} onChange={set("actif")} />
+          <strong>Activer l'envoi d'e-mails</strong></label>
+        <div className="row" style={{ marginTop: 8 }}>
+          <button onClick={save}>Enregistrer</button>
+          <button className="ghost" onClick={() => run(() => api.post("/mail/test", {}), (r) => `Message de test envoye a ${r.destinataire}.`)}>
+            Envoyer un e-mail de test</button>
+          <button className="ghost" onClick={async () => { const r = await run(() => api.get("/mail/apercu")); if (r) setApercu(r); }}>
+            Voir ce qui serait envoye</button>
+          <ConfirmButton confirmLabel="Confirmer l'envoi" onConfirm={async () => { await run(() => api.post("/mail/executer", { rappels: true, rapport: false }), summary); load(); }}>
+            Envoyer les rappels maintenant</ConfirmButton>
+          <ConfirmButton confirmLabel="Confirmer l'envoi" onConfirm={async () => { await run(() => api.post("/mail/executer", { rappels: false, rapport: true }), summary); load(); }}>
+            Envoyer le rapport maintenant</ConfirmButton>
+        </div>
+        <p className="muted">
+          Le test est envoye a l'e-mail de votre compte (page Comptes), a defaut a l'adresse de liste. Enregistrez avant de tester.
+          {" "}Derniere execution : {data.derniere_execution ? data.derniere_execution.replace("T", " ") : "jamais"}
+          {data.dernier_resultat ? ` (${data.dernier_resultat})` : ""}.
+        </p>
+        {data.derniere_erreur && <p className="err">Derniere erreur : {data.derniere_erreur}</p>}
+      </div>
+
+      {apercu && (
+        <div className="card">
+          <h3>Apercu des envois</h3>
+          {apercu.rappels.length === 0 ? <p className="muted">Aucun rappel a envoyer pour le moment.</p> : (
+            <table>
+              <thead><tr><th>Destinataire</th><th>Renouvellements</th><th>Departs</th><th>Non restitue</th></tr></thead>
+              <tbody>{apercu.rappels.map((d) => (
+                <tr key={d.destinataire}><td>{d.destinataire}</td><td>{d.elements.renouv || 0}</td><td>{d.elements.depart || 0}</td><td>{d.elements.nonrestit || 0}</td></tr>
+              ))}</tbody>
+            </table>
+          )}
+          <p className="muted">Rapport mensuel : {apercu.rapport.length ? apercu.rapport.join(", ") : "aucun destinataire (renseignez l'e-mail d'un compte informatique ou l'adresse de liste)"}.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Parametres() {
   const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get("sso_test") ? "auth" : "types"));
   const [err, setErr] = useState(null);
@@ -489,6 +626,7 @@ export default function Parametres() {
       )}
       {tab === "marques" && <MergeTool setErr={setErr} setMsg={setMsg} />}
       {tab === "pdf" && <PdfTemplate setErr={setErr} setMsg={setMsg} />}
+      {tab === "mail" && <Courriel setErr={setErr} setMsg={setMsg} />}
       {tab === "auth" && <AuthSso setErr={setErr} setMsg={setMsg} />}
       {tab === "etat" && <Etat setErr={setErr} />}
     </div>

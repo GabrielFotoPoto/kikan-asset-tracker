@@ -247,6 +247,16 @@ class AccountScope(SQLModel, table=True):
     entite_id: int = Field(foreign_key="entite.id", primary_key=True)
 
 
+class ReminderSent(SQLModel, table=True):
+    """Rappels deja envoyes (par type, element et destinataire) : evite les doublons et fixe le rythme des relances."""
+    __tablename__ = "reminder_sent"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    kind: str = Field(index=True)
+    cle: str = Field(index=True)
+    destinataire: str = Field(index=True)
+    envoye_le: NaiveDatetime = Field(default_factory=utcnow)
+
+
 class Setting(SQLModel, table=True):
     __tablename__ = "settings"
     key: str = Field(primary_key=True)

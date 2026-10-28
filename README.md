@@ -176,6 +176,32 @@ Les pages d'administration (comptes, paramétrage, stockage, journal d'audit, RG
 
 *Captures réalisées avec des données de démonstration fictives.*
 
+## E-mails : rappels et rapport mensuel
+
+Kikan peut envoyer des e-mails automatiques par **le serveur SMTP de votre entreprise** (aucun serveur de messagerie n'est
+embarqué). Tout est facultatif et désactivé par défaut : **Paramétrage, onglet E-mails** (informatique).
+
+- **Serveur** : nom, port, sécurité (aucune pour un relais interne, STARTTLS ou SSL), identifiant éventuel, adresse d'expédition.
+  Le **mot de passe SMTP**, s'il en faut un, se règle par la variable `KIKAN_SMTP_PASSWORD` du fichier `.env` : il n'est
+  jamais stocké en base ni affiché. Une **adresse de liste** (ex. `informatique@...`) peut s'ajouter aux comptes destinataires.
+- **Rappels automatiques** (un récapitulatif par personne et par jour, à l'heure choisie) : renouvellements de matériel
+  (informatique et liste), départs à venir avec du matériel encore détenu, matériel non restitué après la date de sortie.
+  Un rappel déjà envoyé n'est renvoyé qu'à l'échéance de relance. Une RH ne reçoit que les salariés de son périmètre.
+- **Rapport mensuel** : parc, remises et restitutions du mois, matériel non restitué, renouvellements ; envoyé à
+  l'informatique et à la liste avec un lien vers les rapports (variable `KIKAN_PUBLIC_URL`). Une pièce jointe Excel ou PDF est
+  possible mais désactivée par défaut, car rien de sensible ne doit circuler par e-mail sans nécessité.
+- **Contrôles** : message de test, aperçu de ce qui serait envoyé, envoi immédiat des rappels ou du rapport, dernier résultat
+  et dernière erreur. Les envois sont tracés dans le journal d'audit (jamais le contenu des messages).
+- **Essayer sans risque** : `docker compose --profile mail-test up -d mailpit` lance un faux serveur de messagerie local
+  (serveur `mailpit`, port `1025`, sécurité « aucune ») dont les messages se lisent sur http://127.0.0.1:8025 ; rien ne sort de
+  la machine. Arrêt : `docker compose --profile mail-test rm -sf mailpit`.
+
+![Paramétrage des e-mails](docs/captures/emails-reglages.png)
+
+![Aperçu des envois : chaque destinataire ne reçoit que son périmètre](docs/captures/emails-apercu.png)
+
+![Récapitulatif reçu (ici dans Mailpit)](docs/captures/emails-recapitulatif-recu.png)
+
 ## Modification et suppression
 
 Les pages Entités, Utilisateurs, Matériel et Accès applicatifs (catalogue) offrent **Modifier** (formulaire
@@ -360,7 +386,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   paramétrage (A5, **fait**), gestion des comptes (A6, **fait**), accès applicatifs dans le document de remise (A7, **fait**), autocomplétion des
   modèles (A8, **fait**).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1, **fait**, à valider sur votre tenant), comptes cloisonnés par
-  entité (B2, **fait**), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API
+  entité (B2, **fait**), rappels par e-mail (B3, **fait**), rapport mensuel automatique (B4, **fait**), connecteur GLPI (B5), dépôt via l'API
   SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : statistiques exportables (C1), revue périodique des droits d'accès (C2), prévision des
   renouvellements (C3), étiquettes et QR codes (C4), pièces jointes (C5).

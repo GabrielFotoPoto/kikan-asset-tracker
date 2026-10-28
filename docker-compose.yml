@@ -39,6 +39,9 @@ services:
       KIKAN_SSO_AUTHORITY: ${KIKAN_SSO_AUTHORITY:-https://login.microsoftonline.com}
       KIKAN_SSO_CA_BUNDLE: ${KIKAN_SSO_CA_BUNDLE:-}
       KIKAN_SSO_PROXY: ${KIKAN_SSO_PROXY:-}
+      # E-mails (rappels, rapport mensuel) : le serveur SMTP se regle dans Parametrage, onglet E-mails.
+      # Mot de passe SMTP, seulement si le serveur en exige un (jamais stocke en base).
+      KIKAN_SMTP_PASSWORD: ${KIKAN_SMTP_PASSWORD:-}
       # Conversion des chartes Word en PDF (service isole, sans acces Internet). Vide = desactivee.
       KIKAN_WORD_CONVERTER_URL: ${KIKAN_WORD_CONVERTER_URL:-http://converter:8090}
       KIKAN_CORS_ORIGINS: ${KIKAN_CORS_ORIGINS:-http://localhost:3000,https://localhost:3443}
@@ -121,6 +124,20 @@ services:
       - no-new-privileges:true
     depends_on:
       - api
+
+  # Faux serveur de messagerie pour verifier les e-mails avant de brancher le vrai SMTP :
+  #   docker compose --profile mail-test up -d mailpit
+  # puis, dans Parametrage > E-mails : serveur "mailpit", port 1025, securite "aucune". Messages lisibles sur
+  # http://127.0.0.1:8025 (local uniquement). Aucun message ne sort de la machine.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: kikan-mailpit
+    profiles: ["mail-test"]
+    restart: "no"
+    ports:
+      - "127.0.0.1:8025:8025"
+    security_opt:
+      - no-new-privileges:true
 
 networks:
   convnet:

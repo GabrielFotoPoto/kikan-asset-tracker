@@ -33,5 +33,7 @@ DELETE FROM settings WHERE key LIKE 'sso\_%' OR key = 'session_ttl_min';
 DELETE FROM asset_types t WHERE NOT EXISTS (SELECT 1 FROM assets a WHERE lower(a.type) = lower(t.nom));
 DELETE FROM services s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE lower(u.service) = lower(s.nom));
 DELETE FROM settings WHERE key LIKE 'pdf\_%';
+DELETE FROM settings WHERE key LIKE 'mail\_%' OR key LIKE 'rappel\_%' OR key LIKE 'rapport\_%';
+DELETE FROM reminder_sent WHERE destinataire LIKE '%@exemple.test';
 DELETE FROM settings WHERE key = 'remise_inclure_acces';
 COMMIT;

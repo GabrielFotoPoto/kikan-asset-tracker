@@ -30,6 +30,7 @@ from .audit import audit
 from .auth import IS_PROD, MUTATING, actor_from_request, client_ip, ensure_bootstrap_account
 from .config import settings
 from .db import engine, init_db
+from . import reminders
 from .filestore import StorageError, sync_pending
 from .routers import (
     applications,
@@ -40,6 +41,7 @@ from .routers import (
     entites,
     import_data,
     lifecycle,
+    mail_admin,
     parametres,
     policies,
     reports,
@@ -72,6 +74,8 @@ async def lifespan(app: FastAPI):
     init_db()
     ensure_bootstrap_account()
     threading.Thread(target=_sync_storage_in_background, daemon=True).start()
+    if os.environ.get("KIKAN_SCHEDULER", "1") != "0":
+        reminders.start_scheduler()
     yield
 
 
@@ -137,3 +141,4 @@ app.include_router(user_apps.router)
 app.include_router(stats.router)
 app.include_router(audit_log.router)
 app.include_router(storage_admin.router)
+app.include_router(mail_admin.router)
