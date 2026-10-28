@@ -25,4 +25,9 @@ UPDATE assignments SET policy_id = NULL WHERE policy_id IN (SELECT id FROM polic
 DELETE FROM policies WHERE titre LIKE 'ZZ%' OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
 DELETE FROM entite WHERE code LIKE 'ZZ%';
 DELETE FROM accounts WHERE username LIKE 'sec\_%';
+-- Les types d'actifs et services s'enrichissent seuls (liste souple) : on retire ceux qui ne servent plus.
+-- (Instance de developpement uniquement : cela retire aussi un type ou service cree a la main et inutilise.)
+DELETE FROM asset_types t WHERE NOT EXISTS (SELECT 1 FROM assets a WHERE lower(a.type) = lower(t.nom));
+DELETE FROM services s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE lower(u.service) = lower(s.nom));
+DELETE FROM settings WHERE key LIKE 'pdf\_%';
 COMMIT;

@@ -38,6 +38,7 @@ export default function Assets() {
   const [items, setItems] = useState([]);
   const [entites, setEntites] = useState([]);
   const [marques, setMarques] = useState([]);
+  const [types, setTypes] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
   const [filtre, setFiltre] = useState("");
@@ -48,6 +49,7 @@ export default function Assets() {
   useEffect(() => { api.get("/entites").then(setEntites); }, []);
   useEffect(() => { load(); }, [filtre]);
   useEffect(() => { api.get("/assets/catalogue/marques").then(setMarques).catch(() => {}); }, [items]);
+  useEffect(() => { api.get("/assets/catalogue/types").then(setTypes).catch(() => {}); }, [items]);
 
   const lockedStatus = editing && editing.statut === "affecte";
   const options = editing && editing.statut === "rendu" ? ["rendu", ...SAISISSABLES] : SAISISSABLES;
@@ -104,7 +106,10 @@ export default function Assets() {
         <h3>{editing ? `Modifier : ${editing.type || "materiel"} ${editing.numero_serie || editing.identifiant_interne || ""}` : "Ajouter"}</h3>
         <form className="grid" onSubmit={submit}>
           <label>Id interne<input value={form.identifiant_interne} onChange={set("identifiant_interne")} /></label>
-          <label>Type<input value={form.type} onChange={set("type")} placeholder="PC portable, Smartphone..." /></label>
+          <label>Type
+            <input list="types" value={form.type} onChange={set("type")} placeholder="PC portable, Smartphone..." />
+            <datalist id="types">{types.map((t) => <option key={t} value={t} />)}</datalist>
+          </label>
           <label>Marque
             <input list="marques" value={form.marque} onChange={set("marque")} />
             <datalist id="marques">{marques.map((m) => <option key={m} value={m} />)}</datalist>

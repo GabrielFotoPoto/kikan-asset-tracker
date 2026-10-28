@@ -40,6 +40,7 @@ from ..models import (
     Signature,
     User,
 )
+from ..pdf_template import load_template
 from ..pdfgen import build_receipt
 from ..signature_image import (
     HANDWRITTEN_REQUIRED,
@@ -164,6 +165,7 @@ def restituer(
     assignment_ids = {aid for _, aid in held}
 
     now = datetime.utcnow()
+    template = load_template(session)
     pdf = build_receipt(
         user={"nom": user.nom, "prenom": user.prenom, "matricule": user.matricule},
         entite_nom=entite.nom if entite else None,
@@ -176,6 +178,7 @@ def restituer(
         signataire=signataire,
         temoin=account.username,
         signed_at=now,
+        template=template,
     )
     sealed = seal_pdf(pdf, reason="Restitution de materiel", name=signataire)
     empreinte = hashlib.sha256(sealed).hexdigest()

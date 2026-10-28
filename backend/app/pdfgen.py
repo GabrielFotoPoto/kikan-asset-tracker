@@ -35,6 +35,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from .pdf_template import footer_callback, header_flowables, mentions_flowables
+
 
 def build_receipt(
     *,
@@ -49,11 +51,12 @@ def build_receipt(
     signataire: str | None = None,
     temoin: str | None = None,
     signed_at: datetime | None = None,
+    template: dict | None = None,
 ) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, title=title)
     styles = getSampleStyleSheet()
-    story = []
+    story = list(header_flowables(template, styles))
 
     story.append(Paragraph(title, styles["Title"]))
     story.append(Spacer(1, 6 * mm))
@@ -130,6 +133,11 @@ def build_receipt(
         block.append(Paragraph(escape(f"Document conduit par : {temoin} (service informatique, temoin)"),
                                styles["Normal"]))
     story.append(KeepTogether(block))
+    story.extend(mentions_flowables(template, styles))
 
-    doc.build(story)
+    footer = footer_callback(template)
+    if footer:
+        doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    else:
+        doc.build(story)
     return buf.getvalue()

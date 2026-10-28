@@ -21,8 +21,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from ..auth import get_current_account, writer_guard
+from ..catalogs import canonical_type
 from ..db import get_session
-from ..models import Account, Asset, AssetBase, AssetStatus, AssignmentAsset, Entite
+from ..models import Account, Asset, AssetBase, AssetStatus, AssetType, AssignmentAsset, Entite
 from ..rules import audit_change, changed_fields, count, refuse_delete, taken
 
 router = APIRouter(
@@ -57,6 +58,13 @@ def catalogue_marques(
     return values
 
 
+@router.get("/catalogue/types", response_model=list[str])
+def catalogue_types(session: Session = Depends(get_session)):
+    """Types d'actifs actifs (liste de parametrage) pour les menus."""
+    rows = session.exec(select(AssetType.nom).where(AssetType.actif == True)).all()  # noqa: E712
+    return sorted(rows, key=str.lower)
+
+
 @router.get("/catalogue/modeles", response_model=list[str])
 def catalogue_modeles(
     marque: str | None = None,
@@ -84,6 +92,7 @@ def create_asset(data: AssetBase, session: Session = Depends(get_session)):
     if data.statut in (AssetStatus.affecte, AssetStatus.rendu):
         raise HTTPException(409, "Le statut affecte ou rendu s'obtient par la remise ou la restitution")
     _check_asset(session, data, None)
+    data.type = canonical_type(session, data.type)
     obj = Asset.model_validate(data)
     session.add(obj)
     session.commit()
@@ -108,6 +117,7 @@ def update_asset(
     if not obj:
         raise HTTPException(404, "Actif introuvable")
     _check_asset(session, data, obj.id)
+    data.type = canonical_type(session, data.type)
     new = data.model_dump()
     # Les statuts affecte et rendu viennent de la remise et de la restitution, pas d'une saisie manuelle.
     if new["statut"] != obj.statut:

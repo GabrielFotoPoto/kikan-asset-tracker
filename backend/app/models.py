@@ -197,9 +197,21 @@ class Policy(SQLModel, table=True):
 
 
 class AssetType(SQLModel, table=True):
+    """Type d'actif (liste de parametrage) : propose dans les menus, enrichie automatiquement."""
     __tablename__ = "asset_types"
+    __table_args__ = (Index("uq_asset_types_nom_lower", func.lower(literal_column("nom")), unique=True),)
     id: Optional[int] = Field(default=None, primary_key=True)
     nom: str = Field(index=True)
+    actif: bool = True
+
+
+class Service(SQLModel, table=True):
+    """Service ou departement (liste globale de parametrage)."""
+    __tablename__ = "services"
+    __table_args__ = (Index("uq_services_nom_lower", func.lower(literal_column("nom")), unique=True),)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    nom: str = Field(index=True)
+    actif: bool = True
 
 
 class Account(SQLModel, table=True):

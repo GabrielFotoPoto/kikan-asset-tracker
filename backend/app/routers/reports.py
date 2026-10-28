@@ -27,6 +27,8 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+from ..pdf_template import footer_callback, header_flowables, load_template, mentions_flowables
 from sqlmodel import Session, select
 
 from ..auth import get_current_account
@@ -111,11 +113,12 @@ def _csv(rows: list[dict]) -> bytes:
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
-def _pdf(rows: list[dict], jour: str) -> bytes:
+def _pdf(rows: list[dict], jour: str, template: dict | None = None) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), title="Detentions de materiel")
     styles = getSampleStyleSheet()
     story = [
+        *header_flowables(template, styles),
         Paragraph("Detentions de materiel par salarie", styles["Title"]),
         Paragraph(f"Edite le {jour} - {len(rows)} ligne(s)", styles["Normal"]),
         Spacer(1, 6 * mm),
@@ -132,7 +135,12 @@ def _pdf(rows: list[dict], jour: str) -> bytes:
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef2f7")]),
     ]))
     story.append(table)
-    doc.build(story)
+    story.extend(mentions_flowables(template, styles))
+    footer = footer_callback(template, landscape(A4))
+    if footer:
+        doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    else:
+        doc.build(story)
     return buf.getvalue()
 
 
@@ -153,7 +161,7 @@ def holdings_report(
         )
     if format == "pdf":
         return Response(
-            content=_pdf(rows, jour),
+            content=_pdf(rows, jour, load_template(session)),
             media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="kikan-detentions-{jour}.pdf"'},
         )

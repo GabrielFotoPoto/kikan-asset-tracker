@@ -171,7 +171,7 @@ Ce qui fait la valeur de preuve :
 > dans* l'application : le champ libre documente le niveau attendu.
 
 ### 4.8 Tables de paramétrage
-- `asset_types` : types d'actifs (personnalisables).
+- `asset_types` et `services` : listes de paramétrage (actif ou non), enrichies à la saisie et à l'import ; `settings` : modèle de PDF (organisation, mentions, pied de page, logo).
 - `policies` : chartes d'usage **déposées en fichier** (PDF normalisé et fichier d'origine dans le stockage, empreintes SHA-256), portée (globale ou entité), version, statut active ou archivée ; une seule version active par portée.
 - `settings` : paramètres globaux (voir §8).
 - `accounts` : comptes applicatifs avec un **rôle** (voir §5bis). Les employés **ne se
@@ -424,7 +424,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | A2 | **Gestion des chartes d'usage** : dépôt d'un fichier (Word, PDF ou Markdown) par l'informatique, globale ou propre à une entité (héritage entité, parent, globale), versions archivées, jointe d'office à la remise et annexée au PDF signé. **Fait (2026-10-28)** | Écart |
 | A3 | **Page d'import CSV** dans l'interface (aperçu, rapport d'erreurs, modèles téléchargeables). **Fait (2026-10-28)** : simulation puis import réel du même fichier (empreinte), tout ou rien, rapport par ligne, erreurs exportables, modèles générés, ré-import sans doublon, audit | Écart |
 | A4 | **Modification et suppression dans l'interface** (entités, salariés, matériel, applications). **Fait (2026-10-28)** : suppression refusée avec message précis si l'élément a une histoire (désactiver ou archiver à la place), statuts cohérents avec la remise et la restitution, hiérarchie d'entités protégée, doublons refusés, champs modifiés journalisés ; catalogue des applications géré dans l'interface | Écart |
-| A5 | **Interface de paramétrage** : types d'actifs, services, fusion des marques et modèles, modèle de PDF (logo, mentions) | Écart |
+| A5 | **Interface de paramétrage** : types d'actifs, services, fusion des marques et modèles, modèle de PDF (logo, mentions). **Fait (2026-10-28)** : listes souples, fusion avec aperçu, modèle de PDF figé et empreinte dans chaque document signé, état du scellement en lecture seule | Écart |
 | A6 | **Gestion des comptes dans l'interface** (créer, désactiver, réinitialiser) | Écart |
 | A7 | **Option d'inclure les accès applicatifs** dans le document de remise | Écart |
 | A8 | **Autocomplétion des modèles** dans le formulaire matériel | Écart |

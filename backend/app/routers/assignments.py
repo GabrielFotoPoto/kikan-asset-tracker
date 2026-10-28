@@ -38,6 +38,7 @@ from ..models import (
     Signature,
     User,
 )
+from ..pdf_template import load_template
 from ..pdfgen import build_receipt
 from ..signature_image import (
     HANDWRITTEN_REQUIRED,
@@ -213,6 +214,7 @@ def sign_assignment(
 
     # La charte jointe est relue depuis le stockage et son empreinte controlee avant d'etre annexee.
     charte_pdf = read_pdf(policy) if policy and policy.fichier_ref else None
+    template = load_template(session)
     now = datetime.utcnow()
     pdf = build_receipt(
         user=user_d,
@@ -226,6 +228,7 @@ def sign_assignment(
         signataire=signataire,
         temoin=account.username,
         signed_at=now,
+        template=template,
     )
     if charte_pdf:
         pdf = append_annex(pdf, charte_pdf)
@@ -247,6 +250,7 @@ def sign_assignment(
             "temoin": account.username, "ip": client_ip(request),
             "user_agent": (request.headers.get("user-agent") or "")[:200],
             "image": image_meta, "traits": data.strokes, "duree_ms": data.duration_ms,
+            "modele_pdf": None if template["vide"] else {"sha256": template["sha256"], "logo": bool(template["logo"])},
             "charte": {"id": policy.id, "titre": policy.titre, "version": policy.version,
                        "sha256": policy.sha256, "entite_id": policy.entite_id} if charte_pdf else None,
         },

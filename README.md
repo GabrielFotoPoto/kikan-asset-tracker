@@ -143,6 +143,26 @@ Le refus indique précisément ce qui bloque (« utilisé par 3 salariés... »)
 jour ses filiales ; les boucles de parenté, les codes, matricules, numéros de série et identifiants internes en double
 sont refusés. Le journal d'audit conserve les **noms des champs modifiés**, jamais leurs valeurs.
 
+## Paramétrage
+
+La page **Paramétrage** (informatique) regroupe :
+
+- **Types d'actifs** et **services** : listes qui alimentent les menus du matériel et des fiches salariés (ajout,
+  renommage, activation, suppression si inutilisé). Les listes sont **souples** : une valeur nouvelle saisie ou importée
+  s'ajoute à la liste sans jamais bloquer, et une valeur qui ne diffère que par la casse reprend la graphie de la liste.
+  Renommer met à jour tout le matériel ou toutes les fiches concernés.
+- **Marques et modèles** : outil de **fusion** des variantes (Dell, DELL, Dell Technologies) vers un nom unique, avec
+  détection des variantes probables, aperçu du nombre de matériels touchés et confirmation. Opération atomique, tracée.
+- **Modèle de PDF** : nom de l'organisation, **logo** (PNG ou JPEG, 300 Ko, 1000 x 400 px, ré-encodé par le serveur),
+  mentions légales et pied de page, appliqués à l'accusé de remise, à l'accusé de restitution et au rapport PDF, avec un
+  aperçu. Le modèle en vigueur est **figé dans chaque document signé** et son empreinte est enregistrée avec la
+  signature : le modifier ne change aucun document existant.
+- **État du scellement** (lecture seule) : certificat (sujet, validité, empreinte), autorité de temps, signature
+  manuscrite obligatoire, stockage et limites. Ces réglages restent dans le déploiement (`.env`), car ils touchent à la
+  valeur probante des documents.
+
+Les chartes, les applications, le stockage, la rétention RGPD et les comptes ont leur propre page.
+
 ## Import de l'existant
 
 Page **Import** (informatique) : choix du type de fichier, aide colonne par colonne, **modèle CSV téléchargeable**
@@ -230,6 +250,8 @@ backend/            API FastAPI
     pdfgen.py       generation des PDF
     importer.py     lecture CSV (encodage, separateur)
     rules.py        regles de modification et de suppression protegee
+    catalogs.py     listes souples (types d'actifs, services)
+    pdf_template.py modele de PDF (logo, mentions, pied de page)
     charte.py       chartes deposees : validation, normalisation PDF, portees, annexe
     docx_convert.py appel du service de conversion Word
     routers/        endpoints (entites, users, assets, assignments,
@@ -250,7 +272,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
 
 - **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
   chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), modification et suppression dans l'interface (A4, **fait**), interface de
-  paramétrage (A5), gestion des comptes (A6), accès applicatifs dans le document de remise (A7), autocomplétion des
+  paramétrage (A5, **fait**), gestion des comptes (A6), accès applicatifs dans le document de remise (A7), autocomplétion des
   modèles (A8).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par
   entité (B2), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API

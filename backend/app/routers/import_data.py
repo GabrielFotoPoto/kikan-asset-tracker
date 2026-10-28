@@ -25,6 +25,7 @@ from sqlmodel import Session, select
 
 from ..audit import audit
 from ..auth import get_current_account, require_roles, writer_guard
+from ..catalogs import canonical_service, canonical_type
 from ..db import get_session
 from ..importer import as_bool, as_date, as_str, read_csv
 from ..models import (
@@ -262,7 +263,7 @@ def _import_utilisateurs(rows, session, rep):
             rep.error(i, "date_arrivee invalide (attendu AAAA-MM-JJ)")
             continue
         session.add(User(matricule=matricule, nom=nom, prenom=prenom, entite_id=entite_id,
-                         email=as_str(row.get("email")), service=as_str(row.get("service")),
+                         email=as_str(row.get("email")), service=canonical_service(session, as_str(row.get("service"))),
                          statut=statut, date_arrivee=date_arr))
         if matricule:
             existing_mat.add(matricule)
@@ -299,7 +300,7 @@ def _import_materiel(rows, session, rep):
             continue
         session.add(Asset(
             identifiant_interne=as_str(row.get("identifiant_interne")),
-            type=as_str(row.get("type")), marque=as_str(row.get("marque")),
+            type=canonical_type(session, as_str(row.get("type"))), marque=as_str(row.get("marque")),
             modele=as_str(row.get("modele")), numero_serie=sn,
             date_achat=d_achat, fin_garantie=d_gar, echeance_renouvellement=d_ren,
             statut=statut, entite_id=entite_id, notes=as_str(row.get("notes")),

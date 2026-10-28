@@ -32,6 +32,7 @@ export default function Users() {
   const canDelete = user.role === "informatique";
   const [items, setItems] = useState([]);
   const [entites, setEntites] = useState([]);
+  const [services, setServices] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
   const [q, setQ] = useState("");
@@ -40,6 +41,7 @@ export default function Users() {
 
   const load = () => api.get("/users" + (q ? `?q=${encodeURIComponent(q)}` : "")).then(setItems).catch((e) => setErr(errorText(e)));
   useEffect(() => { api.get("/entites").then(setEntites); }, []);
+  useEffect(() => { api.get("/users/catalogue/services").then(setServices).catch(() => {}); }, [items]);
   useEffect(() => { load(); }, [q]);
 
   const entiteNom = (id) => entites.find((e) => e.id === id)?.nom || "-";
@@ -111,7 +113,10 @@ export default function Users() {
               {entites.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
             </select>
           </label>
-          <label>Service<input value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} /></label>
+          <label>Service
+            <input list="services" value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} />
+            <datalist id="services">{services.map((s) => <option key={s} value={s} />)}</datalist>
+          </label>
           <label>Statut
             <select value={form.statut} disabled={locked} onChange={(e) => setForm({ ...form, statut: e.target.value })}>
               {locked ? <option value={form.statut}>{form.statut}</option> : STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}

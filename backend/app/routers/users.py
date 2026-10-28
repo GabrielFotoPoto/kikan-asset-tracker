@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from ..auth import get_current_account, require_roles, writer_guard
+from ..catalogs import canonical_service
 from ..db import get_session
 from ..models import (
     Account,
@@ -28,6 +29,7 @@ from ..models import (
     EmployeeStatus,
     Entite,
     User,
+    Service,
     UserApplication,
     UserBase,
 )
@@ -72,11 +74,19 @@ def _check_entite(session: Session, entite_id: int | None) -> None:
 def create_user(data: UserBase, session: Session = Depends(get_session)):
     taken(session, User, User.matricule, data.matricule, None, "Matricule")
     _check_entite(session, data.entite_id)
+    data.service = canonical_service(session, data.service)
     obj = User.model_validate(data)
     session.add(obj)
     session.commit()
     session.refresh(obj)
     return obj
+
+
+@router.get("/catalogue/services", response_model=list[str])
+def catalogue_services(session: Session = Depends(get_session)):
+    """Services actifs (liste de parametrage) pour les menus."""
+    rows = session.exec(select(Service.nom).where(Service.actif == True)).all()  # noqa: E712
+    return sorted(rows, key=str.lower)
 
 
 @router.get("/{user_id}", response_model=User)
@@ -97,6 +107,7 @@ def update_user(
         raise HTTPException(404, "Utilisateur introuvable")
     taken(session, User, User.matricule, data.matricule, obj.id, "Matricule")
     _check_entite(session, data.entite_id)
+    data.service = canonical_service(session, data.service)
     new = data.model_dump()
     # Le depart passe par la page Sorties (restitution du materiel) ; un salarie sorti n'est pas reactive.
     if new["statut"] != obj.statut:
