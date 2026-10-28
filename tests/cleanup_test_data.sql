@@ -30,4 +30,5 @@ DELETE FROM accounts WHERE username LIKE 'sec\_%';
 DELETE FROM asset_types t WHERE NOT EXISTS (SELECT 1 FROM assets a WHERE lower(a.type) = lower(t.nom));
 DELETE FROM services s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE lower(u.service) = lower(s.nom));
 DELETE FROM settings WHERE key LIKE 'pdf\_%';
+DELETE FROM settings WHERE key = 'remise_inclure_acces';
 COMMIT;

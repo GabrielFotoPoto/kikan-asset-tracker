@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, update
 from sqlmodel import Session, select
 
-from .. import charte, pdf_template, signature_image, signing
+from .. import acces_remise, charte, pdf_template, signature_image, signing
 from ..audit import audit
 from ..auth import get_current_account, require_roles
 from ..catalogs import MAX_NAME
@@ -192,6 +192,7 @@ class PdfIn(BaseModel):
     organisation: str = Field(default="", max_length=pdf_template.MAX_LEN["organisation"])
     mentions: str = Field(default="", max_length=pdf_template.MAX_LEN["mentions"])
     pied: str = Field(default="", max_length=pdf_template.MAX_LEN["pied"])
+    inclure_acces: bool | None = None  # None = inchange
 
 
 class LogoIn(BaseModel):
@@ -214,7 +215,8 @@ def _ctrl_clean(text: str) -> str:
 
 @router.get("/pdf")
 def get_pdf_template(session: Session = Depends(get_session)):
-    return pdf_template.public_view(pdf_template.load_template(session))
+    return {**pdf_template.public_view(pdf_template.load_template(session)),
+            "inclure_acces": acces_remise.include_access(session)}
 
 
 @router.put("/pdf")
@@ -225,9 +227,14 @@ def set_pdf_template(data: PdfIn, session: Session = Depends(get_session),
     fields = [k for k, v in new.items() if current[k] != v]
     for name, key in pdf_template.TEXT_KEYS.items():
         _set_setting(session, key, new[name])
+    if data.inclure_acces is not None:
+        if data.inclure_acces != acces_remise.include_access(session):
+            fields.append("inclure_acces")
+        acces_remise.set_include_access(session, data.inclure_acces)
     session.commit()
     audit_change(account.username, "parametres/pdf", 0, fields)
-    return pdf_template.public_view(pdf_template.load_template(session))
+    return {**pdf_template.public_view(pdf_template.load_template(session)),
+            "inclure_acces": acces_remise.include_access(session)}
 
 
 @router.post("/pdf/logo")

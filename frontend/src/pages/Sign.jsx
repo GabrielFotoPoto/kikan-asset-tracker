@@ -37,10 +37,11 @@ export default function Sign() {
 
   const isRestitution = mode === "restitution";
 
-  useEffect(() => {
+  const loadRecap = () => {
     const path = isRestitution ? `/lifecycle/recap/${id}` : `/assignments/${id}/recap`;
-    api.get(path).then(setRecap).catch((e) => setErr(e.message));
-  }, [mode, id]);
+    return api.get(path).then(setRecap).catch((e) => setErr(e.message));
+  };
+  useEffect(() => { loadRecap(); }, [mode, id]);
 
   const message = (ex) => {
     try { return JSON.parse(ex.message).detail || ex.message; } catch { return ex.message; }
@@ -56,6 +57,8 @@ export default function Sign() {
         signature_image: !empty ? pad.current.toDataURL() : null,
         strokes: pad.current.stats().strokes,
         duration_ms: pad.current.stats().durationMs,
+        // Empreinte de la liste d'acces affichee : le serveur refuse de signer si elle a change entre-temps.
+        ...(!isRestitution && recap.acces_remise ? { acces_empreinte: recap.acces_remise.empreinte } : {}),
       };
       if (needDraw && empty) throw new Error("Veuillez signer dans le cadre.");
       const res = isRestitution
@@ -63,7 +66,9 @@ export default function Sign() {
         : await api.post(`/assignments/${id}/sign`, payload);
       setDone({ assignmentId: res.assignment_id, methode: res.methode });
     } catch (ex) {
-      setErr(message(ex));
+      const m = message(ex);
+      setErr(m);
+      if (/ont change/.test(m)) loadRecap();  // acces modifies pendant l'affichage : on recharge la liste
     } finally {
       setBusy(false);
     }
@@ -127,7 +132,9 @@ export default function Sign() {
 
   const declaration = isRestitution
     ? "Je reconnais avoir restitue le materiel ci-dessus."
-    : "Je reconnais avoir recu le materiel ci-dessus" + (recap.charte ? " et j'accepte la charte informatique ci-dessus." : ".");
+    : "Je reconnais avoir recu le materiel ci-dessus"
+      + (recap.acces_remise ? " et avoir pris connaissance des acces applicatifs qui m'ont ete accordes" : "")
+      + (recap.charte ? (recap.acces_remise ? "," : "") + " et j'accepte la charte informatique ci-dessus." : ".");
 
   return (
     <div>
@@ -151,6 +158,23 @@ export default function Sign() {
           </tbody>
         </table>
       </div>
+
+      {!isRestitution && recap.acces_remise && (
+        <div className="card">
+          <h3>Acces applicatifs accordes</h3>
+          {recap.acces_remise.liste.length === 0 ? (
+            <p className="muted">Aucun acces applicatif enregistre a ce jour.</p>
+          ) : (
+            <table>
+              <thead><tr><th>Application</th><th>Niveau / precision</th></tr></thead>
+              <tbody>
+                {recap.acces_remise.liste.map((a, i) => <tr key={i}><td>{a.application}</td><td>{a.niveau || "-"}</td></tr>)}
+              </tbody>
+            </table>
+          )}
+          <p className="muted">Cette liste sera reproduite dans le document signe.</p>
+        </div>
+      )}
 
       {!isRestitution && recap.charte && (
         <div className="card">

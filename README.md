@@ -169,6 +169,12 @@ La page **Paramétrage** (informatique) regroupe :
   Renommer met à jour tout le matériel ou toutes les fiches concernés.
 - **Marques et modèles** : outil de **fusion** des variantes (Dell, DELL, Dell Technologies) vers un nom unique, avec
   détection des variantes probables, aperçu du nombre de matériels touchés et confirmation. Opération atomique, tracée.
+- **Accès applicatifs dans l'accusé de remise** (option) : case à cocher « Inclure les accès applicatifs » dans l'onglet
+  Modèle de PDF (désactivée par défaut). L'accusé comporte alors une section **Accès applicatifs accordés** (accès accordés sur
+  des applications actives, avec leur niveau), **figée au moment de la signature**, et la déclaration signée le mentionne.
+  L'écran de signature affiche la même liste et en transmet l'empreinte : si les accès changent entre l'affichage et la
+  signature, celle-ci est refusée (rechargement), de sorte que le salarié signe exactement ce qu'il a vu. Le nombre d'accès et
+  l'empreinte de la liste sont enregistrés avec la signature. Sans effet sur la restitution.
 - **Modèle de PDF** : nom de l'organisation, **logo** (PNG ou JPEG, 300 Ko, 1000 x 400 px, ré-encodé par le serveur),
   mentions légales et pied de page, appliqués à l'accusé de remise, à l'accusé de restitution et au rapport PDF, avec un
   aperçu. Le modèle en vigueur est **figé dans chaque document signé** et son empreinte est enregistrée avec la
@@ -288,7 +294,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
 
 - **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
   chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), modification et suppression dans l'interface (A4, **fait**), interface de
-  paramétrage (A5, **fait**), gestion des comptes (A6, **fait**), accès applicatifs dans le document de remise (A7), autocomplétion des
+  paramétrage (A5, **fait**), gestion des comptes (A6, **fait**), accès applicatifs dans le document de remise (A7, **fait**), autocomplétion des
   modèles (A8).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par
   entité (B2), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API

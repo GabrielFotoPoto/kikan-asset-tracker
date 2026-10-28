@@ -35,6 +35,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 | Import CSV | Réservé à l'informatique (écriture et lecture des modèles). Simulation sans écriture ; l'import réel exige l'empreinte du fichier simulé et refuse tout fichier en erreur (tout ou rien). Fichiers binaires, trop gros (5 Mo) ou trop longs (20 000 lignes) refusés ; colonnes obligatoires vérifiées ; textes importés jamais interprétés (échappés à l'affichage, formules neutralisées à l'export). Journal : type, compteurs et empreinte, jamais le contenu. |
 | Modification et suppression | Un élément ayant un historique (salarié affecté, actif remis, entité ou application utilisée) ne peut pas être supprimé : refus explicite (409) plutôt qu'une perte de traçabilité. Les statuts d'actif et de salarié liés aux documents signés (affecté, rendu, sorti) ne se saisissent pas à la main. Suppression d'un salarié réservée à l'informatique. Le journal des modifications liste les champs changés, jamais les valeurs (données personnelles). |
 | Paramétrage | Page et routes réservées à l'informatique. Le logo du modèle de PDF est une image non fiable : PNG ou JPEG reconnus par leur contenu, taille et dimensions vérifiées avant décodage (bombes de décompression refusées), ré-encodage en PNG sans métadonnées. Textes du modèle échappés dans le PDF. Le modèle utilisé est figé dans chaque document signé (empreinte enregistrée). Fusions et changements tracés (noms de champs et empreintes, jamais de contenu). Les réglages qui conditionnent la valeur probante (signature manuscrite obligatoire, certificat, stockage) ne sont pas modifiables depuis l'interface. |
+| Accès dans l'accusé de remise | Option réservée à l'informatique. La liste des accès est calculée par le serveur au moment de la signature (jamais fournie par le client) et figée dans le PDF scellé ; l'écran de signature en transmet l'empreinte et le serveur refuse de signer si elle a changé (le salarié signe ce qu'il a vu). Nombre d'accès et empreinte enregistrés avec la signature ; textes échappés dans le PDF. |
 | Production | `KIKAN_ENV=production` masque la documentation interactive (`/docs`). |
 | Dépendances | Versions figées et auditées avec `pip-audit` et `npm audit` (aucune vulnérabilité connue à la date de la dernière vérification). |
 
@@ -91,6 +92,9 @@ docker run --rm -v "$PWD/backend/requirements.txt:/r.txt:ro" -v "$PWD/tests/audi
 
 # Signature manuscrite : images invalides ou piégées, nom non falsifiable, preuves, PDF scellé, restitution
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/signature_check.py
+
+# Accès applicatifs dans l'accusé de remise : option, instantané figé, empreinte, preuve
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/acces_pdf_check.py
 
 # Comptes : identifiant, mot de passe provisoire, changement imposé, révocation des sessions, garde-fous, audit
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/accounts_check.py

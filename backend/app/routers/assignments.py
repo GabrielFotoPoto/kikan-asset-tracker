@@ -46,6 +46,7 @@ from ..signature_image import (
     SignatureImageError,
     prepare_signature,
 )
+from .. import acces_remise
 from ..charte import append_annex, resolve_policy
 from ..signing import seal_pdf
 from ..filestore import read_document, sha256_hex, store_document
@@ -70,6 +71,7 @@ class SignRequest(BaseModel):
     consent: bool = False
     signature_image: str | None = Field(default=None, max_length=MAX_B64_CHARS)
     note: str | None = Field(default=None, max_length=500)
+    acces_empreinte: str | None = Field(default=None, max_length=64)  # empreinte de la liste d'acces affichee a l'ecran
     strokes: int | None = Field(default=None, ge=0, le=1000)      # nombre de traits (preuve)
     duration_ms: int | None = Field(default=None, ge=0, le=600000)  # duree du trace (preuve)
 
@@ -174,6 +176,7 @@ def recap(assignment_id: int, session: Session = Depends(get_session)):
             "id": policy.id, "titre": policy.titre, "version": policy.version, "nb_pages": policy.nb_pages,
             "sha256": policy.sha256, "texte": policy.texte,
         } if policy else None,
+        "acces_remise": acces_remise.recap_view(session, user.id),
     }
 
 
@@ -215,6 +218,13 @@ def sign_assignment(
     # La charte jointe est relue depuis le stockage et son empreinte controlee avant d'etre annexee.
     charte_pdf = read_pdf(policy) if policy and policy.fichier_ref else None
     template = load_template(session)
+    acces_items = None
+    acces_fp = None
+    if acces_remise.include_access(session):
+        acces_items = acces_remise.snapshot(session, user.id)
+        acces_fp = acces_remise.fingerprint(acces_items)
+        if data.acces_empreinte and data.acces_empreinte != acces_fp:
+            raise HTTPException(409, "Les acces applicatifs ont change depuis l'affichage : rechargez l'ecran avant de signer")
     now = datetime.utcnow()
     pdf = build_receipt(
         user=user_d,
@@ -229,6 +239,7 @@ def sign_assignment(
         temoin=account.username,
         signed_at=now,
         template=template,
+        acces=acces_items,
     )
     if charte_pdf:
         pdf = append_annex(pdf, charte_pdf)
@@ -250,6 +261,7 @@ def sign_assignment(
             "temoin": account.username, "ip": client_ip(request),
             "user_agent": (request.headers.get("user-agent") or "")[:200],
             "image": image_meta, "traits": data.strokes, "duree_ms": data.duration_ms,
+            "acces": None if acces_items is None else {"nb": len(acces_items), "sha256": acces_fp},
             "modele_pdf": None if template["vide"] else {"sha256": template["sha256"], "logo": bool(template["logo"])},
             "charte": {"id": policy.id, "titre": policy.titre, "version": policy.version,
                        "sha256": policy.sha256, "entite_id": policy.entite_id} if charte_pdf else None,

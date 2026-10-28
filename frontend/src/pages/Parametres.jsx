@@ -214,14 +214,14 @@ function MergeTool({ setErr, setMsg }) {
 }
 
 function PdfTemplate({ setErr, setMsg }) {
-  const [form, setForm] = useState({ organisation: "", mentions: "", pied: "" });
+  const [form, setForm] = useState({ organisation: "", mentions: "", pied: "", inclure_acces: false });
   const [logo, setLogo] = useState(null);
   const [apercu, setApercu] = useState(null);
   const [version, setVersion] = useState(0);
 
   const load = async () => {
     const t = await api.get("/parametres/pdf");
-    setForm({ organisation: t.organisation, mentions: t.mentions, pied: t.pied });
+    setForm({ organisation: t.organisation, mentions: t.mentions, pied: t.pied, inclure_acces: !!t.inclure_acces });
     setLogo(t.logo ? await fetchDataUrl("/parametres/pdf/logo") : null);
   };
   useEffect(() => { load().catch((e) => setErr(errorText(e))); }, []);
@@ -269,6 +269,10 @@ function PdfTemplate({ setErr, setMsg }) {
           <label>Pied de page (une ligne)<input value={form.pied} maxLength={300} onChange={set("pied")} /></label>
           <label style={{ gridColumn: "1 / -1" }}>Mentions legales
             <textarea rows={4} value={form.mentions} maxLength={1500} onChange={set("mentions")} />
+          </label>
+          <label className="check" style={{ gridColumn: "1 / -1" }}>
+            <input type="checkbox" checked={form.inclure_acces} onChange={(e) => setForm({ ...form, inclure_acces: e.target.checked })} />
+            <span>Inclure les acces applicatifs du salarie dans l'accuse de remise (liste figee au moment de la signature)</span>
           </label>
           <div style={{ alignSelf: "end" }}><button type="submit">Enregistrer</button></div>
         </form>

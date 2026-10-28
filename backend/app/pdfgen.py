@@ -23,7 +23,7 @@ from xml.sax.saxutils import escape
 from PIL import Image as PILImage
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
     Image,
@@ -52,6 +52,7 @@ def build_receipt(
     temoin: str | None = None,
     signed_at: datetime | None = None,
     template: dict | None = None,
+    acces: list[dict] | None = None,
 ) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, title=title)
@@ -90,6 +91,26 @@ def build_receipt(
     story.append(table)
     story.append(Spacer(1, 8 * mm))
 
+    if acces is not None and kind == "remise":
+        # Instantane des acces applicatifs accordes au moment de la signature.
+        story.append(Paragraph("Acces applicatifs accordes", styles["Heading2"]))
+        if acces:
+            rows = [["Application", "Niveau / precision"]] + [[a["application"], a.get("niveau") or "-"] for a in acces]
+            cell = ParagraphStyle("cell", parent=styles["Normal"], fontSize=9, leading=11)
+            rows = [rows[0]] + [[Paragraph(escape(c), cell) for c in r] for r in rows[1:]]
+            acc_table = Table(rows, repeatRows=1, colWidths=[70 * mm, 95 * mm], hAlign="LEFT")
+            acc_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b4c7e")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("FONTSIZE", (0, 0), (-1, 0), 9),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]))
+            story.append(acc_table)
+        else:
+            story.append(Paragraph("Aucun acces applicatif enregistre a ce jour.", styles["Normal"]))
+        story.append(Spacer(1, 8 * mm))
+
     if policy_text:
         story.append(Paragraph("Charte informatique", styles["Heading2"]))
         for para in policy_text.split("\n"):
@@ -97,18 +118,20 @@ def build_receipt(
                 story.append(Paragraph(escape(para), styles["Normal"]))
         story.append(Spacer(1, 8 * mm))
 
+    prise_connaissance = " et avoir pris connaissance des acces applicatifs qui m'ont ete accordes" if acces is not None and kind == "remise" else ""
+    virgule = "," if prise_connaissance else ""
     if kind == "restitution":
         declaration = "Je reconnais avoir restitue le materiel ci-dessus."
     elif charte_info:
         declaration = (
-            "Je reconnais avoir recu le materiel ci-dessus et accepte la charte informatique "
+            "Je reconnais avoir recu le materiel ci-dessus" + prise_connaissance + virgule + " et accepte la charte informatique "
             f"({charte_info['titre']}, version {charte_info['version']}, empreinte {charte_info['sha256'][:8]}), "
             f"jointe en annexe de ce document ({charte_info['nb_pages']} page(s))."
         )
     elif policy_text:
-        declaration = "Je reconnais avoir recu le materiel ci-dessus et accepte la charte informatique."
+        declaration = "Je reconnais avoir recu le materiel ci-dessus" + prise_connaissance + virgule + " et accepte la charte informatique."
     else:
-        declaration = "Je reconnais avoir recu le materiel ci-dessus."
+        declaration = "Je reconnais avoir recu le materiel ci-dessus" + prise_connaissance + "."
 
     # Bloc de signature : insecable (jamais coupe entre deux pages).
     block = [
