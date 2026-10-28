@@ -22,9 +22,10 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
 from .. import filestore as storage
+from ..audit import audit
 from ..auth import require_roles
 from ..db import get_session
-from ..models import Signature
+from ..models import Account, Signature
 
 router = APIRouter(
     prefix="/storage", tags=["storage"],
@@ -50,6 +51,8 @@ def status(session: Session = Depends(get_session)):
     return {
         "active": storage.ACTIVE,
         "backends": list(storage.BACKENDS),
+        "description": storage.describe_active(),
+        "documents_seulement": storage.ACTIVE in storage.DOCUMENT_ONLY,
         "documents": {"par_backend": dict(per_backend), "en_attente_de_depot": pending,
                       "references_illisibles": unreadable},
     }
@@ -59,6 +62,16 @@ def status(session: Session = Depends(get_session)):
 def test_connection():
     """Ecrit, relit et supprime un petit fichier de test sur le stockage actif."""
     return storage.check_active()
+
+
+@router.post("/migrer")
+def migrate(dry_run: bool = True, session: Session = Depends(get_session),
+            admin: Account = Depends(require_roles("informatique"))):
+    """Copie vers le moteur actif les documents rangés sur un autre moteur distant (simulation par defaut, aucune suppression)."""
+    result = storage.migrate_to_active(session, dry_run=dry_run)
+    if not dry_run:
+        audit(admin.username, "stockage_copie", detail=f"{result['copies']} copie(s), {result['echecs']} echec(s)")
+    return result
 
 
 @router.post("/sync")

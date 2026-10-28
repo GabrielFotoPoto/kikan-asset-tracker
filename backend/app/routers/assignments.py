@@ -50,7 +50,7 @@ from ..signature_image import (
 from .. import acces_remise
 from ..charte import append_annex, resolve_policy
 from ..signing import seal_pdf
-from ..filestore import read_document, sha256_hex, store_document
+from ..filestore import meta_for, read_document, sha256_hex, store_document
 from ..scope import Scope, scope_dep, visible_assignment
 from .besoins import OUVERTS, settle
 
@@ -256,7 +256,8 @@ def sign_assignment(
     empreinte = hashlib.sha256(sealed).hexdigest()
 
     # Rangement par annee (AAAA/...) sur le stockage actif (volume, partage SMB ou WebDAV).
-    reference = store_document(f"{now.year}/remise_{assignment_id}_{now:%Y%m%d%H%M%S}.pdf", sealed)
+    reference = store_document(f"{now.year}/remise_{assignment_id}_{now:%Y%m%d%H%M%S}.pdf", sealed,
+                               meta_for("Remise", now.year, assignment_id, entite, user, now))
 
     signature = Signature(
         assignment_id=assignment_id,

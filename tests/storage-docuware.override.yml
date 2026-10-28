@@ -1,0 +1,17 @@
+# Surcharge de TEST : DocuWare (faux serveur integre a tests/documents_check.py, 127.0.0.1:2620) + WebDAV factice (:2630)
+# comme ancien emplacement pour l'outil de copie. Retour a la normale : docker compose up -d --force-recreate api
+services:
+  api:
+    environment:
+      KIKAN_STORAGE_BACKEND: docuware
+      KIKAN_DOCUWARE_URL: http://127.0.0.1:2620/DocuWare/Platform
+      KIKAN_DOCUWARE_USER: zz-svc
+      KIKAN_DOCUWARE_PASSWORD: zz-password-test-0123456789
+      KIKAN_DOCUWARE_CABINET: Kikan
+      KIKAN_DOCUWARE_ALLOW_HTTP: "true"
+      KIKAN_DOCUWARE_FIELDS: '{"type":"TYPE_DOC","annee":{"champ":"ANNEE","type":"Int"},"numero":{"champ":"NUMERO","type":"Int"},"entite":"ENTITE","cle":"CLE_KIKAN"}'
+      KIKAN_STORAGE_TIMEOUT_SEC: "5"
+      KIKAN_WEBDAV_URL: http://127.0.0.1:2630/dav
+      KIKAN_WEBDAV_USER: zz
+      KIKAN_WEBDAV_PASSWORD: zz
+      KIKAN_WEBDAV_ALLOW_HTTP: "true"

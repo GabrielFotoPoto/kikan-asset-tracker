@@ -1,0 +1,20 @@
+# Surcharge de TEST : SharePoint (faux Microsoft Graph integre a tests/documents_check.py, 127.0.0.1:2610) + WebDAV factice (:2630)
+# comme ancien emplacement pour l'outil de copie. Retour a la normale : docker compose up -d --force-recreate api
+services:
+  api:
+    environment:
+      KIKAN_STORAGE_BACKEND: sharepoint
+      KIKAN_SHAREPOINT_TENANT_ID: zz-tenant
+      KIKAN_SHAREPOINT_CLIENT_ID: zz-client
+      KIKAN_SHAREPOINT_CLIENT_SECRET: zz-secret-test-0123456789
+      KIKAN_SHAREPOINT_SITE: "zz.sharepoint.test:/sites/Kikan"
+      KIKAN_SHAREPOINT_LIBRARY: Documents
+      KIKAN_SHAREPOINT_FOLDER: Kikan
+      KIKAN_SHAREPOINT_AUTHORITY: http://127.0.0.1:2610
+      KIKAN_SHAREPOINT_GRAPH: http://127.0.0.1:2610/v1.0
+      KIKAN_SHAREPOINT_ALLOW_HTTP: "true"
+      KIKAN_STORAGE_TIMEOUT_SEC: "5"
+      KIKAN_WEBDAV_URL: http://127.0.0.1:2630/dav
+      KIKAN_WEBDAV_USER: zz
+      KIKAN_WEBDAV_PASSWORD: zz
+      KIKAN_WEBDAV_ALLOW_HTTP: "true"

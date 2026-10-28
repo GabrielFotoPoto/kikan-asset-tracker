@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Stockage des PDF scelles : volume local, partage reseau (SMB) ou partage web (WebDAV).
+"""Stockage des PDF scelles : volume local, partage reseau (SMB), partage web (WebDAV), SharePoint Online ou DocuWare.
 
 Principes :
 - Le PDF est TOUJOURS ecrit d'abord dans le volume local (tampon durable). Avec un backend
@@ -44,7 +44,11 @@ log = logging.getLogger("kikan.filestore")
 LOCAL_ROOT = os.environ.get("KIKAN_ARCHIVE_DIR", "/archive")
 ACTIVE = os.environ.get("KIKAN_STORAGE_BACKEND", "local").strip().lower()
 TIMEOUT = int(os.environ.get("KIKAN_STORAGE_TIMEOUT_SEC", "15"))
-BACKENDS = ("local", "smb", "webdav")
+BACKENDS = ("local", "smb", "webdav", "sharepoint", "docuware")
+# SharePoint et DocuWare ne recoivent QUE les PDF scelles (remises et restitutions) : les autres fichiers (chartes) restent
+# dans le volume local de Kikan. Un seul moteur est actif a la fois.
+DOCUMENT_ONLY = ("sharepoint", "docuware")
+LOCAL_ONLY_PREFIXES = ("chartes/",)
 
 _KEY_RE = re.compile(r"^[A-Za-z0-9_.\-]+(/[A-Za-z0-9_.\-]+)*$")
 
@@ -82,7 +86,7 @@ class LocalBackend:
             raise StorageError("Chemin hors du volume de stockage")
         return path
 
-    def write(self, key: str, data: bytes) -> None:
+    def write(self, key: str, data: bytes, meta: dict | None = None) -> str | None:
         path = self._path(key)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp = f"{path}.{uuid.uuid4().hex}.tmp"
@@ -210,7 +214,7 @@ class SmbBackend:
         except Exception as exc:  # noqa: BLE001
             raise self._wrap(action, exc) from exc
 
-    def write(self, key: str, data: bytes) -> None:
+    def write(self, key: str, data: bytes, meta: dict | None = None) -> str | None:
         def op():
             smb = self._smbclient()
             smb.makedirs(self._unc(key).rsplit("\\", 1)[0], exist_ok=True)
@@ -301,7 +305,7 @@ class WebDavBackend:
             url = self._url("/".join(parts[: i + 1]))
             self._request("MKCOL", url, ok=(200, 201, 204, 301, 405))  # 405 = existe deja
 
-    def write(self, key: str, data: bytes) -> None:
+    def write(self, key: str, data: bytes, meta: dict | None = None) -> str | None:
         self._ensure_dirs(key)
         self._request("PUT", self._url(key), data=data)
 
@@ -329,13 +333,29 @@ def get_backend(name: str):
         raise StorageError(f"Backend de stockage inconnu : {name}")
     with _instances_lock:
         if name not in _instances:
-            _instances[name] = {"local": LocalBackend, "smb": SmbBackend, "webdav": WebDavBackend}[name]()
+            if name == "sharepoint":
+                from .storage_sharepoint import SharePointBackend
+                _instances[name] = SharePointBackend()
+            elif name == "docuware":
+                from .storage_docuware import DocuWareBackend
+                _instances[name] = DocuWareBackend()
+            else:
+                _instances[name] = {"local": LocalBackend, "smb": SmbBackend, "webdav": WebDavBackend}[name]()
         return _instances[name]
+
+
+def describe_active() -> dict:
+    """Reglages non secrets du moteur actif (site, bibliotheque, armoire...), pour la page Stockage."""
+    try:
+        backend = get_backend(active_name())
+    except StorageError as exc:
+        return {"erreur": str(exc)}
+    return backend.describe() if hasattr(backend, "describe") else {}
 
 
 def active_name() -> str:
     if ACTIVE not in BACKENDS:
-        raise StorageError(f"KIKAN_STORAGE_BACKEND invalide : {ACTIVE} (local, smb ou webdav)")
+        raise StorageError(f"KIKAN_STORAGE_BACKEND invalide : {ACTIVE} (local, smb, webdav, sharepoint ou docuware)")
     return ACTIVE
 
 
@@ -357,42 +377,54 @@ def parse_reference(ref: str) -> tuple[str, str]:
     raise StorageError("Reference de document non reconnue")
 
 
+def target_for(key: str) -> str:
+    """Moteur de destination d'une cle : le moteur actif, sauf les fichiers qui ne vont pas dans SharePoint ni DocuWare."""
+    if ACTIVE in DOCUMENT_ONLY and key.startswith(LOCAL_ONLY_PREFIXES):
+        return "local"
+    return active_name()
+
+
 def is_pending(ref: str | None) -> bool:
-    """Document encore dans le tampon local alors qu'un partage distant est configure."""
+    """Document encore dans le tampon local alors qu'il devrait etre sur le moteur distant actif."""
     if not ref or ACTIVE == "local":
         return False
     try:
-        return parse_reference(ref)[0] == "local"
+        backend, key = parse_reference(ref)
+        return backend == "local" and target_for(key) != "local"
     except StorageError:
         return False
 
 
 # --- API haut niveau ---
 
-def _push_verified(backend_name: str, key: str, data: bytes) -> None:
+def _push_verified(backend_name: str, key: str, data: bytes, meta: dict | None = None) -> str:
+    """Depose, relit et compare l'empreinte. Retourne la cle de stockage (celle du moteur : DocuWare y ajoute l'identifiant)."""
     remote = get_backend(backend_name)
-    remote.write(key, data)
-    if sha256_hex(remote.read(key)) != sha256_hex(data):
+    stored = remote.write(key, data, meta) or key
+    if sha256_hex(remote.read(stored)) != sha256_hex(data):
         raise StorageError("Verification du depot echouee (empreinte differente)")
+    return stored
 
 
-def store_document(key: str, data: bytes) -> str:
-    """Enregistre un PDF scelle et renvoie sa reference (jamais d'echec si le local fonctionne)."""
+def store_document(key: str, data: bytes, meta: dict | None = None) -> str:
+    """Enregistre un document (PDF scelle) et renvoie sa reference (jamais d'echec si le local fonctionne).
+
+    `meta` : informations d'indexation facultatives (type, annee, entite, numero...) pour les moteurs qui indexent (DocuWare)."""
     safe_key(key)
     local = get_backend("local")
     local.write(key, data)  # tampon durable : si ceci echoue, la signature doit echouer
-    target = active_name()
+    target = target_for(key)
     if target == "local":
         return make_reference("local", key)
     try:
-        _push_verified(target, key, data)
+        stored = _push_verified(target, key, data, meta)
     except Exception as exc:  # noqa: BLE001
         from .audit import audit
         log.error("Depot sur %s differe pour %s : %s", target, key, exc)
         audit("systeme", "depot_differe", target=key, detail=f"{target}: {exc}"[:500])
         return make_reference("local", key)
     local.delete(key)  # tampon purge uniquement apres depot verifie
-    return make_reference(target, key)
+    return make_reference(target, stored)
 
 
 def read_document(reference: str) -> bytes:
@@ -408,21 +440,108 @@ def delete_document(reference: str) -> None:
         log.warning("Suppression du document impossible : %s", exc)
 
 
+def _test_pdf(token: str) -> bytes:
+    import io
+    from reportlab.pdfgen import canvas
+
+    buf = io.BytesIO()
+    pdf = canvas.Canvas(buf, invariant=1)
+    pdf.drawString(60, 760, "Kikan - test de depot (a supprimer) " + token)
+    pdf.save()
+    return buf.getvalue()
+
+
+def meta_for(kind: str, year, numero=None, entite=None, user=None, when=None) -> dict:
+    """Informations d'indexation d'un PDF scelle. Le moteur n'envoie que les champs que l'administrateur a associes."""
+    meta = {"type": kind, "annee": str(year)}
+    if numero is not None:
+        meta["numero"] = str(numero)
+    if entite is not None and getattr(entite, "nom", None):
+        meta["entite"] = entite.nom
+    if user is not None:
+        if getattr(user, "matricule", None):
+            meta["matricule"] = user.matricule
+        meta["salarie"] = f"{user.prenom} {user.nom}".strip()
+    if when is not None:
+        meta["date"] = when.date().isoformat() if hasattr(when, "date") else str(when)
+    return meta
+
+
+def signature_meta(session, sig) -> dict:
+    """Informations d'indexation reconstituees depuis la base (synchronisation, copie vers un autre moteur)."""
+    from .models import Assignment, Entite, User
+
+    try:
+        _, key = parse_reference(sig.ged_reference or "")
+    except StorageError:
+        key = ""
+    name = key.rsplit("/", 1)[-1]
+    kind = "Restitution" if name.startswith("restitution") else "Remise"
+    year = key.split("/")[0] if "/" in key else ""
+    user = None
+    numero = None
+    if kind == "Remise":
+        assignment = session.get(Assignment, sig.assignment_id)
+        numero = sig.assignment_id
+        user = session.get(User, assignment.user_id) if assignment else None
+    entite = session.get(Entite, user.entite_id) if user and user.entite_id else None
+    return meta_for(kind, year, numero, entite, user, sig.horodatage)
+
+
 def check_active() -> dict:
     """Ecrit, relit et supprime un petit fichier de test sur le backend actif."""
     name = active_name()
     started = time.time()
-    key = f"_kikan_test/{uuid.uuid4().hex}.txt"
-    payload = b"kikan storage check " + uuid.uuid4().bytes
+    key = f"_kikan_test/{uuid.uuid4().hex}.pdf"
+    payload = _test_pdf(uuid.uuid4().hex)   # un vrai PDF : certains moteurs (DocuWare) refusent un fichier qui n'en est pas un
+    stored = key
     try:
         backend = get_backend(name)
-        backend.write(key, payload)
-        ok = backend.read(key) == payload
-        backend.delete(key)
+        stored = backend.write(key, payload, {"type": "Test", "annee": "test"}) or key
+        ok = backend.read(stored) == payload
+        backend.delete(stored)
         return {"backend": name, "ok": ok, "latency_ms": int((time.time() - started) * 1000),
                 "detail": "ecriture, lecture et suppression reussies" if ok else "contenu relu different"}
     except StorageError as exc:
         return {"backend": name, "ok": False, "latency_ms": int((time.time() - started) * 1000), "detail": str(exc)}
+
+
+def migrate_to_active(session, dry_run: bool = True) -> dict:
+    """Copie vers le moteur actif les documents rangés sur un AUTRE moteur distant (SMB, WebDAV...). Rien n'est supprime
+    de l'ancien emplacement ; chaque copie est relue et comparee a l'empreinte enregistree avant que la reference change."""
+    from sqlmodel import select
+    from .models import Signature
+
+    result = {"active": ACTIVE, "a_copier": 0, "copies": 0, "echecs": 0, "erreurs": [], "simulation": dry_run}
+    if ACTIVE == "local":
+        result["erreurs"].append({"detail": "Choisissez d'abord un moteur distant (KIKAN_STORAGE_BACKEND)"})
+        return result
+    for sig in session.exec(select(Signature)).all():
+        if not sig.ged_reference:
+            continue
+        try:
+            backend, key = parse_reference(sig.ged_reference)
+        except StorageError:
+            continue
+        if backend in ("local", ACTIVE):   # le tampon local est repris par la synchronisation, pas par la copie
+            continue
+        result["a_copier"] += 1
+        if dry_run:
+            continue
+        try:
+            data = get_backend(backend).read(key)
+            if sig.empreinte_doc and sha256_hex(data) != sig.empreinte_doc:
+                raise StorageError("Empreinte de l'ancien document differente de celle enregistree")
+            stored = _push_verified(target_for(key), key, data, signature_meta(session, sig))
+            sig.ged_reference = make_reference(target_for(key), stored)
+            session.add(sig)
+            session.commit()
+            result["copies"] += 1
+        except Exception as exc:  # noqa: BLE001
+            session.rollback()
+            result["echecs"] += 1
+            result["erreurs"].append({"signature_id": sig.id, "detail": str(exc)[:200]})
+    return result
 
 
 def sync_pending(session) -> dict:
@@ -442,8 +561,8 @@ def sync_pending(session) -> dict:
             data = get_backend("local").read(key)
             if sig.empreinte_doc and sha256_hex(data) != sig.empreinte_doc:
                 raise StorageError("Empreinte du tampon local differente de celle enregistree")
-            _push_verified(ACTIVE, key, data)
-            sig.ged_reference = make_reference(ACTIVE, key)
+            stored = _push_verified(target_for(key), key, data, signature_meta(session, sig))
+            sig.ged_reference = make_reference(target_for(key), stored)
             session.add(sig)
             session.commit()
             get_backend("local").delete(key)

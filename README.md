@@ -335,14 +335,20 @@ macros, liens externes, archives piégées.
 
 ## Stockage des documents (PDF scellés)
 
-Les remises et restitutions signées sont des PDF scellés, rangés **par année** (`AAAA/...`). Trois emplacements
-sont possibles, choisis dans `.env` avec `KIKAN_STORAGE_BACKEND` :
+Les remises et restitutions signées sont des PDF scellés, rangés **par année** (`AAAA/...`). Cinq emplacements
+sont possibles (un seul actif à la fois), choisis dans `.env` avec `KIKAN_STORAGE_BACKEND` :
 
 | Valeur | Emplacement | Variables principales |
 |---|---|---|
 | `local` (défaut) | volume Docker du serveur | aucune |
 | `smb` | **lecteur réseau** Windows ou Samba (`\\serveur\partage`), SMB 3 chiffré, sans montage | `KIKAN_SMB_SERVER`, `KIKAN_SMB_SHARE`, `KIKAN_SMB_PATH`, `KIKAN_SMB_USER`, `KIKAN_SMB_PASSWORD`, `KIKAN_SMB_DOMAIN` |
 | `webdav` | **partage de fichiers web** (HTTPS, WebDAV) | `KIKAN_WEBDAV_URL`, `KIKAN_WEBDAV_USER` et `KIKAN_WEBDAV_PASSWORD` (ou `KIKAN_WEBDAV_TOKEN`), `KIKAN_WEBDAV_CA_BUNDLE` |
+| `sharepoint` | **SharePoint Online** (Microsoft Graph, permission `Sites.Selected` limitée à un site) : [docs/SHAREPOINT.md](docs/SHAREPOINT.md) | `KIKAN_SHAREPOINT_TENANT_ID`, `_CLIENT_ID`, `_CLIENT_SECRET`, `_SITE`, `_LIBRARY`, `_FOLDER` |
+| `docuware` | **DocuWare** (armoire et champs d'index, compte de service) : [docs/DOCUWARE.md](docs/DOCUWARE.md) | `KIKAN_DOCUWARE_URL`, `_USER`, `_PASSWORD`, `_CABINET`, `_FIELDS` |
+
+**SharePoint et DocuWare ne reçoivent que les PDF scellés** (remises et restitutions) ; les chartes restent dans le volume local de Kikan.
+Ces deux moteurs sont testés contre de faux services (dépôt, relecture, gros fichiers, jeton expiré, panne) mais **pas encore sur un vrai
+tenant** : le bouton *Tester la connexion* de la page Stockage valide votre configuration en quelques secondes.
 
 Fonctionnement, pensé pour ne jamais perdre une preuve :
 
@@ -352,8 +358,15 @@ Fonctionnement, pensé pour ne jamais perdre une preuve :
   plus tard, automatiquement au démarrage de l'API ou depuis la page **Stockage** (« Reprendre les dépôts en attente »).
 - À chaque lecture, l'empreinte est comparée à celle enregistrée à la signature : un fichier **altéré sur le partage
   est détecté** (lecture refusée et alerte dans le journal d'audit).
-- La page **Stockage** (rôle informatique) affiche l'emplacement actif, le nombre de documents par emplacement,
-  permet de tester la connexion et de reprendre les dépôts en attente.
+- La page **Stockage** (rôle informatique) affiche l'emplacement actif et ses réglages non secrets, le nombre de documents par
+  emplacement, permet de tester la connexion, de reprendre les dépôts en attente et de **copier vers le stockage actif** les documents
+  rangés ailleurs (simulation d'abord, empreinte vérifiée, rien n'est supprimé de l'ancien emplacement).
+
+![SharePoint Online : réglages, documents et test de dépôt](docs/captures/stockage-sharepoint.png)
+
+![DocuWare : armoire, champs d'index associés et test de dépôt](docs/captures/stockage-docuware.png)
+
+*Captures réalisées avec de faux services de démonstration.*
 - La purge RGPD supprime aussi les fichiers sur le partage, une fois la base validée.
 
 Pour un WebDAV avec un certificat d'autorité interne, déposer le certificat (PEM) dans `./ca/` et définir
@@ -433,7 +446,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   modèles (A8, **fait**).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1, **fait**, à valider sur votre tenant), comptes cloisonnés par
   entité (B2, **fait**), rappels par e-mail (B3, **fait**), rapport mensuel automatique (B4, **fait**), connecteur GLPI et API d'import (B5, **fait**), dépôt via l'API
-  SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7, **fait**), import et export Excel (B8, **fait**).
+  SharePoint Online et DocuWare (B6, **fait**), besoins matériels saisis par les RH (B7, **fait**), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : statistiques exportables (C1), revue périodique des droits d'accès (C2), prévision des
   renouvellements (C3), étiquettes et QR codes (C4), pièces jointes (C5).
 - **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).

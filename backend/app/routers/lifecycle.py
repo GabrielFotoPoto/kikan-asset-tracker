@@ -50,7 +50,7 @@ from ..signature_image import (
     prepare_signature,
 )
 from ..signing import seal_pdf
-from ..filestore import store_document
+from ..filestore import meta_for, store_document
 
 router = APIRouter(
     prefix="/lifecycle", tags=["lifecycle"],
@@ -181,7 +181,8 @@ def restituer(
     empreinte = hashlib.sha256(sealed).hexdigest()
 
     # Rangement par annee (AAAA/...) sur le stockage actif (volume, partage SMB ou WebDAV).
-    reference = store_document(f"{now.year}/restitution_{data.user_id}_{now:%Y%m%d%H%M%S}.pdf", sealed)
+    reference = store_document(f"{now.year}/restitution_{data.user_id}_{now:%Y%m%d%H%M%S}.pdf", sealed,
+                               meta_for("Restitution", now.year, None, entite, user, now))
 
     # Marque les actifs rendus.
     for asset in assets:
