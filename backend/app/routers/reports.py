@@ -28,6 +28,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from .. import xlsx_io
 from ..pdf_template import footer_callback, header_flowables, load_template, mentions_flowables
 from sqlmodel import Session, select
 
@@ -146,7 +147,7 @@ def _pdf(rows: list[dict], jour: str, template: dict | None = None) -> bytes:
 
 @router.get("/holdings")
 def holdings_report(
-    format: str = Query("json", pattern="^(json|csv|pdf)$"),
+    format: str = Query("json", pattern="^(json|csv|pdf|xlsx)$"),
     entite_id: int | None = None,
     service: str | None = None,
     session: Session = Depends(get_session),
@@ -158,6 +159,15 @@ def holdings_report(
             content=_csv(rows),
             media_type="text/csv; charset=utf-8",
             headers={"Content-Disposition": f'attachment; filename="kikan-detentions-{jour}.csv"'},
+        )
+    if format == "xlsx":
+        content = xlsx_io.build_table(
+            "Detentions", [label for _, label in COLUMNS], [[r[key] for key, _ in COLUMNS] for r in rows],
+            date_columns={[k for k, _ in COLUMNS].index("date_remise")})
+        return Response(
+            content=content,
+            media_type=xlsx_io.XLSX_MIME,
+            headers={"Content-Disposition": f'attachment; filename="kikan-detentions-{jour}.xlsx"'},
         )
     if format == "pdf":
         return Response(

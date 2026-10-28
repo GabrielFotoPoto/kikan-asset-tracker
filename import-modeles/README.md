@@ -1,6 +1,6 @@
 # Modèles d'import Kikan
 
-Fichiers CSV pour la reprise de l'existant. L'import Excel (.xlsx) est prévu en v0.2 ; en attendant, enregistrer le classeur en CSV.
+Fichiers CSV pour la reprise de l'existant. L'import Excel (.xlsx) est pris en charge ; des modèles Excel (listes déroulantes, feuille d'aide) sont téléchargeables depuis la page Import.
 
 ## Règles de format
 - **Encodage** : UTF-8 ou Windows-1252 (export Excel), détecté automatiquement.

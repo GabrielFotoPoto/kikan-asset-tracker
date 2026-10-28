@@ -217,7 +217,13 @@ ignoré, ce qui permet de rejouer un fichier sans doublon. Format : UTF-8 ou Win
 `;` ou `,` (détectés), dates `AAAA-MM-JJ`, booléens `oui/non`. Ordre conseillé : entités, applications, utilisateurs,
 matériel, affectations, accès. Plafonds : `KIKAN_MAX_IMPORT_MB` (5 Mo), `KIKAN_MAX_IMPORT_ROWS` (20 000 lignes).
 Chaque simulation et chaque import sont tracés dans le journal d'audit (type, compteurs, empreinte, sans contenu).
-Excel (.xlsx) est prévu en v0.2 (B8).
+**Excel (.xlsx)** : la page Import accepte aussi un classeur, avec le même parcours (simulation, tout ou rien,
+empreinte). Première feuille visible, en-têtes en ligne 1, lignes vides ignorées (les numéros de ligne du rapport restent ceux
+du classeur), dates Excel et nombres convertis (un matricule 1001 reste « 1001 »). Les formules ne sont jamais évaluées : on lit
+la valeur enregistrée par Excel, et une formule sans valeur enregistrée est signalée en erreur. Des **modèles Excel** (listes
+déroulantes, colonnes au format texte, feuille d'aide) sont téléchargeables, et le **rapport de détention** s'exporte en Excel
+(en-têtes, filtre, dates typées, contenu toujours écrit comme du texte). Refusés : `.xls`, classeurs protégés par mot de passe,
+macros, liens externes, archives piégées.
 
 ## Stockage des documents (PDF scellés)
 
@@ -287,6 +293,7 @@ backend/            API FastAPI
     signing.py      scellement PAdES
     pdfgen.py       generation des PDF
     importer.py     lecture CSV (encodage, separateur)
+    xlsx_io.py      lecture et ecriture de classeurs Excel (.xlsx), modeles et export
     rules.py        regles de modification et de suppression protegee
     catalogs.py     listes souples (types d'actifs, services)
     asset_catalog.py catalogue marques/modeles : recherche assistee, graphie canonique
@@ -316,7 +323,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   modèles (A8, **fait**).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par
   entité (B2), rappels par e-mail (B3), rapport mensuel automatique (B4), connecteur GLPI (B5), dépôt via l'API
-  SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7), import et export Excel (B8).
+  SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : statistiques exportables (C1), revue périodique des droits d'accès (C2), prévision des
   renouvellements (C3), étiquettes et QR codes (C4), pièces jointes (C5).
 - **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).

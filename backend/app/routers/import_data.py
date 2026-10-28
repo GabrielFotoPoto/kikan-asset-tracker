@@ -20,7 +20,7 @@ import hashlib
 import os
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlmodel import Session, select
 
 from ..audit import audit
@@ -28,6 +28,7 @@ from ..auth import get_current_account, require_roles, writer_guard
 from ..asset_catalog import AssetCatalog
 from ..catalogs import canonical_service, canonical_type
 from ..db import get_session
+from .. import xlsx_io
 from ..importer import as_bool, as_date, as_str, read_csv
 from ..models import (
     Account,
@@ -172,6 +173,15 @@ class Report:
         self.skipped += 1
         self._line(ligne, "ignorer", message)
 
+    def remap(self, numbers: list[int]) -> None:
+        """Remet les numeros de ligne du classeur (les lignes vides ignorees decalent la numerotation)."""
+        def real(i: int) -> int:
+            return numbers[i - 2] if 0 <= i - 2 < len(numbers) else i
+        for e in self.errors:
+            e["ligne"] = real(e["ligne"])
+        for l in self.lignes:
+            l["ligne"] = real(l["ligne"])
+
     def dict(self):
         return {
             "kind": self.kind,
@@ -187,6 +197,16 @@ class Report:
         }
 
 
+def _formula_row(rep: "Report", i: int, row: dict) -> bool:
+    """Ligne dont une cellule est une formule sans valeur enregistree : jamais importee."""
+    cols = row.get("__formule")
+    if not cols:
+        return False
+    rep.error(i, f"formule sans valeur enregistree (colonne : {cols}) : ouvrez le classeur dans Excel, "
+                 "enregistrez-le puis deposez-le de nouveau")
+    return True
+
+
 def _entite_map(session: Session) -> dict[str, int]:
     return {e.code: e.id for e in session.exec(select(Entite)).all()}
 
@@ -195,6 +215,8 @@ def _import_entites(rows, session, rep):
     existing = set(_entite_map(session).keys())
     for i, row in enumerate(rows, start=2):
         rep.total += 1
+        if _formula_row(rep, i, row):
+            continue
         code = as_str(row.get("code"))
         nom = as_str(row.get("nom"))
         if not code or not nom:
@@ -216,6 +238,8 @@ def _import_applications(rows, session, rep):
     existing = {((a.nom or "").lower(), a.entite_id) for a in session.exec(select(Application)).all()}
     for i, row in enumerate(rows, start=2):
         rep.total += 1
+        if _formula_row(rep, i, row):
+            continue
         nom = as_str(row.get("nom"))
         if not nom:
             rep.error(i, "nom obligatoire")
@@ -240,6 +264,8 @@ def _import_utilisateurs(rows, session, rep):
     existing_mat = {u.matricule for u in session.exec(select(User)).all() if u.matricule}
     for i, row in enumerate(rows, start=2):
         rep.total += 1
+        if _formula_row(rep, i, row):
+            continue
         nom, prenom = as_str(row.get("nom")), as_str(row.get("prenom"))
         if not nom or not prenom:
             rep.error(i, "nom et prenom obligatoires")
@@ -279,6 +305,8 @@ def _import_materiel(rows, session, rep):
     catalog = AssetCatalog(session)  # un seul instantane pour tout le fichier : les variantes se rejoignent
     for i, row in enumerate(rows, start=2):
         rep.total += 1
+        if _formula_row(rep, i, row):
+            continue
         sn = as_str(row.get("numero_serie"))
         ident = as_str(row.get("identifiant_interne"))
         if sn and sn in existing_sn:
@@ -327,6 +355,8 @@ def _import_affectations(rows, session, rep):
     seen: set[str] = set()
     for i, row in enumerate(rows, start=2):
         rep.total += 1
+        if _formula_row(rep, i, row):
+            continue
         mat = as_str(row.get("matricule_utilisateur"))
         ident = as_str(row.get("identifiant_interne_actif"))
         if not mat or not ident:
@@ -375,6 +405,8 @@ def _import_acces(rows, session, rep):
     existing = {(x.user_id, x.application_id) for x in session.exec(select(UserApplication)).all()}
     for i, row in enumerate(rows, start=2):
         rep.total += 1
+        if _formula_row(rep, i, row):
+            continue
         mat = as_str(row.get("matricule_utilisateur"))
         app_nom = as_str(row.get("application"))
         if not mat or not app_nom:
@@ -421,12 +453,25 @@ def _csv_cell(value: str) -> str:
     return f'"{v}"' if any(c in v for c in ';"\n') else v
 
 
+def _choices(kind: str) -> dict[str, list[str]]:
+    """Listes deroulantes du modele Excel."""
+    choices = {"actif": ["oui", "non"], "acces": ["oui", "non"]}
+    if kind == "utilisateurs":
+        choices["statut"] = [s.value for s in EmployeeStatus]
+    if kind == "materiel":
+        choices["statut"] = [s.value for s in AssetStatus]
+    return choices
+
+
 @router.get("/modeles/{kind}", dependencies=[Depends(require_roles("informatique"))])
-def import_template(kind: str):
-    """Modele CSV (UTF-8 avec BOM, separateur ;) pret pour Excel."""
+def import_template(kind: str, format: str = Query("csv", pattern="^(csv|xlsx)$")):
+    """Modele CSV (UTF-8 avec BOM, separateur ;) ou classeur Excel, prets a remplir."""
     spec = SPECS.get(kind)
     if not spec:
         raise HTTPException(404, f"Type inconnu. Attendu: {', '.join(KINDS)}")
+    if format == "xlsx":
+        return Response(xlsx_io.build_template(spec, _choices(kind)), media_type=xlsx_io.XLSX_MIME,
+                        headers={"Content-Disposition": f'attachment; filename="{kind}.xlsx"'})
     lines = [";".join(c["nom"] for c in spec["colonnes"])]
     lines += [";".join(_csv_cell(v) for v in ex) for ex in spec["exemples"]]
     body = "﻿" + "\r\n".join(lines) + "\r\n"
@@ -457,10 +502,19 @@ async def import_csv(
     digest = hashlib.sha256(raw).hexdigest()
     if attendu and attendu != digest:
         raise HTTPException(409, "Le fichier a change depuis la simulation : relancez la simulation.")
-    try:
-        rows, headers, info = read_csv(raw)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(400, f"CSV illisible: {exc}")
+    if xlsx_io.is_xlsx(raw) or xlsx_io.is_legacy_office(raw):
+        try:
+            rows, headers, info = xlsx_io.read_xlsx(raw, MAX_IMPORT_ROWS)
+        except xlsx_io.XlsxError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001  (XML invalide, archive tronquee...)
+            raise HTTPException(400, "Classeur Excel illisible ou corrompu.") from exc
+    else:
+        try:
+            rows, headers, info = read_csv(raw)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, f"CSV illisible: {exc}")
+    numbers = info.pop("numeros_lignes", None)
     if len(rows) > MAX_IMPORT_ROWS:
         raise HTTPException(413, f"Trop de lignes (maximum {MAX_IMPORT_ROWS})")
 
@@ -476,6 +530,8 @@ async def import_csv(
     rep = Report(kind, dry_run)
     rep.extra = {"sha256": digest, "colonnes_ignorees": [h for h in headers if h and h not in known], **info}
     HANDLERS[kind](rows, session, rep)
+    if numbers is not None:
+        rep.remap(numbers)
 
     if dry_run:
         session.rollback()

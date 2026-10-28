@@ -440,7 +440,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | B5 | **Connecteur GLPI** (synchronisation du matériel et des salariés, champs `source` et `id_externe`) | SPEC |
 | B6 | **Dépôt via l'API SharePoint Online et DocuWare** (SMB et WebDAV existent déjà) | SPEC |
 | B7 | **Besoins matériels saisis par les RH** à l'arrivée, repris par l'informatique | SPEC |
-| B8 | **Import et export Excel (.xlsx)** en plus du CSV | Prop. |
+| B8 | **Import et export Excel (.xlsx)** en plus du CSV. **Fait (2026-10-28)** : import avec le même parcours que le CSV (première feuille visible, lignes vides ignorées, formules jamais évaluées), modèles Excel, export du rapport de détention, protections contre archives et XML piégés, macros et liens externes | Prop. |
 
 ### v0.3 - pilotage
 

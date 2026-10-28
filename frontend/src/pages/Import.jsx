@@ -116,10 +116,15 @@ export default function Import() {
               </tbody>
             </table>
             <div className="row" style={{ marginTop: 12 }}>
+              <button className="ghost" onClick={() => downloadFile(`/import/modeles/${kind}?format=xlsx`, `${kind}.xlsx`)}>
+                Telecharger le modele Excel
+              </button>
               <button className="ghost" onClick={() => downloadFile(`/import/modeles/${kind}`, `${kind}.csv`)}>
                 Telecharger le modele CSV
               </button>
-              <span className="muted">Encodage UTF-8 ou Windows-1252, separateur ; ou , (detectes automatiquement).</span>
+              <span className="muted">
+                Excel (.xlsx, premiere feuille visible) ou CSV (UTF-8 ou Windows-1252, separateur ; ou , detectes automatiquement).
+              </span>
             </div>
           </>
         )}
@@ -127,7 +132,7 @@ export default function Import() {
 
       <div className="card">
         <h3>2. Fichier et simulation</h3>
-        <input key={fileKey} type="file" accept=".csv,.txt,text/csv" disabled={busy}
+        <input key={fileKey} type="file" accept=".xlsx,.csv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled={busy}
                onChange={(e) => simulate(e.target.files[0] || null)} />
         {busy && !final && <p className="muted">Simulation en cours...</p>}
       </div>
@@ -142,7 +147,9 @@ export default function Import() {
             <span className={r.errors_total ? "badge bad" : "badge"}>Erreurs : {r.errors_total}</span>
           </div>
           <p className="muted" style={{ marginTop: 0 }}>
-            Encodage {r.encodage}, separateur {r.separateur === ";" ? "point-virgule" : "virgule"}.
+            {r.feuille
+              ? `Classeur Excel, feuille \u00ab ${r.feuille} \u00bb${r.feuilles_ignorees ? ` (${r.feuilles_ignorees} autre(s) feuille(s) ignoree(s))` : ""}.`
+              : `Encodage ${r.encodage}, separateur ${r.separateur === ";" ? "point-virgule" : "virgule"}.`}
           </p>
           {r.colonnes_ignorees?.length > 0 && (
             <p className="warn">Colonnes non reconnues, ignorees : {r.colonnes_ignorees.join(", ")}.</p>

@@ -51,6 +51,7 @@ export default function Reports() {
             </select>
           </label>
           <button onClick={() => dl("csv")}>Exporter CSV</button>
+          <button onClick={() => dl("xlsx")}>Exporter Excel</button>
           <button onClick={() => dl("pdf")}>Exporter PDF</button>
           <span className="muted">{data.count} ligne(s) - edite le {data.date}</span>
         </div>
