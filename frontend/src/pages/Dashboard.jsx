@@ -20,8 +20,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
+import { useAuth } from "../auth.jsx";
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const [backup, setBackup] = useState(null);
   const [users, setUsers] = useState([]);
   const [assets, setAssets] = useState([]);
   const [besoins, setBesoins] = useState(0);
@@ -31,6 +34,7 @@ export default function Dashboard() {
     Promise.all([api.get("/users"), api.get("/assets")])
       .then(([u, a]) => { setUsers(u); setAssets(a); })
       .catch((e) => setErr(e.message));
+    if (user.role === "informatique") api.get("/backup/status").then(setBackup).catch(() => {});
     api.get("/stats").then((s) => setBesoins(s.besoins_a_traiter || 0)).catch(() => {});
   }, []);
 
@@ -41,6 +45,13 @@ export default function Dashboard() {
     <div>
       <h2>Tableau de bord</h2>
       {err && <p className="err">{err}</p>}
+      {backup?.alerte && (
+        <div className="card" role="alert">
+          <strong>Sauvegarde a verifier.</strong>{" "}
+          {backup.configure ? (backup.dernier_echec ? "La derniere tentative a echoue." : `La derniere sauvegarde reussie date de ${backup.age_heures} h.`) : "Aucune sauvegarde enregistree."}{" "}
+          <Link to="/sauvegarde">Voir le detail</Link>
+        </div>
+      )}
       <div className="tiles">
         <div className="card tile"><div className="n">{users.length}</div><div className="l">Utilisateurs</div></div>
         <div className="card tile"><div className="n">{assets.length}</div><div className="l">Actifs</div></div>

@@ -20,6 +20,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 | Secrets | Aucune clé ou mot de passe par défaut : `KIKAN_SECRET_KEY` absente = clé aléatoire (sessions perdues au redémarrage) ; en `KIKAN_ENV=production`, l'application **refuse de démarrer** sans clé de 32 caractères minimum. Le premier compte reçoit un mot de passe aléatoire affiché une seule fois dans les journaux. `POSTGRES_PASSWORD` est obligatoire. |
 | Mots de passe | 12 caractères minimum, 72 octets maximum (limite de bcrypt). Changement par l'utilisateur et réinitialisation par l'informatique : le mot de passe provisoire est généré par le serveur (16 caractères, environ 90 bits), affiché une seule fois, jamais journalisé, et son remplacement est imposé avant tout autre accès (refus côté serveur). Un nouveau mot de passe doit différer de l'ancien. Le dernier compte informatique actif ne peut pas être désactivé ni rétrogradé. |
 | Cloisonnement par entité | Comptes RH et lecture globaux ou limités à des entités (sous-entités incluses), comptes informatique toujours globaux. Filtrage côté serveur dans un module unique (`scope.py`) sur toutes les lectures et écritures ; un élément hors périmètre est « introuvable » (404), sans révéler son existence ; un nouveau compte n'a aucun périmètre par défaut ; le périmètre est relu en base à chaque requête (effet immédiat). Un test d'inventaire des routes échoue si une route de lecture de données n'est pas filtrée |
+| Sauvegarde | Archive chiffrée par clé publique (`age`) : le serveur ne peut pas déchiffrer ses propres sauvegardes, la clé privée reste hors du serveur ; manifeste d'empreintes SHA-256 vérifié avant toute restauration ; dépôt relu et comparé ; restauration qui refuse d'écraser sans `--force` et ne remplace jamais le `.env` ; conteneur de sauvegarde en lecture seule sur les volumes, sans port ni privilège superflu ; état de la sauvegarde lu par l'application (jamais de déclenchement depuis l'interface) avec alerte quand elle est ancienne ou en échec |
 | SharePoint et DocuWare | Secrets (secret client Entra, compte de service DocuWare) uniquement dans l'environnement ; certificat toujours vérifié, HTTPS obligatoire ; jeton renouvelé une fois s'il est rejeté, nouvelle tentative après limitation de débit ; adresse de téléchargement Graph appelée sans en-tête d'autorisation, redirections inattendues refusées ; seuls les PDF scellés partent (les chartes restent en local) ; champs d'index nominatifs envoyés seulement s'ils sont associés explicitement ; même vérification d'empreinte à chaque dépôt et lecture que SMB et WebDAV ; copie vers un autre moteur sans suppression et avec contrôle d'empreinte |
 | API d'import et GLPI | Jetons d'API hachés (SHA-256), jamais réaffichés, expirables (730 jours au plus), révocables, limités à des droits et à un périmètre d'entités ; ils n'ouvrent que `/api/v1` (un jeton de session n'y est pas accepté et inversement) ; débit limité par jeton ; jamais de suppression ni d'écrasement, modifications locales détectées ; journal sans jeton ni contenu. Connecteur GLPI : jetons GLPI uniquement dans l'environnement (jamais en base ni affichés), HTTPS exigé en production, redirections refusées, adresses link-local refusées, relecture de GLPI au moment de l'application (le client ne fournit que sa sélection), erreurs sans jeton |
 | Besoins de matériel | Saisie réservée aux comptes RH et informatique, filtrée par périmètre (404 hors périmètre) ; le type doit exister dans la liste (pas de création de types par les RH) ; texte nettoyé et borné ; « satisfait » uniquement par une remise, vérifiée avant toute création (un besoin d'un autre salarié ou clos fait échouer la remise entière) ; besoins purgés avec le salarié ; journal sans le texte des précisions |
@@ -57,7 +58,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
    certificat de l'organisation (`kikan.crt` et `kikan.key`) dans le volume `kikan_webcerts`. Un certificat
    auto-signé affiche un avertissement tant que son certificat n'est pas installé comme approuvé sur la tablette.
 4. Ne jamais publier le port de l'API (8080) ni celui de la base hors de la machine.
-5. Mettre en place une sauvegarde de la base PostgreSQL et du volume des PDF scellés.
+5. Mettre en place la **sauvegarde chiffrée** et la tester en restaurant (voir [docs/SAUVEGARDE.md](docs/SAUVEGARDE.md)).
 6. Un pare-feu doit limiter l'accès aux seules machines de l'informatique et des RH.
 
 ## Risques acceptés et limites connues
@@ -102,6 +103,9 @@ docker run --rm -v "$PWD/backend/requirements.txt:/r.txt:ro" -v "$PWD/tests/audi
 
 # Cloisonnement par entité : étanchéité de chaque route pour des comptes RH et lecture limités, inventaire des routes
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/scope_check.py
+
+# Sauvegarde et restauration de bout en bout (depuis la machine hote ; restauration dans des conteneurs jetables)
+python tests/backup_check.py
 
 # SharePoint et DocuWare : faux services intégrés (une exécution par moteur ; voir l'en-tête du script)
 docker compose -f docker-compose.yml -f tests/storage-sharepoint.override.yml up -d api

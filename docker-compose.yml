@@ -42,6 +42,8 @@ services:
       # E-mails (rappels, rapport mensuel) : le serveur SMTP se regle dans Parametrage, onglet E-mails.
       # Mot de passe SMTP, seulement si le serveur en exige un (jamais stocke en base).
       KIKAN_SMTP_PASSWORD: ${KIKAN_SMTP_PASSWORD:-}
+      KIKAN_BACKUP_STATUS_DIR: /backupstatus
+      KIKAN_BACKUP_ALERT_HOURS: ${KIKAN_BACKUP_ALERT_HOURS:-36}
       # Connecteur GLPI (facultatif) : adresse et reglages dans Parametrage > Integrations ; seuls les jetons se mettent ici.
       KIKAN_GLPI_USER_TOKEN: ${KIKAN_GLPI_USER_TOKEN:-}
       KIKAN_GLPI_APP_TOKEN: ${KIKAN_GLPI_APP_TOKEN:-}
@@ -98,6 +100,7 @@ services:
     volumes:
       - kikan_certs:/certs
       - kikan_archive:/archive
+      - kikan_backupstatus:/backupstatus:ro   # etat de la derniere sauvegarde (ecrit par l'outil de sauvegarde)
       # Autorite de certification interne (PEM) pour un partage WebDAV : deposer le fichier dans ./ca
       # puis definir KIKAN_WEBDAV_CA_BUNDLE=/ca/<fichier>.pem
       - ${KIKAN_CA_DIR:-./ca}:/ca:ro
@@ -162,11 +165,86 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # Sauvegarde et restauration (docs/SAUVEGARDE.md). Hors de la pile normale : lances a la demande ou par la tache planifiee.
+  #   docker compose --profile backup run --rm backup keygen --out /keys    (une fois : genere la paire de cles)
+  #   docker compose --profile backup run --rm backup backup                  (une sauvegarde)
+  backup:
+    build: ./backup
+    image: kikan-backup
+    profiles: ["backup"]
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}
+      KIKAN_BACKUP_RECIPIENT: ${KIKAN_BACKUP_RECIPIENT:-}
+      KIKAN_BACKUP_KEEP_DAYS: ${KIKAN_BACKUP_KEEP_DAYS:-30}
+      KIKAN_BACKUP_KEEP_MONTHS: ${KIKAN_BACKUP_KEEP_MONTHS:-12}
+      KIKAN_BACKUP_SMB_SERVER: ${KIKAN_BACKUP_SMB_SERVER:-}
+      KIKAN_BACKUP_SMB_SHARE: ${KIKAN_BACKUP_SMB_SHARE:-}
+      KIKAN_BACKUP_SMB_PATH: ${KIKAN_BACKUP_SMB_PATH:-}
+      KIKAN_BACKUP_SMB_USER: ${KIKAN_BACKUP_SMB_USER:-}
+      KIKAN_BACKUP_SMB_PASSWORD: ${KIKAN_BACKUP_SMB_PASSWORD:-}
+      KIKAN_BACKUP_SMB_DOMAIN: ${KIKAN_BACKUP_SMB_DOMAIN:-}
+      KIKAN_BACKUP_SMB_ENCRYPT: ${KIKAN_BACKUP_SMB_ENCRYPT:-true}
+    volumes:
+      - kikan_archive:/data/archive:ro
+      - kikan_certs:/data/certs:ro
+      - kikan_webcerts:/data/webcerts:ro
+      - ./.env:/config/.env:ro
+      - kikan_backupstatus:/status
+      - kikan_backupwork:/work
+      # Destination dossier (si pas de partage SMB) : KIKAN_BACKUP_DIR dans .env, ex. un lecteur monte ou un disque externe
+      - ${KIKAN_BACKUP_DIR:-./backups}:/backups
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_READ_SEARCH
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - db
+
+  # Restauration : volumes en ecriture, a lancer API et web ARRETES (voir docs/SAUVEGARDE.md et scripts/restore.ps1).
+  restore:
+    build: ./backup
+    image: kikan-backup
+    profiles: ["restore"]
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}
+      KIKAN_BACKUP_SMB_SERVER: ${KIKAN_BACKUP_SMB_SERVER:-}
+      KIKAN_BACKUP_SMB_SHARE: ${KIKAN_BACKUP_SMB_SHARE:-}
+      KIKAN_BACKUP_SMB_PATH: ${KIKAN_BACKUP_SMB_PATH:-}
+      KIKAN_BACKUP_SMB_USER: ${KIKAN_BACKUP_SMB_USER:-}
+      KIKAN_BACKUP_SMB_PASSWORD: ${KIKAN_BACKUP_SMB_PASSWORD:-}
+      KIKAN_BACKUP_SMB_DOMAIN: ${KIKAN_BACKUP_SMB_DOMAIN:-}
+      KIKAN_BACKUP_SMB_ENCRYPT: ${KIKAN_BACKUP_SMB_ENCRYPT:-true}
+    volumes:
+      - kikan_archive:/data/archive
+      - kikan_certs:/data/certs
+      - kikan_webcerts:/data/webcerts
+      - kikan_backupwork:/work
+      - ${KIKAN_BACKUP_DIR:-./backups}:/backups:ro
+      - ${KIKAN_BACKUP_IDENTITY:-./backup-identity.txt}:/keys/identity.txt:ro
+      - ./restore-output:/out
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - db
+
 networks:
   convnet:
     internal: true
 
 volumes:
+  kikan_backupstatus:
+  kikan_backupwork:
   kikan_pgdata:
   kikan_certs:
   kikan_archive:

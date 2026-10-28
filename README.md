@@ -386,6 +386,32 @@ SharePoint et DocuWare : un partage WebDAV (par exemple SharePoint sur site) ou 
 directement. L'accès par l'API propre à SharePoint Online ou à DocuWare n'est pas géré (voir la feuille de route).
 Alternative sans code : monter le partage sur le serveur Docker (volume `cifs`) et laisser `KIKAN_STORAGE_BACKEND=local`.
 
+## Sauvegarde et restauration
+
+Une sauvegarde **chiffrée** (outil `age`, clé publique : le serveur ne contient rien qui permette de déchiffrer) de la **base**, des
+**PDF scellés locaux**, des **clés et du certificat de scellement**, du certificat HTTPS et du **`.env`**, vers un **partage réseau SMB**
+ou un dossier. Planifiée **chaque nuit** ; rétention **30 jours, plus la première sauvegarde de chaque mois pendant 12 mois** ; chaque dépôt
+est relu et comparé par empreinte. Mode d'emploi complet, planification Windows et Linux, reprise après sinistre et liste de contrôle
+trimestrielle : [docs/SAUVEGARDE.md](docs/SAUVEGARDE.md).
+
+```bash
+docker compose --profile backup run --rm -v ./cles:/keys backup keygen --out /keys   # une fois : la clé PRIVÉE va hors du serveur
+docker compose --profile backup run --rm backup backup                               # une sauvegarde (à planifier toutes les nuits)
+scripts/restore.sh <archive> <cle-privee>   # ou scripts\restore.ps1 : restauration guidée, avec sauvegarde de sécurité et vérification
+```
+
+- La **restauration refuse d'écraser** sans confirmation, vérifie le manifeste (empreintes) **avant** de toucher à quoi que ce soit, puis
+  **relit chaque PDF scellé** pour comparer son empreinte à celle enregistrée à la signature.
+- La page **Sauvegarde** de Kikan (informatique) affiche la dernière sauvegarde ; le **tableau de bord alerte** si elle date de plus de
+  36 h ou si la dernière tentative a échoué. Kikan ne déclenche rien lui-même.
+- Testé de bout en bout (`python tests/backup_check.py`) : sauvegarde, restauration dans une instance vierge, mauvaise clé, archive
+  altérée, PDF altéré ou manquant, rétention, partage Samba.
+- Les documents rangés sur un stockage externe (SMB, WebDAV, SharePoint, DocuWare) relèvent de la sauvegarde de ces services.
+
+![État de la sauvegarde](docs/captures/sauvegarde-etat.png)
+
+![Alerte du tableau de bord quand la dernière tentative a échoué](docs/captures/sauvegarde-alerte.png)
+
 ## Migrations de la base de données
 
 Le schéma est géré par **Alembic** (`backend/migrations/`). Au démarrage, l'API applique automatiquement les
@@ -452,7 +478,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
 - **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).
 - **Sécurité et exploitation, en continu** : MFA locale (E1), certificat de scellement reconnu et clé dans un coffre
   (E2), journal d'audit infalsifiable (E3), révocation des sessions (E4), intégration continue, Dependabot et images
-  publiées (E5), tests unitaires et d'interface (E6), sauvegarde et restauration (E7), accessibilité et thème
+  publiées (E5), tests unitaires et d'interface (E6), sauvegarde et restauration (E7, **fait**), accessibilité et thème
   sombre (E8).
 
 ## Développement

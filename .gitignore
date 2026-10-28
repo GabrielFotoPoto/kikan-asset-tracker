@@ -11,3 +11,13 @@ dist/
 
 # Ancien module verrouille par l antivirus (remplace par filestore.py) : a supprimer a la main
 backend/app/docstore.py
+
+# Sauvegardes, sorties de restauration et cles de sauvegarde : jamais dans le depot
+backups/
+restore-output/
+backup-identity.txt
+identity.txt
+recipient.txt
+
+# Dossier temporaire du test de sauvegarde
+.tmp-backup-test/

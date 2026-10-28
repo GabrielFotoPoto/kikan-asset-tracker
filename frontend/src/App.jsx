@@ -42,6 +42,7 @@ import Stats from "./pages/Stats.jsx";
 import Audit from "./pages/Audit.jsx";
 import Compte from "./pages/Compte.jsx";
 import Stockage from "./pages/Stockage.jsx";
+import Sauvegarde from "./pages/Sauvegarde.jsx";
 import Sign from "./pages/Sign.jsx";
 
 export default function App() {
@@ -100,6 +101,7 @@ export default function App() {
             {user.role === "informatique" && <NavLink to="/parametres">Parametrage</NavLink>}
             {user.role === "informatique" && <NavLink to="/comptes">Comptes</NavLink>}
             {user.role === "informatique" && <NavLink to="/stockage">Stockage</NavLink>}
+            {user.role === "informatique" && <NavLink to="/sauvegarde">Sauvegarde</NavLink>}
             {user.role === "informatique" && <NavLink to="/journal">Journal d'audit</NavLink>}
             <NavLink to="/compte">Mon compte</NavLink>
           </nav>
@@ -137,6 +139,7 @@ export default function App() {
             <Route path="/parametres" element={user.role === "informatique" ? <Parametres /> : <Navigate to="/" />} />
             <Route path="/comptes" element={user.role === "informatique" ? <Comptes /> : <Navigate to="/" />} />
             <Route path="/stockage" element={<Stockage />} />
+            <Route path="/sauvegarde" element={user.role === "informatique" ? <Sauvegarde /> : <Navigate to="/" />} />
             <Route path="/journal" element={<Audit />} />
             <Route path="/compte" element={<Compte />} />
             <Route path="*" element={<Navigate to="/" />} />

@@ -474,7 +474,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | E4 | **Révocation des sessions** et durée de session paramétrable | Prop. |
 | E5 | **GitHub Actions** (tests, audit des dépendances), **Dependabot**, versions publiées et image Docker prête à l'emploi | Prop. |
 | E6 | **Tests unitaires** (pytest) et tests automatisés de l'interface | Prop. |
-| E7 | **Sauvegarde et restauration** documentées et testées | Prop. |
+| E7 | **Sauvegarde et restauration** documentées et testées. **Fait (2026-10-29)** : sauvegarde chiffrée (`age`, clé publique) de la base, des PDF scellés locaux, des clés, du certificat HTTPS et du `.env` vers un partage SMB ou un dossier, planifiée chaque nuit, rétention 30 jours plus la première de chaque mois pendant 12 mois, restauration guidée avec contrôle des empreintes, page et alerte dans l'application, test de bout en bout (restauration dans une instance vierge) | Prop. |
 | E8 | **Accessibilité** (RGAA/WCAG) et thème sombre | Prop. |
 
 ## 14. Décisions

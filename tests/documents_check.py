@@ -417,10 +417,10 @@ print("== Jeton expire ou revoque ==")
 tokens_before = S.tokens_issued
 S.valid_tokens.clear()      # le service rejette le jeton en cours
 s, pdf = call("GET", "/assignments/%d/document" % asg1["id"], token=ADM)
-show("jeton rejete : renouvele une fois, la lecture reussit", s == 200 and pdf == data and S.tokens_issued == tokens_before + 1, (s, S.tokens_issued - tokens_before))
+show("jeton rejete : renouvele une fois, la lecture reussit", s == 200 and pdf == data and S.tokens_issued == tokens_before + 1, (s, S.tokens_issued - tokens_before, len(pdf), len(data), pdf[:60]))
 S.once_429 = True
 s, pdf = call("GET", "/assignments/%d/document" % asg1["id"], token=ADM)
-show("limitation de debit (429 + Retry-After) : nouvelle tentative", s == 200 and pdf == data, s)
+show("limitation de debit (429 + Retry-After) : nouvelle tentative", s == 200 and pdf == data, (s, len(pdf), len(data), pdf[:60]))
 
 print("== Authentification refusee ==")
 S.valid_tokens.clear()
