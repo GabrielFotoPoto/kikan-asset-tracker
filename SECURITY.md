@@ -75,9 +75,19 @@ docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api p
 # Audit des dépendances Python (le même contrôle existe côté front avec `npm audit`)
 docker run --rm -v "$PWD/backend/requirements.txt:/r.txt:ro" -v "$PWD/tests/audit_deps.py:/a.py:ro" python:3.12-slim python /a.py
 
+# Schéma de la base : aucune dérive entre le modèle et les migrations
+docker compose exec api alembic check
+
 # Nettoyage des données de test
 docker exec -i kikan-db psql -U kikan -d kikan < tests/cleanup_test_data.sql
 ```
+
+### Installation neuve vérifiée
+
+Les tests de sécurité (70) et de non-régression (28) ont été rejoués avec succès sur une **installation neuve**
+en `KIKAN_ENV=production`, faite à partir d'un clone du dépôt en suivant le README : migrations appliquées depuis une
+base vide, mot de passe initial aléatoire affiché une seule fois (y compris après un redémarrage), HTTPS et certificat
+générés, `/docs` masqué, conteneurs non-root en lecture seule, refus de démarrer sans `POSTGRES_PASSWORD`.
 
 Relancer ces vérifications après chaque mise à jour de dépendances : une montée de version peut introduire une
 régression silencieuse (exemple rencontré : SQLModel exigeant des dates avec fuseau horaire).
