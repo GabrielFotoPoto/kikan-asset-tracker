@@ -15,18 +15,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 
-from .auth import ensure_bootstrap_account
+from .audit import audit
+from .auth import IS_PROD, MUTATING, actor_from_request, client_ip, ensure_bootstrap_account
 from .config import settings
 from .db import init_db
 from .routers import (
     applications,
     assets,
     assignments,
+    audit_log,
     auth,
     entites,
     import_data,
@@ -46,15 +50,39 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title=f"{settings.app_name} API", version="0.1.0", lifespan=lifespan)
+# En production, la documentation interactive n'est pas exposee.
+_docs = {"docs_url": None, "redoc_url": None, "openapi_url": None} if IS_PROD else {}
+app = FastAPI(title=f"{settings.app_name} API", version="0.1.0", lifespan=lifespan, **_docs)
 
-# CORS ouvert en developpement (front React). A restreindre en production.
+# CORS : le front passe par Nginx (meme origine), donc inutile en usage normal.
+# Seules les origines listees sont autorisees (jamais "*").
+_origins = [o.strip() for o in os.environ.get(
+    "KIKAN_CORS_ORIGINS", "http://localhost:3000,https://localhost:3443"
+).split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.middleware("http")
+async def audit_and_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    # Journal : toute ecriture, et tout refus d'acces (401/403). Jamais de corps de requete
+    # (mots de passe, donnees personnelles). Les connexions sont journalisees dans /auth/login.
+    if path != "/health" and path != "/auth/login" and (
+        request.method in MUTATING or response.status_code in (401, 403)
+    ):
+        await run_in_threadpool(
+            audit, actor_from_request(request), f"{request.method} {path}",
+            status=response.status_code, ip=client_ip(request),
+        )
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @app.get("/health", tags=["meta"])
@@ -74,3 +102,4 @@ app.include_router(reports.router)
 app.include_router(rgpd.router)
 app.include_router(user_apps.router)
 app.include_router(stats.router)
+app.include_router(audit_log.router)

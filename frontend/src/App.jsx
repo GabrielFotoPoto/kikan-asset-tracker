@@ -32,6 +32,8 @@ import Reports from "./pages/Reports.jsx";
 import Rgpd from "./pages/Rgpd.jsx";
 import Acces from "./pages/Acces.jsx";
 import Stats from "./pages/Stats.jsx";
+import Audit from "./pages/Audit.jsx";
+import Compte from "./pages/Compte.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -73,6 +75,8 @@ export default function App() {
             <NavLink to="/rapports">Rapports</NavLink>
             <NavLink to="/statistiques">Statistiques</NavLink>
             <NavLink to="/rgpd">RGPD</NavLink>
+            {user.role === "informatique" && <NavLink to="/journal">Journal d'audit</NavLink>}
+            <NavLink to="/compte">Mon compte</NavLink>
           </nav>
           <div className="account">
             <div className="who">{user.username}</div>
@@ -92,6 +96,8 @@ export default function App() {
             <Route path="/rapports" element={<Reports />} />
             <Route path="/statistiques" element={<Stats />} />
             <Route path="/rgpd" element={<Rgpd />} />
+            <Route path="/journal" element={<Audit />} />
+            <Route path="/compte" element={<Compte />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>

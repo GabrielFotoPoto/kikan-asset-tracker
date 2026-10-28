@@ -6,32 +6,46 @@ services:
     environment:
       POSTGRES_DB: kikan
       POSTGRES_USER: kikan
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kikan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis (voir .env.example)}
     volumes:
       - kikan_pgdata:/var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kikan -d kikan"]
       interval: 5s
       timeout: 5s
       retries: 12
+    # Aucun port publie : la base n'est joignable que par l'API.
 
   api:
     build: ./backend
     container_name: kikan-api
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg2://kikan:${POSTGRES_PASSWORD:-kikan}@db:5432/kikan
+      DATABASE_URL: postgresql+psycopg2://kikan:${POSTGRES_PASSWORD}@db:5432/kikan
+      KIKAN_ENV: ${KIKAN_ENV:-development}
+      KIKAN_SECRET_KEY: ${KIKAN_SECRET_KEY:-}
+      KIKAN_ADMIN_USER: ${KIKAN_ADMIN_USER:-admin}
+      KIKAN_ADMIN_PASSWORD: ${KIKAN_ADMIN_PASSWORD:-}
+      KIKAN_TOKEN_TTL_MIN: ${KIKAN_TOKEN_TTL_MIN:-240}
+      KIKAN_CORS_ORIGINS: ${KIKAN_CORS_ORIGINS:-http://localhost:3000,https://localhost:3443}
       KIKAN_CERT_DIR: /certs
       KIKAN_ARCHIVE_DIR: /archive
-      KIKAN_SECRET_KEY: ${KIKAN_SECRET_KEY:-dev-secret-change-me}
-      KIKAN_ADMIN_USER: ${KIKAN_ADMIN_USER:-admin}
-      KIKAN_ADMIN_PASSWORD: ${KIKAN_ADMIN_PASSWORD:-admin}
       # KIKAN_TSA_URL: https://freetsa.org/tsr   # optionnel : horodatage PAdES-B-T
+    # Acces direct a l'API reserve a la machine locale (dev, tests).
     ports:
       - "127.0.0.1:8080:8000"
     volumes:
       - kikan_certs:/certs
       - kikan_archive:/archive
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       db:
         condition: service_healthy
@@ -40,8 +54,18 @@ services:
     build: ./frontend
     container_name: kikan-web
     restart: unless-stopped
+    environment:
+      KIKAN_HTTPS_PORT: ${KIKAN_HTTPS_PORT:-3443}
+      KIKAN_TLS_SAN: ${KIKAN_TLS_SAN:-}
+    # Par defaut local uniquement. Pour la tablette de signature sur le reseau local,
+    # definir KIKAN_BIND=<adresse IP du serveur> dans .env.
     ports:
-      - "127.0.0.1:3000:80"
+      - "${KIKAN_BIND:-127.0.0.1}:3000:80"
+      - "${KIKAN_BIND:-127.0.0.1}:${KIKAN_HTTPS_PORT:-3443}:443"
+    volumes:
+      - kikan_webcerts:/etc/nginx/certs
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       - api
 
@@ -49,3 +73,4 @@ volumes:
   kikan_pgdata:
   kikan_certs:
   kikan_archive:
+  kikan_webcerts:

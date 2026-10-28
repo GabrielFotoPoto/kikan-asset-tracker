@@ -15,11 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Optional
 
+from pydantic import NaiveDatetime
 from sqlmodel import JSON, Column, Field, SQLModel
+
+
+def utcnow() -> datetime:
+    """Heure UTC naive (stockage sans fuseau, coherent avec la base)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # --- Enumerations ---
@@ -74,8 +80,8 @@ class UserBase(SQLModel):
 class User(UserBase, table=True):
     __tablename__ = "users"
     id: Optional[int] = Field(default=None, primary_key=True)
-    cree_le: datetime = Field(default_factory=datetime.utcnow)
-    maj_le: datetime = Field(default_factory=datetime.utcnow)
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)
+    maj_le: NaiveDatetime = Field(default_factory=utcnow)
 
 
 # --- Actifs (materiel) ---
@@ -99,8 +105,8 @@ class AssetBase(SQLModel):
 class Asset(AssetBase, table=True):
     __tablename__ = "assets"
     id: Optional[int] = Field(default=None, primary_key=True)
-    cree_le: datetime = Field(default_factory=datetime.utcnow)
-    maj_le: datetime = Field(default_factory=datetime.utcnow)
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)
+    maj_le: NaiveDatetime = Field(default_factory=utcnow)
 
 
 # --- Applications ---
@@ -127,7 +133,7 @@ class UserApplication(SQLModel, table=True):
     acces: bool = True
     note: Optional[str] = None
     attribue_par: Optional[str] = None
-    date_maj: datetime = Field(default_factory=datetime.utcnow)
+    date_maj: NaiveDatetime = Field(default_factory=utcnow)
 
 
 # --- Affectations / remises ---
@@ -136,8 +142,8 @@ class Assignment(SQLModel, table=True):
     __tablename__ = "assignments"
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    date_remise: datetime = Field(default_factory=datetime.utcnow)
-    date_restitution: Optional[datetime] = None
+    date_remise: NaiveDatetime = Field(default_factory=utcnow)
+    date_restitution: Optional[NaiveDatetime] = None
     policy_id: Optional[int] = Field(default=None, foreign_key="policies.id")
     statut: str = "en_cours"
     cree_par: Optional[str] = None
@@ -155,7 +161,7 @@ class Signature(SQLModel, table=True):
     assignment_id: int = Field(foreign_key="assignments.id", index=True)
     signataire: Optional[str] = None
     methode: Optional[str] = None
-    horodatage: Optional[datetime] = None
+    horodatage: Optional[NaiveDatetime] = None
     empreinte_doc: Optional[str] = None
     audit_json: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     ged_reference: Optional[str] = None
@@ -190,3 +196,17 @@ class Setting(SQLModel, table=True):
     __tablename__ = "settings"
     key: str = Field(primary_key=True)
     value: Optional[str] = None
+
+
+# --- Journal d'audit (append-only : aucun endpoint de modification/suppression) ---
+
+class AuditLog(SQLModel, table=True):
+    __tablename__ = "audit_log"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ts: NaiveDatetime = Field(default_factory=utcnow, index=True)
+    actor: str = Field(index=True)
+    action: str = Field(index=True)
+    target: Optional[str] = None
+    status: Optional[int] = None
+    ip: Optional[str] = None
+    detail: Optional[str] = None

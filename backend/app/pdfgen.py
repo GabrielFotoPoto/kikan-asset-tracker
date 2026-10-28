@@ -18,6 +18,7 @@
 """Generation du PDF d'accuse de remise (ReportLab)."""
 import io
 from datetime import datetime
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -51,9 +52,9 @@ def build_receipt(
     ligne = f"Salarie : {user.get('prenom', '')} {user.get('nom', '')}"
     if user.get("matricule"):
         ligne += f" (matricule {user['matricule']})"
-    story.append(Paragraph(ligne, styles["Normal"]))
+    story.append(Paragraph(escape(ligne), styles["Normal"]))
     if entite_nom:
-        story.append(Paragraph(f"Entite : {entite_nom}", styles["Normal"]))
+        story.append(Paragraph(escape(f"Entite : {entite_nom}"), styles["Normal"]))
     story.append(Paragraph(f"Date : {datetime.now():%Y-%m-%d %H:%M}", styles["Normal"]))
     story.append(Spacer(1, 6 * mm))
 
@@ -81,7 +82,7 @@ def build_receipt(
         story.append(Paragraph("Charte informatique", styles["Heading2"]))
         for para in policy_text.split("\n"):
             if para.strip():
-                story.append(Paragraph(para, styles["Normal"]))
+                story.append(Paragraph(escape(para), styles["Normal"]))
         story.append(Spacer(1, 8 * mm))
 
     story.append(Paragraph(

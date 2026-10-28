@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -39,6 +40,9 @@ router = APIRouter(
     prefix="/import", tags=["import"],
     dependencies=[Depends(writer_guard("informatique"))],
 )
+
+MAX_IMPORT_BYTES = int(os.environ.get("KIKAN_MAX_IMPORT_MB", "5")) * 1024 * 1024
+MAX_IMPORT_ROWS = int(os.environ.get("KIKAN_MAX_IMPORT_ROWS", "20000"))
 
 KINDS = ["entites", "applications", "utilisateurs", "materiel", "affectations", "acces_applicatifs"]
 
@@ -266,11 +270,16 @@ async def import_csv(
 ):
     if kind not in HANDLERS:
         raise HTTPException(400, f"Type inconnu. Attendu: {', '.join(KINDS)}")
-    raw = await file.read()
+    raw = await file.read(MAX_IMPORT_BYTES + 1)
+    if len(raw) > MAX_IMPORT_BYTES:
+        raise HTTPException(413, f"Fichier trop volumineux (maximum {MAX_IMPORT_BYTES // 1024 // 1024} Mo)")
     try:
         rows, _ = read_rows(raw)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(400, f"CSV illisible: {exc}")
+
+    if len(rows) > MAX_IMPORT_ROWS:
+        raise HTTPException(413, f"Trop de lignes (maximum {MAX_IMPORT_ROWS})")
 
     rep = Report(kind, dry_run)
     HANDLERS[kind](rows, session, rep)

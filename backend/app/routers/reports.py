@@ -93,12 +93,20 @@ def _rows(session: Session, entite_id: int | None, service: str | None) -> list[
     return rows
 
 
+def _safe_cell(value) -> str:
+    """Neutralise l'injection de formules : un tableur interprete =, +, -, @ en debut de cellule."""
+    text = "" if value is None else str(value)
+    if text and text[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + text
+    return text
+
+
 def _csv(rows: list[dict]) -> bytes:
     buf = io.StringIO()
     writer = csv.writer(buf, delimiter=";")
     writer.writerow([label for _, label in COLUMNS])
     for r in rows:
-        writer.writerow([r[key] for key, _ in COLUMNS])
+        writer.writerow([_safe_cell(r[key]) for key, _ in COLUMNS])
     # BOM UTF-8 pour une ouverture correcte dans Excel FR.
     return ("﻿" + buf.getvalue()).encode("utf-8")
 

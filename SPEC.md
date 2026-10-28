@@ -382,12 +382,24 @@ Points d'attention :
 
 ## 12. Sécurité
 
+Le détail des mesures, des risques acceptés et de la liste de contrôle de production figure dans
+`SECURITY.md`. Principes retenus :
+
 - **Comptes nominatifs** (un par personne) ; authentification et rôles (§5ter). Cible : SSO
   **Microsoft 365 / Entra ID** (OIDC) avec rôles par groupes ; auth locale en secours/dev.
+- **Aucun secret par défaut** : clé de session et mot de passe initial aléatoires ; refus de démarrer
+  en production sans clé solide.
+- **Protection contre la force brute** (verrouillage temporaire) et politique de mots de passe.
+- **HTTPS obligatoire**, en-têtes de sécurité (CSP stricte, HSTS...), CORS en liste blanche.
+- **Journal d'audit** des écritures, refus d'accès et connexions (sans corps de requête), non modifiable
+  par l'API.
+- Entrées neutralisées : requêtes paramétrées, échappement dans les PDF, protection des exports CSV
+  contre l'injection de formules, imports plafonnés.
+- Conteneurs durcis (non-root, lecture seule, capacités retirées), base non exposée.
 - Archive des PDF scellés en stockage immuable ; empreinte en base pour détection d'altération.
 - Sauvegardes de la base et des archives.
-- Journal d'audit des actions sensibles (remise, restitution, suppression RGPD, changement de paramètre).
-- Secrets (clé privée du certificat) hors base, protégés.
+- Clé privée du certificat de scellement hors base et hors image, droits restreints.
+- Dépendances figées et auditées ; tests de sécurité et de non-régression rejoués à chaque mise à jour.
 
 ## 13. Feuille de route
 

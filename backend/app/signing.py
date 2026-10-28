@@ -70,7 +70,8 @@ def ensure_self_signed_cert(org: str = "Kikan Organisation") -> None:
         )
         .sign(key, hashes.SHA256())
     )
-    with open(KEY_PATH, "wb") as f:
+    fd = os.open(KEY_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
         f.write(key.private_bytes(
             serialization.Encoding.PEM,
             serialization.PrivateFormat.PKCS8,

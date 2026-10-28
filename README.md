@@ -44,26 +44,43 @@ et A.5.18 (droits d'accès).
 Prérequis : Docker et Docker Compose.
 
 ```bash
-cp .env.example .env        # puis editer les secrets (voir ci-dessous)
+cp .env.example .env        # puis renseigner POSTGRES_PASSWORD et KIKAN_SECRET_KEY
 docker compose up --build
 ```
 
-- Interface : http://localhost:3000
-- API : http://localhost:8080 (documentation interactive : http://localhost:8080/docs)
+- Interface : **https://localhost:3443** (certificat auto-signé : avertissement du navigateur à accepter
+  en local). Le port `http://localhost:3000` redirige vers HTTPS.
+- API en direct (développement, machine locale uniquement) : http://localhost:8080
+  (documentation interactive : http://localhost:8080/docs, masquée en production).
 
-### Identifiants par défaut
+### Premier compte
 
-Au premier démarrage, un compte **informatique** est créé : `admin` / `admin`.
+Au premier démarrage, un compte **informatique** est créé (identifiant `admin` par défaut). Son mot de passe est
+**aléatoire** : il est affiché une seule fois dans les journaux.
 
-> **Sécurité : à changer avant toute mise en production.** Définissez dans `.env` :
-> `KIKAN_ADMIN_PASSWORD` (mot de passe initial), `KIKAN_ADMIN_USER`, et surtout
-> `KIKAN_SECRET_KEY` (clé de signature des jetons JWT). Ne committez jamais le fichier `.env`.
+```bash
+docker compose logs api | grep "COMPTE INITIAL"
+```
+
+Connectez-vous, puis changez-le depuis **Mon compte** et créez des comptes nominatifs. Vous pouvez aussi fixer
+vous-même `KIKAN_ADMIN_USER` et `KIKAN_ADMIN_PASSWORD` dans `.env` avant le premier démarrage.
+
+> **Sécurité** : `KIKAN_SECRET_KEY` (clé de signature des sessions, 32 caractères minimum) et `POSTGRES_PASSWORD`
+> sont à définir dans `.env`, qui ne doit jamais être commité. Avec `KIKAN_ENV=production`, l'application refuse
+> de démarrer sans clé solide. Voir [SECURITY.md](SECURITY.md) pour la liste de contrôle de mise en production,
+> les risques acceptés et les tests de sécurité.
+
+### Tablette de signature sur le réseau local
+
+Par défaut l'interface n'est publiée que sur la machine locale. Pour l'ouvrir au réseau de l'organisation,
+définir dans `.env` `KIKAN_BIND` (adresse IP du serveur) et `KIKAN_TLS_SAN` (ex. `DNS:kikan.exemple.local,IP:192.168.1.10`)
+avant le premier démarrage, ou monter le certificat de l'organisation dans le volume `kikan_webcerts`.
 
 ## Rôles
 
 | Rôle | Droits |
 |---|---|
-| **informatique** | Tout : matériel, remises, restitutions, signatures, entités, import, paramétrage, RGPD. |
+| **informatique** | Tout : matériel, remises, restitutions, signatures, entités, import, paramétrage, RGPD, comptes, journal d'audit. |
 | **rh** | Cycle de vie des salariés (entrées, départs), restitutions, accès applicatifs. Lecture du reste. |
 | **lecture** | Consultation et export uniquement. |
 
@@ -82,14 +99,17 @@ Ordre conseillé : entités, applications, utilisateurs, matériel, affectations
 backend/            API FastAPI
   app/
     models.py       modele de donnees (SQLModel)
-    auth.py         authentification JWT + roles
+    auth.py         authentification JWT, mots de passe, limitation des tentatives
+    audit.py        journal d'audit
     signing.py      scellement PAdES
     pdfgen.py       generation des PDF
     routers/        endpoints (entites, users, assets, assignments,
-                    lifecycle, import, reports, rgpd, stats, acces, auth)
-frontend/           application React (Vite + Nginx)
+                    lifecycle, import, reports, rgpd, stats, acces, auth, audit)
+frontend/           application React (Vite + Nginx, HTTPS)
 import-modeles/     modeles CSV pour la reprise de l'existant
+tests/              tests de securite, non-regression, audit des dependances
 SPEC.md             cahier des charges detaille
+SECURITY.md         modele de securite et liste de controle de production
 docker-compose.yml
 ```
 

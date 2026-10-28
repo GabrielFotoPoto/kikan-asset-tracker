@@ -15,9 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Authentification (JWT) et controle des roles."""
+"""Authentification (JWT), politique de mots de passe, limitation des tentatives."""
 import datetime
+import logging
 import os
+import secrets
+import threading
+import time
 
 import bcrypt
 import jwt
@@ -28,12 +32,46 @@ from sqlmodel import Session, select
 from .db import engine, get_session
 from .models import Account, Role
 
-SECRET = os.environ.get("KIKAN_SECRET_KEY", "dev-secret-change-me")
-ALGO = "HS256"
-TOKEN_TTL_MIN = int(os.environ.get("KIKAN_TOKEN_TTL_MIN", "480"))
-MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
+log = logging.getLogger("kikan.security")
 
-_bearer = HTTPBearer(auto_error=True)
+ENV = os.environ.get("KIKAN_ENV", "development").lower()
+IS_PROD = ENV == "production"
+
+ALGO = "HS256"
+TOKEN_TTL_MIN = int(os.environ.get("KIKAN_TOKEN_TTL_MIN", "240"))
+MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
+MIN_PASSWORD_LEN = 12
+MAX_PASSWORD_BYTES = 72  # limite de bcrypt
+
+_WEAK_SECRETS = {"", "dev-secret-change-me", "change-me", "secret"}
+
+
+def _load_secret() -> str:
+    value = os.environ.get("KIKAN_SECRET_KEY", "")
+    if value in _WEAK_SECRETS or len(value) < 32:
+        if IS_PROD:
+            raise RuntimeError(
+                "KIKAN_SECRET_KEY doit etre defini avec au moins 32 caracteres "
+                "(ex. : python -c \"import secrets; print(secrets.token_urlsafe(48))\")"
+            )
+        log.warning(
+            "KIKAN_SECRET_KEY absent ou faible : une cle aleatoire est generee "
+            "(les sessions seront perdues au redemarrage). Definissez-la dans .env."
+        )
+        return secrets.token_urlsafe(48)
+    return value
+
+
+SECRET = _load_secret()
+
+
+# --- Mots de passe ---
+
+def check_password_policy(password: str) -> None:
+    if len(password.encode()) > MAX_PASSWORD_BYTES:
+        raise HTTPException(400, f"Mot de passe trop long ({MAX_PASSWORD_BYTES} octets maximum)")
+    if len(password) < MIN_PASSWORD_LEN:
+        raise HTTPException(400, f"Mot de passe trop court ({MIN_PASSWORD_LEN} caracteres minimum)")
 
 
 def hash_password(password: str) -> str:
@@ -47,8 +85,68 @@ def verify_password(password: str, hashed: str) -> bool:
         return False
 
 
+# --- Limitation des tentatives de connexion ---
+
+class LoginLimiter:
+    """Verrouille temporairement apres trop d'echecs (en memoire, mono-processus).
+
+    Cle compte+IP : un attaquant distant ne peut pas verrouiller l'administrateur
+    depuis une autre adresse. Une limite globale par IP freine aussi l'enumeration.
+    """
+
+    def __init__(self, max_per_account: int = 5, max_per_ip: int = 30, window: int = 900):
+        self.max_per_account = max_per_account
+        self.max_per_ip = max_per_ip
+        self.window = window
+        self._fails: dict[str, list[float]] = {}
+        self._lock = threading.Lock()
+
+    def _recent(self, key: str, now: float) -> list[float]:
+        recent = [t for t in self._fails.get(key, []) if now - t < self.window]
+        if recent:
+            self._fails[key] = recent
+        else:
+            self._fails.pop(key, None)
+        return recent
+
+    def retry_after(self, ip: str, username: str) -> int:
+        """Secondes a attendre (0 = autorise)."""
+        now = time.time()
+        with self._lock:
+            waits = []
+            for key, limit in ((f"a|{ip}|{username.lower()}", self.max_per_account),
+                               (f"i|{ip}", self.max_per_ip)):
+                recent = self._recent(key, now)
+                if len(recent) >= limit:
+                    waits.append(int(self.window - (now - recent[0])) + 1)
+            return max(waits) if waits else 0
+
+    def fail(self, ip: str, username: str) -> None:
+        now = time.time()
+        with self._lock:
+            for key in (f"a|{ip}|{username.lower()}", f"i|{ip}"):
+                self._fails.setdefault(key, []).append(now)
+
+    def success(self, ip: str, username: str) -> None:
+        with self._lock:
+            self._fails.pop(f"a|{ip}|{username.lower()}", None)
+
+
+login_limiter = LoginLimiter(
+    max_per_account=int(os.environ.get("KIKAN_LOGIN_MAX_FAILS", "5")),
+    window=int(os.environ.get("KIKAN_LOGIN_WINDOW_SEC", "900")),
+)
+
+
+def client_ip(request: Request) -> str:
+    # L'API n'est joignable que derriere Nginx (qui pose X-Real-IP) ou en local.
+    return request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
+
+
+# --- Jetons ---
+
 def create_access_token(username: str, role: str) -> str:
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
         "sub": username,
         "role": role,
@@ -58,19 +156,35 @@ def create_access_token(username: str, role: str) -> str:
     return jwt.encode(payload, SECRET, algorithm=ALGO)
 
 
+def actor_from_request(request: Request) -> str:
+    """Identifiant de l'appelant (sans acces base) pour le journal d'audit."""
+    header = request.headers.get("authorization", "")
+    if header.lower().startswith("bearer "):
+        try:
+            return str(jwt.decode(header[7:], SECRET, algorithms=[ALGO]).get("sub", "?"))
+        except jwt.PyJWTError:
+            return "jeton-invalide"
+    return "anonyme"
+
+
+_bearer = HTTPBearer(auto_error=False)
+
+
 def get_current_account(
-    cred: HTTPAuthorizationCredentials = Depends(_bearer),
+    cred: HTTPAuthorizationCredentials | None = Depends(_bearer),
     session: Session = Depends(get_session),
 ) -> Account:
+    if cred is None:
+        raise HTTPException(401, "Authentification requise", headers={"WWW-Authenticate": "Bearer"})
     try:
         payload = jwt.decode(cred.credentials, SECRET, algorithms=[ALGO])
     except jwt.PyJWTError:
-        raise HTTPException(401, "Token invalide ou expire")
+        raise HTTPException(401, "Token invalide ou expire", headers={"WWW-Authenticate": "Bearer"})
     account = session.exec(
         select(Account).where(Account.username == payload.get("sub"))
     ).first()
     if not account or not account.actif:
-        raise HTTPException(401, "Compte inconnu ou desactive")
+        raise HTTPException(401, "Compte inconnu ou desactive", headers={"WWW-Authenticate": "Bearer"})
     return account
 
 
@@ -98,12 +212,23 @@ def require_roles(*roles: str):
 
 
 def ensure_bootstrap_account() -> None:
-    """Cree un compte informatique par defaut si aucun compte n'existe."""
+    """Cree le premier compte informatique si aucun compte n'existe.
+
+    Sans KIKAN_ADMIN_PASSWORD, un mot de passe aleatoire est genere et affiche
+    UNE SEULE FOIS dans les journaux du conteneur (docker compose logs api).
+    """
     with Session(engine) as session:
         if session.exec(select(Account)).first():
             return
         username = os.environ.get("KIKAN_ADMIN_USER", "admin")
-        password = os.environ.get("KIKAN_ADMIN_PASSWORD", "admin")
+        password = os.environ.get("KIKAN_ADMIN_PASSWORD", "")
+        generated = False
+        if not password:
+            password = secrets.token_urlsafe(16)
+            generated = True
+        elif len(password) < MIN_PASSWORD_LEN:
+            log.warning("KIKAN_ADMIN_PASSWORD est trop court (%d caracteres minimum) : "
+                        "changez-le des la premiere connexion.", MIN_PASSWORD_LEN)
         session.add(Account(
             username=username,
             role=Role.informatique,
@@ -111,3 +236,6 @@ def ensure_bootstrap_account() -> None:
             hashed_password=hash_password(password),
         ))
         session.commit()
+        if generated:
+            log.warning("COMPTE INITIAL CREE - identifiant : %s - mot de passe : %s "
+                        "(affiche une seule fois, changez-le)", username, password)
