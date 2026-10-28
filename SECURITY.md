@@ -30,6 +30,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 | Signature | Clé privée du certificat de scellement en mode `0600`, hors de l'image et du dépôt (volume dédié). PDF scellé PAdES : toute modification invalide la signature. |
 | Stockage des documents | Dépôt sur lecteur réseau (SMB 3, chiffrement activé par défaut) ou partage WebDAV (HTTPS obligatoire, certificat toujours vérifié sans aucune option pour le désactiver, HTTP refusé sauf autorisation explicite). Dépôt toujours vérifié par empreinte SHA-256 puis relu ; empreinte recontrôlée à chaque lecture (un fichier altéré sur le partage est refusé et journalisé). Clés de stockage strictement filtrées (pas de `..` ni de chemin absolu). Identifiants du partage uniquement dans l'environnement, jamais en base ni dans les journaux. Signature jamais bloquée par une panne du partage (dépôt différé, repris ensuite). |
 | Signature manuscrite | L'image reçue du navigateur est traitée comme non fiable : PNG uniquement, taille et dimensions vérifiées avant décodage (bombes de décompression refusées), trace réel exigé, ré-encodage sans métadonnées. Le nom du signataire est déduit de la fiche du salarié (jamais fourni par le client), l'acceptation est obligatoire et une remise ne se signe qu'une fois. L'image n'est stockée que dans le PDF scellé : la base ne garde que ses empreintes, le nombre de traits et la durée du tracé. |
+| Chartes deposees | Le fichier est traité comme non fiable : format reconnu par son contenu (pas par l'extension), taille et pages plafonnées, PDF reconstruit (pages seules, sans JavaScript, action, lien ni annotation) puis contrôlé par un second moteur ; Markdown rendu avec balises échappées. Les documents Word sont convertis par un service dédié **sans accès à Internet** (réseau Docker interne), en lecture seule, non privilégié, une conversion à la fois, avec délai maximal ; archives piégées (bombes de décompression) et macros refusées avant conversion. Empreinte de la charte recontrôlée à chaque lecture et avant chaque signature. Dépôt réservé à l'informatique, versions jamais supprimées. |
 | Production | `KIKAN_ENV=production` masque la documentation interactive (`/docs`). |
 | Dépendances | Versions figées et auditées avec `pip-audit` et `npm audit` (aucune vulnérabilité connue à la date de la dernière vérification). |
 
@@ -64,6 +65,9 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 - **Pas d'analyse d'images** de conteneurs, ni de limitation de débit au-delà de la connexion.
 - **La signature manuscrite est une donnée personnelle** : elle figure dans le PDF scellé, donc dans le stockage choisi (volume,
   partage SMB ou WebDAV). Protéger l'accès à ce stockage et appliquer la durée de rétention RGPD.
+- **Service de conversion Word** : LibreOffice traite des fichiers déposés par l'informatique. Il est isolé (aucun réseau externe,
+  aucun secret, système de fichiers en lecture seule) ; une faille de LibreOffice resterait donc confinée à ce conteneur.
+  Maintenir l'image à jour (`docker compose build --pull converter`) et la retirer si les chartes Word ne sont pas utilisées.
 - **Identifiants du partage dans `.env`** (SMB ou WebDAV) : utiliser un compte de service dédié, limité au seul
   dossier de Kikan, et protéger le fichier `.env` (droits restreints, sauvegardes chiffrées).
 
@@ -83,6 +87,9 @@ docker run --rm -v "$PWD/backend/requirements.txt:/r.txt:ro" -v "$PWD/tests/audi
 
 # Signature manuscrite : images invalides ou piégées, nom non falsifiable, preuves, PDF scellé, restitution
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/signature_check.py
+
+# Chartes : fichiers hostiles (PDF piégé, bombe ZIP, macros), Word, Markdown, portées, annexe signée, altération
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/policy_check.py
 
 # Stockage SMB et WebDAV : dépôt, relecture, intégrité, purge (serveurs de test jetables)
 docker compose -f tests/storage-test-servers.yml up -d

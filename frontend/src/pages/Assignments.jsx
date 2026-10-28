@@ -19,7 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, downloadFile } from "../api.js";
+import { api, downloadFile, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 
 export default function Assignments() {
@@ -29,17 +29,19 @@ export default function Assignments() {
   const [users, setUsers] = useState([]);
   const [stock, setStock] = useState([]);
   const [items, setItems] = useState([]);
-  const [signed, setSigned] = useState({});
+  const [policies, setPolicies] = useState([]);
+  const [charte, setCharte] = useState("auto");
+  const [applicable, setApplicable] = useState(null);
   const [userId, setUserId] = useState("");
   const [picked, setPicked] = useState([]);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
 
   const load = async () => {
-    const [u, s, a] = await Promise.all([
-      api.get("/users"), api.get("/assets?statut=stock"), api.get("/assignments"),
+    const [u, s, a, p] = await Promise.all([
+      api.get("/users"), api.get("/assets?statut=stock"), api.get("/assignments"), api.get("/policies"),
     ]);
-    setUsers(u); setStock(s); setItems(a);
+    setUsers(u); setStock(s); setItems(a); setPolicies(p.filter((x) => x.statut === "active"));
   };
   useEffect(() => { load().catch((e) => setErr(e.message)); }, []);
 
@@ -47,6 +49,14 @@ export default function Assignments() {
     const u = users.find((x) => x.id === id);
     return u ? `${u.prenom} ${u.nom}` : `#${id}`;
   };
+
+  // Charte qui sera jointe d'office pour le salarie choisi (entite, entites parentes, puis charte globale).
+  useEffect(() => {
+    const u = users.find((x) => String(x.id) === String(userId));
+    if (!u) { setApplicable(null); return; }
+    api.get("/policies/applicable" + (u.entite_id ? `?entite_id=${u.entite_id}` : ""))
+      .then(setApplicable).catch(() => setApplicable(null));
+  }, [userId, users, policies]);
 
   const toggle = (id) =>
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -56,11 +66,12 @@ export default function Assignments() {
     setErr(null); setMsg(null);
     if (!userId || picked.length === 0) { setErr("Choisir un salarie et au moins un actif."); return; }
     try {
-      await api.post("/assignments", { user_id: Number(userId), asset_ids: picked, cree_par: "informatique" });
-      setUserId(""); setPicked([]);
+      const choix = charte === "none" ? { sans_charte: true } : charte === "auto" ? {} : { policy_id: Number(charte) };
+      await api.post("/assignments", { user_id: Number(userId), asset_ids: picked, cree_par: "informatique", ...choix });
+      setUserId(""); setPicked([]); setCharte("auto");
       setMsg("Affectation creee.");
       await load();
-    } catch (ex) { setErr(ex.message); }
+    } catch (ex) { setErr(errorText(ex)); }
   };
 
   // La signature se fait sur l'ecran tablette dedie (signature manuscrite de l'employe).
@@ -82,6 +93,18 @@ export default function Assignments() {
               {users.map((u) => <option key={u.id} value={u.id}>{u.prenom} {u.nom}</option>)}
             </select>
           </label>
+          <label style={{ maxWidth: 360 }}>Charte jointe
+            <select value={charte} onChange={(e) => setCharte(e.target.value)}>
+              <option value="auto">Automatique (charte applicable au salarie)</option>
+              <option value="none">Aucune charte</option>
+              {policies.map((p) => <option key={p.id} value={p.id}>{p.titre} {p.version} ({p.portee})</option>)}
+            </select>
+          </label>
+          {charte === "auto" && userId && (
+            <p className="muted" style={{ marginTop: 0 }}>
+              {applicable ? `Sera jointe : ${applicable.titre} ${applicable.version} (${applicable.portee}).` : "Aucune charte applicable a ce salarie."}
+            </p>
+          )}
           <p className="muted" style={{ marginBottom: 6 }}>Materiel en stock a remettre :</p>
           {stock.length === 0 && <p className="muted">Aucun actif en stock.</p>}
           {stock.map((a) => (

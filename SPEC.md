@@ -172,7 +172,7 @@ Ce qui fait la valeur de preuve :
 
 ### 4.8 Tables de paramétrage
 - `asset_types` : types d'actifs (personnalisables).
-- `policies` : chartes d'usage, **versionnées** (texte + date de version).
+- `policies` : chartes d'usage **déposées en fichier** (PDF normalisé et fichier d'origine dans le stockage, empreintes SHA-256), portée (globale ou entité), version, statut active ou archivée ; une seule version active par portée.
 - `settings` : paramètres globaux (voir §8).
 - `accounts` : comptes applicatifs avec un **rôle** (voir §5bis). Les employés **ne se
   connectent pas** (ils signent sur la tablette tenue par l'informatique).
@@ -421,7 +421,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | # | Fonctionnalité | Origine |
 |---|---|---|
 | A1 | **Signature manuscrite à l'écran** (tactile ou souris) insérée dans le PDF, avec le signataire choisi depuis sa fiche plutôt que saisi librement. **Fait (2026-10-28)** : remise et restitution, écran tablette, image assainie côté serveur, nom déduit de la fiche, signature unique, preuves enregistrées (§3) | Écart |
-| A2 | **Gestion des chartes d'usage** : création, versions, choix à la remise, texte figé dans le PDF signé | Écart |
+| A2 | **Gestion des chartes d'usage** : dépôt d'un fichier (Word, PDF ou Markdown) par l'informatique, globale ou propre à une entité (héritage entité, parent, globale), versions archivées, jointe d'office à la remise et annexée au PDF signé. **Fait (2026-10-28)** | Écart |
 | A3 | **Page d'import CSV** dans l'interface (aperçu, rapport d'erreurs, modèles téléchargeables) | Écart |
 | A4 | **Modification et suppression dans l'interface** (entités, salariés, matériel, applications) | Écart |
 | A5 | **Interface de paramétrage** : types d'actifs, services, fusion des marques et modèles, modèle de PDF (logo, mentions) | Écart |

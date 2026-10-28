@@ -27,6 +27,7 @@ import Entites from "./pages/Entites.jsx";
 import Users from "./pages/Users.jsx";
 import Assets from "./pages/Assets.jsx";
 import Assignments from "./pages/Assignments.jsx";
+import Policies from "./pages/Policies.jsx";
 import Departures from "./pages/Departures.jsx";
 import Reports from "./pages/Reports.jsx";
 import Rgpd from "./pages/Rgpd.jsx";
@@ -73,6 +74,7 @@ export default function App() {
             <NavLink to="/materiel">Materiel</NavLink>
             <NavLink to="/acces">Acces applicatifs</NavLink>
             <NavLink to="/remises">Remises</NavLink>
+            <NavLink to="/chartes">Chartes</NavLink>
             <NavLink to="/sorties">Sorties</NavLink>
             <NavLink to="/rapports">Rapports</NavLink>
             <NavLink to="/statistiques">Statistiques</NavLink>
@@ -95,6 +97,7 @@ export default function App() {
             <Route path="/materiel" element={<Assets />} />
             <Route path="/acces" element={<Acces />} />
             <Route path="/remises" element={<Assignments />} />
+            <Route path="/chartes" element={<Policies />} />
             <Route path="/sorties" element={<Departures />} />
             <Route path="/signer/:mode/:id" element={<Sign />} />
             <Route path="/rapports" element={<Reports />} />

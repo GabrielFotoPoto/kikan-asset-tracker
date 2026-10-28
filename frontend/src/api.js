@@ -70,6 +70,45 @@ export async function downloadFile(path, filename) {
   URL.revokeObjectURL(url);
 }
 
+// Depot de fichier (multipart) : le navigateur fixe lui-meme le type de contenu et la separation.
+export async function postForm(path, form) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(BASE + path, { method: "POST", headers, body: form });
+  if (res.status === 401) {
+    setToken(null);
+    window.dispatchEvent(new Event("kikan-unauth"));
+    throw new Error("Session expiree, reconnectez-vous.");
+  }
+  if (!res.ok) throw new Error((await res.text()) || `Erreur ${res.status}`);
+  return res.json();
+}
+
+// Image protegee par jeton, renvoyee sous forme d'URL data: (la CSP n'autorise pas blob:).
+export async function fetchDataUrl(path) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(BASE + path, { headers });
+  if (!res.ok) throw new Error((await res.text()) || `Erreur ${res.status}`);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error("Lecture de l'image impossible"));
+    r.readAsDataURL(blob);
+  });
+}
+
+// Message lisible a partir d'une erreur de l'API ({"detail": "..."}).
+export function errorText(ex) {
+  try {
+    const d = JSON.parse(ex.message).detail;
+    return typeof d === "string" ? d : ex.message;
+  } catch { return ex.message; }
+}
+
 export const api = {
   get: (p) => req(p),
   post: (p, b) => req(p, { method: "POST", body: JSON.stringify(b) }),

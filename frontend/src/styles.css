@@ -129,3 +129,8 @@ button:hover { opacity: 0.92; }
 .check input { width: 22px; height: 22px; }
 .charte { max-height: 220px; overflow: auto; white-space: pre-wrap; font-size: 13px; color: var(--muted); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
+.policy-viewer { overflow: auto; border: 1px solid var(--border, #d7dde6); border-radius: 8px; background: #eef1f5; padding: 10px; }
+.policy-page { display: block; width: 100%; max-width: 820px; margin: 0 auto 10px; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15); }
+.badge.ok { background: #e3f4e8; color: #17603a; }
+.warn { background: #fff7e0; border: 1px solid #ecd48a; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.ok-msg { color: #17603a; font-size: 13px; }

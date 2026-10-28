@@ -103,6 +103,27 @@ La signature est insérée dans le PDF, avec le nom, la date et l'heure (UTC) et
 - Par défaut la signature manuscrite est **obligatoire**. `KIKAN_SIGNATURE_MANUSCRITE_OBLIGATOIRE=false` autorise une
   simple confirmation (méthode `confirmation`, moins probante).
 
+## Chartes informatiques
+
+La charte est un **fichier déposé par l'informatique** (page **Chartes**) : document **Word (.docx)**, **PDF** ou
+**Markdown**. Elle est **globale** (toutes les entités) ou **propre à une entité** ; une entité sans charte propre
+hérite de celle de son entité parente, puis de la charte globale. Pour la mettre à jour, il suffit de déposer le
+nouveau fichier : l'ancienne version est **archivée et conservée** (jamais supprimée), les documents déjà signés ne
+changent pas.
+
+- À la création d'une remise, la charte applicable au salarié est **jointe d'office** (un autre choix ou « aucune
+  charte » est possible). À la signature, le serveur relit la charte, contrôle son empreinte et l'**annexe au PDF
+  avant le scellement** ; la version et l'empreinte sont enregistrées comme preuve. L'écran de signature affiche la
+  charte page par page.
+- Les fichiers sont conservés dans le stockage choisi (volume, SMB ou WebDAV), avec le fichier d'origine.
+- Un fichier déposé est une donnée non fiable : il est reconstruit en PDF propre (sans JavaScript, lien, action ni
+  annotation) et contrôlé par un second moteur. Le Markdown accepte titres, listes, **gras** et *italique*.
+- Les documents Word sont convertis par un **service isolé** (`converter`, LibreOffice) sans accès à Internet. S'il
+  est arrêté, le dépôt Word est refusé avec un message clair (PDF et Markdown restent possibles). Pour s'en passer :
+  retirer le service `converter` de `docker-compose.yml` et vider `KIKAN_WORD_CONVERTER_URL`.
+- Limites : `KIKAN_MAX_CHARTE_MB` (10 Mo), 60 pages. Le texte Markdown est rendu avec les polices standard du PDF
+  (lettres accentuées courantes, pas les emojis).
+
 ## Import de l'existant
 
 Des modèles CSV sont fournis dans [`import-modeles/`](import-modeles/) (un fichier par type,
@@ -176,9 +197,12 @@ backend/            API FastAPI
     audit.py        journal d'audit
     signing.py      scellement PAdES
     pdfgen.py       generation des PDF
+    charte.py       chartes deposees : validation, normalisation PDF, portees, annexe
+    docx_convert.py appel du service de conversion Word
     routers/        endpoints (entites, users, assets, assignments,
                     lifecycle, import, reports, rgpd, stats, acces, auth, audit)
 backend/migrations/ migrations Alembic du schema
+converter/          service isole de conversion Word vers PDF (LibreOffice, sans Internet)
 frontend/           application React (Vite + Nginx, HTTPS)
 import-modeles/     modeles CSV pour la reprise de l'existant
 tests/              tests de securite, non-regression, audit des dependances
@@ -192,7 +216,7 @@ docker-compose.yml
 Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1 est livrée.
 
 - **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
-  chartes d'usage (A2), page d'import CSV (A3), modification et suppression dans l'interface (A4), interface de
+  chartes d'usage (A2, **fait**), page d'import CSV (A3), modification et suppression dans l'interface (A4), interface de
   paramétrage (A5), gestion des comptes (A6), accès applicatifs dans le document de remise (A7), autocomplétion des
   modèles (A8).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par

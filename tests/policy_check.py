@@ -192,7 +192,7 @@ for _ in range(61):
     big.add_blank_page(200, 200)
 bb = io.BytesIO(); big.write(bb)
 refused("PDF de 61 pages (plafond 60)", "c.pdf", bb.getvalue())
-refused("Word (.docx) : pas encore pris en charge", "c.docx", b"PK\x03\x04" + b"\x00" * 50)
+refused("faux .docx (en-tete ZIP sans archive)", "c.docx", b"PK\x03\x04" + b"\x00" * 50)
 s, _ = upload("c.pdf", make_pdf(), entite_id=999999)
 show("entite inconnue -> 404", s == 404, f"HTTP {s}")
 s, lst = j("GET", "/policies")
@@ -218,6 +218,72 @@ text = PdfReader(io.BytesIO(mdpdf)).pages[0].extract_text()
 show("rendu Markdown : titres, listes et gras, balises HTML rendues en texte inerte",
      "Principes" in text and "poste de travail" in text and "<script>" in text and "gras" in text, text[:90].replace("\n", " / "))
 show("rendu Markdown : aucun script actif dans le PDF", b"JavaScript" not in mdpdf and b"/JS" not in mdpdf)
+
+print("== Word (.docx) ==")
+import time  # noqa: E402
+import zipfile  # noqa: E402
+
+
+def make_docx(paragraphs, link=None, extra=None):
+    """Document Word minimal (OOXML) : paragraphes, lien hypertexte externe facultatif."""
+    ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+    body = "".join(f'<w:p><w:r><w:t xml:space="preserve">{t}</w:t></w:r></w:p>' for t in paragraphs)
+    rels = ""
+    if link:
+        body += f'<w:p><w:hyperlink r:id="rIdL"><w:r><w:t>lien externe</w:t></w:r></w:hyperlink></w:p>'
+        rels = ('<Relationship Id="rIdL" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" '
+                f'Target="{link}" TargetMode="External"/>')
+    files = {
+        "[Content_Types].xml": '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+        "_rels/.rels": '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+        "word/document.xml": f'<?xml version="1.0" encoding="UTF-8"?><w:document {ns}><w:body>{body}</w:body></w:document>',
+        "word/_rels/document.xml.rels": '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + rels + "</Relationships>",
+    }
+    files.update(extra or {})
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for n, c in files.items():
+            if n:
+                z.writestr(n, c)
+    return buf.getvalue()
+
+
+s, went = j("POST", "/entites", {"code": "ZZPOL-W", "nom": "ZZPOL Word"})
+DOCX = make_docx(["Charte Word ZZPOL", "Article 1 : usage du poste de travail."], link="http://evil.example/x")
+t0 = time.time()
+s, p_w = upload("charte.docx", DOCX, titre="ZZPOL Word", entite_id=went["id"])
+dt = time.time() - t0
+show("document Word accepte et converti en PDF", s == 201 and p_w.get("format_source") == "docx" and p_w["nb_pages"] == 1,
+     f"HTTP {s} {p_w if s != 201 else ''} ({dt:.1f} s)")
+s, wpdf, _ = call("GET", f"/policies/{p_w['id']}/fichier", token=ADM)
+wtext = PdfReader(io.BytesIO(wpdf)).pages[0].extract_text()
+show("le texte du document Word est dans le PDF", "Charte Word ZZPOL" in wtext and "poste de travail" in wtext, wtext[:60].replace("\n", " / "))
+show("lien externe du Word neutralise dans le PDF normalise", b"evil.example" not in wpdf and b"/URI" not in wpdf and b"/Annots" not in wpdf)
+s, wsrc, _ = call("GET", f"/policies/{p_w['id']}/source", token=ADM)
+show("fichier Word d'origine conserve a l'identique (telechargeable)", s == 200 and wsrc == DOCX)
+s, p_w2 = upload("long.docx", make_docx([f"Paragraphe {i} " + "texte " * 40 for i in range(70)]), titre="ZZPOL Word long", entite_id=went["id"])
+show("document Word de plusieurs pages", s == 201 and p_w2["nb_pages"] >= 2, f"HTTP {s} pages={p_w2.get('nb_pages') if s == 201 else p_w2}")
+bomb = io.BytesIO()
+with zipfile.ZipFile(bomb, "w", zipfile.ZIP_DEFLATED) as z:
+    z.writestr("[Content_Types].xml", "<Types/>")
+    z.writestr("word/document.xml", "<w:document/>")
+    z.writestr("word/media/bomb.bin", b"\x00" * (200 * 1024 * 1024))
+t0 = time.time()
+refused("bombe de decompression (archive de 200 Mo une fois decompressee)", "bomb.docx", bomb.getvalue(), titre="ZZPOL Bombe")
+show("   ... refusee rapidement, sans lancer la conversion", time.time() - t0 < 10, f"{time.time() - t0:.1f} s")
+other = io.BytesIO()
+with zipfile.ZipFile(other, "w") as z:
+    z.writestr("autre.txt", "x")
+refused("archive ZIP qui n'est pas un document Word", "x.docx", other.getvalue(), titre="ZZPOL Zip")
+refused("document avec macros (vbaProject.bin)", "m.docx", make_docx(["x"], extra={"word/vbaProject.bin": "binaire"}), titre="ZZPOL Macro")
+refused("document Word corrompu (XML invalide)", "k.docx", make_docx(["x"], extra={"word/document.xml": "<w:document><pas ferme"}), titre="ZZPOL Corrompu",
+        codes=(400,))
+s, lst = j("GET", "/policies")
+show("aucun document Word refuse n'a cree de charte", not any(p["titre"] in ("ZZPOL Bombe", "ZZPOL Zip", "ZZPOL Macro", "ZZPOL Corrompu") for p in lst))
 
 print("== Portees, versions et archivage ==")
 s, g1 = upload("g.pdf", make_pdf(2, "Charte globale v1"), titre="ZZPOL Globale")

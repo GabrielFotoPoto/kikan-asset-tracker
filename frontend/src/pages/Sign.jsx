@@ -20,6 +20,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, downloadFile } from "../api.js";
+import PolicyViewer from "../components/PolicyViewer.jsx";
 import SignaturePad from "../components/SignaturePad.jsx";
 
 // Ecran de signature sur tablette : /signer/remise/:id (id d'affectation) ou /signer/restitution/:id (id salarie).
@@ -126,7 +127,7 @@ export default function Sign() {
 
   const declaration = isRestitution
     ? "Je reconnais avoir restitue le materiel ci-dessus."
-    : "Je reconnais avoir recu le materiel ci-dessus" + (recap.charte ? " et j'accepte la charte informatique." : ".");
+    : "Je reconnais avoir recu le materiel ci-dessus" + (recap.charte ? " et j'accepte la charte informatique ci-dessus." : ".");
 
   return (
     <div>
@@ -153,8 +154,12 @@ export default function Sign() {
 
       {!isRestitution && recap.charte && (
         <div className="card">
-          <h3>Charte informatique (version {recap.charte.version})</h3>
-          <div className="charte">{recap.charte.texte}</div>
+          <h3>{recap.charte.titre || "Charte informatique"} (version {recap.charte.version}
+            {recap.charte.nb_pages ? `, ${recap.charte.nb_pages} page(s)` : ""})</h3>
+          <p className="muted">Faites defiler pour lire la charte avant de signer. Elle sera jointe au document signe.</p>
+          {recap.charte.nb_pages
+            ? <PolicyViewer policyId={recap.charte.id} nbPages={recap.charte.nb_pages} />
+            : <div className="charte">{recap.charte.texte}</div>}
         </div>
       )}
 

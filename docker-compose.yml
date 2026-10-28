@@ -31,6 +31,8 @@ services:
       KIKAN_TOKEN_TTL_MIN: ${KIKAN_TOKEN_TTL_MIN:-240}
       KIKAN_SIGNATURE_MANUSCRITE_OBLIGATOIRE: ${KIKAN_SIGNATURE_MANUSCRITE_OBLIGATOIRE:-true}
       KIKAN_MAX_CHARTE_MB: ${KIKAN_MAX_CHARTE_MB:-10}
+      # Conversion des chartes Word en PDF (service isole, sans acces Internet). Vide = desactivee.
+      KIKAN_WORD_CONVERTER_URL: ${KIKAN_WORD_CONVERTER_URL:-http://converter:8090}
       KIKAN_CORS_ORIGINS: ${KIKAN_CORS_ORIGINS:-http://localhost:3000,https://localhost:3443}
       KIKAN_CERT_DIR: /certs
       KIKAN_ARCHIVE_DIR: /archive
@@ -56,6 +58,9 @@ services:
     # Acces direct a l'API reserve a la machine locale (dev, tests).
     ports:
       - "127.0.0.1:8080:8000"
+    networks:
+      - default
+      - convnet
     volumes:
       - kikan_certs:/certs
       - kikan_archive:/archive
@@ -72,6 +77,23 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # Conversion Word -> PDF : reseau interne uniquement (aucun acces a Internet ni a la base).
+  converter:
+    build: ./converter
+    container_name: kikan-converter
+    restart: unless-stopped
+    networks:
+      - convnet
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    pids_limit: 256
 
   web:
     build: ./frontend
@@ -91,6 +113,10 @@ services:
       - no-new-privileges:true
     depends_on:
       - api
+
+networks:
+  convnet:
+    internal: true
 
 volumes:
   kikan_pgdata:

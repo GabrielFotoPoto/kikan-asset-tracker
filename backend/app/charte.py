@@ -215,7 +215,8 @@ def normalize(filename: str, raw: bytes, title: str) -> tuple[str, bytes, int]:
     elif fmt == "markdown":
         pdf, n = markdown_to_pdf(raw, title)
     else:
-        raise CharteError("Les documents Word ne sont pas encore pris en charge : exportez-les en PDF.")
+        from .docx_convert import docx_to_pdf  # service isole : le document Word n'est jamais lu par l'API
+        pdf, n = normalize_pdf(docx_to_pdf(raw), title)
     return fmt, pdf, n
 
 
