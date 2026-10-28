@@ -157,6 +157,25 @@ chiffres et `. _ - @`, unique sans tenir compte de la casse, non modifiable), no
 - La **dernière connexion** de chaque compte est affichée, pour repérer les comptes dormants.
 - Le compte générique `admin` du premier démarrage se remplace par des comptes nominatifs, puis se désactive.
 
+### Cloisonnement par entité
+
+Les comptes **RH** et **lecture** sont **globaux** ou **limités à une ou plusieurs entités** (leurs sous-entités sont
+incluses) ; les comptes **informatique** (administrateurs) voient toujours tout. Le filtrage est fait **côté serveur**
+sur chaque lecture et chaque écriture : un élément hors périmètre est « introuvable » (404). Un nouveau compte RH ou
+lecture n'a **aucun périmètre** tant qu'un administrateur n'en définit pas un. Les données sans entité ne sont visibles
+que des comptes globaux ; les listes de suggestions (types, services, marques) et la charte globale restent communes.
+Les pages d'administration (comptes, paramétrage, stockage, journal d'audit, RGPD, import) sont réservées à l'informatique.
+
+![Création d'un compte avec choix du périmètre](docs/captures/comptes-perimetre-creation.png)
+
+![Liste des comptes et de leurs périmètres](docs/captures/comptes-liste-perimetres.png)
+
+![Un compte RH limité à une entité ne voit que ses salariés](docs/captures/rh-perimetre-limite.png)
+
+![Compte sans périmètre : message explicatif](docs/captures/compte-sans-perimetre.png)
+
+*Captures réalisées avec des données de démonstration fictives.*
+
 ## Modification et suppression
 
 Les pages Entités, Utilisateurs, Matériel et Accès applicatifs (catalogue) offrent **Modifier** (formulaire

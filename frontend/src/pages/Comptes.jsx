@@ -31,13 +31,13 @@ function ScopePicker({ value, entites, onChange }) {
   const toggle = (id) => onChange({ globale: false, ids: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id] });
   return (
     <div className="scope-picker">
-      <label className="row"><input type="radio" checked={globale} onChange={() => onChange({ globale: true, ids: [] })} /> Toute l'organisation</label>
-      <label className="row"><input type="radio" checked={!globale} onChange={() => onChange({ globale: false, ids })} /> Entites choisies (sous-entites incluses)</label>
+      <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, margin: "2px 0" }}><input type="radio" style={{ width: "auto" }} checked={globale} onChange={() => onChange({ globale: true, ids: [] })} /> Toute l'organisation</label>
+      <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, margin: "2px 0" }}><input type="radio" style={{ width: "auto" }} checked={!globale} onChange={() => onChange({ globale: false, ids })} /> Entites choisies (sous-entites incluses)</label>
       {!globale && (
         <div className="muted" style={{ columns: 2, marginLeft: 20 }}>
           {entites.map((e) => (
-            <label key={e.id} style={{ display: "block" }}>
-              <input type="checkbox" checked={ids.includes(e.id)} onChange={() => toggle(e.id)} /> {e.nom}
+            <label key={e.id} style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, margin: "2px 0" }}>
+              <input type="checkbox" style={{ width: "auto" }} checked={ids.includes(e.id)} onChange={() => toggle(e.id)} /> {e.nom}
             </label>
           ))}
           {entites.length === 0 && <span>Aucune entite : creez-en dans la page Entites.</span>}
