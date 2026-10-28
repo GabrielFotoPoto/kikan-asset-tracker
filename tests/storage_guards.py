@@ -93,7 +93,8 @@ expect("configuration normale (HTTPS + autorite)", W, DAV, True)
 expect("HTTP sans autorisation explicite refuse", W, DAV, False, contains="http refuse", KIKAN_WEBDAV_URL="http://kikan-test-webdav:8443")
 expect("mauvais mot de passe refuse", W, DAV, False, contains="401", KIKAN_WEBDAV_PASSWORD="mauvais")
 expect("certificat inconnu : message explicite", W, DAV, False, contains="certificat", KIKAN_WEBDAV_CA_BUNDLE=None)
-expect("verification TLS desactivee explicitement acceptee", W, DAV, True, KIKAN_WEBDAV_CA_BUNDLE=None, KIKAN_WEBDAV_VERIFY_TLS="false")
+expect("ancienne option VERIFY_TLS=false ignoree : certificat inconnu toujours refuse", W, DAV, False,
+       contains="certificat", KIKAN_WEBDAV_CA_BUNDLE=None, KIKAN_WEBDAV_VERIFY_TLS="false")
 expect("schema ftp:// refuse", W, DAV, False, contains="http", KIKAN_WEBDAV_URL="ftp://kikan-test-webdav")
 expect("serveur inconnu refuse", W, DAV, False, contains="injoignable", KIKAN_WEBDAV_URL="https://serveur-inexistant.invalid")
 

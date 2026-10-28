@@ -259,10 +259,13 @@ class WebDavBackend:
             self._auth = "Basic " + base64.b64encode(f"{user}:{password}".encode()).decode()
         else:
             self._auth = ""
-        if _env("KIKAN_WEBDAV_VERIFY_TLS", "true").lower() in ("0", "false", "non", "no"):
-            self._ctx = ssl._create_unverified_context()  # noqa: S323 (choix explicite de l'administrateur)
-        else:
-            self._ctx = ssl.create_default_context(cafile=_env("KIKAN_WEBDAV_CA_BUNDLE") or None)
+        # La verification du certificat du serveur est TOUJOURS active. Il n'existe volontairement
+        # aucune option pour la desactiver : pour une autorite interne ou un certificat auto-signe,
+        # fournir l'autorite avec KIKAN_WEBDAV_CA_BUNDLE.
+        if _env("KIKAN_WEBDAV_VERIFY_TLS").lower() in ("0", "false", "non", "no"):
+            log.warning("KIKAN_WEBDAV_VERIFY_TLS a ete supprimee et est ignoree : la verification du "
+                        "certificat reste active (utilisez KIKAN_WEBDAV_CA_BUNDLE).")
+        self._ctx = ssl.create_default_context(cafile=_env("KIKAN_WEBDAV_CA_BUNDLE") or None)
 
     def _url(self, key: str) -> str:
         return self.base_url + "/" + "/".join(urllib.parse.quote(p) for p in safe_key(key).split("/"))
