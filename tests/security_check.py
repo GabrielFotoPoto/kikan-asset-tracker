@@ -22,6 +22,8 @@ Usage (depuis la racine du projet, pile demarree) :
 
 Le script cree des donnees marquees ZZTEST (a nettoyer ensuite, voir SECURITY.md) et
 desactive ses comptes de test a la fin. Code de sortie 1 si au moins un test echoue.
+Le test de force brute alimente le compteur de tentatives par adresse IP (limite de 30 par 15 minutes) :
+au-dela de trois executions rapprochees, redemarrer l'API (docker compose restart api).
 """
 import datetime
 import json
@@ -39,6 +41,25 @@ ADMIN_PW = os.environ.get("TEST_ADMIN_PASSWORD", "")
 PROD = os.environ.get("KIKAN_ENV", "development").lower() == "production"
 TEST_PW = "Sec-Test-Passw0rd-2026"
 fails = 0
+
+
+def signature_b64():
+    """Signature manuscrite de test (PNG 1000x400, trace fonce sur fond transparent)."""
+    import base64
+    import io
+
+    from PIL import Image, ImageDraw
+
+    img = Image.new("RGBA", (1000, 400), (0, 0, 0, 0))
+    ImageDraw.Draw(img).line([(100, 300), (250, 110), (380, 300), (520, 130), (700, 290), (860, 150)],
+                             fill=(17, 17, 17, 255), width=7)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+SIG = signature_b64()
+SIGN = {"consent": True, "signature_image": SIG, "strokes": 4, "duration_ms": 1800}
 
 
 def call(method, path, body=None, token=None, headers=None, raw=None):
@@ -138,7 +159,7 @@ for name, tok in (("lecture", lect), ("rh", rh)):
     show(f"{name}: GET /auth/accounts -> 403", s == 403, f"HTTP {s}")
 s, _, _ = call("POST", "/users", {"nom": "T", "prenom": "T"}, lect)
 show("lecture: POST /users -> 403", s == 403, f"HTTP {s}")
-s, _, _ = call("POST", "/lifecycle/restituer", {"user_id": 1, "signataire": "x"}, lect)
+s, _, _ = call("POST", "/lifecycle/restituer", {"user_id": 1, "consent": True}, lect)
 show("lecture: POST /lifecycle/restituer -> 403", s == 403, f"HTTP {s}")
 
 print("== 4. Comptes et mots de passe ==")
@@ -196,7 +217,7 @@ show("preparation PDF : creation du salarie et de l'actif de test", bool(uid2 an
 if uid2 and aid2:
     s, b, _ = call("POST", "/assignments", {"user_id": uid2, "asset_ids": [aid2]}, adm)
     asg2 = json.loads(b)["id"]
-    s, b, _ = call("POST", f"/assignments/{asg2}/sign", {"signataire": "<b>t"}, adm)
+    s, b, _ = call("POST", f"/assignments/{asg2}/sign", SIGN, adm)
     show("signature avec balises HTML sans erreur 500", s == 201, f"HTTP {s}")
 
 print("== 8. Fichiers d'import hostiles ==")
@@ -222,10 +243,12 @@ s, _, _ = upload("../../etc/passwd", b"x")
 show("type d'import invalide rejete", s in (400, 404), f"HTTP {s}")
 
 print("== 9. Force brute ==")
-codes = [call("POST", "/auth/login", {"username": "cible-bruteforce", "password": "mauvais%d" % i})[0]
+import uuid  # noqa: E402
+TARGET = "cible-bruteforce-" + uuid.uuid4().hex[:6]  # nom unique : le verrouillage dure 15 min
+codes = [call("POST", "/auth/login", {"username": TARGET, "password": "mauvais%d" % i})[0]
          for i in range(7)]
 show("verrouillage (429) apres des echecs repetes", 429 in codes, f"codes: {codes}")
-s, _, h = call("POST", "/auth/login", {"username": "cible-bruteforce", "password": "x"})
+s, _, h = call("POST", "/auth/login", {"username": TARGET, "password": "x"})
 show("en-tete Retry-After present", s == 429 and any(k.lower() == "retry-after" for k in h), f"HTTP {s}")
 show("un autre compte reste utilisable (pas de blocage global)", login(ADMIN_USER, ADMIN_PW) is not None)
 

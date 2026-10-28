@@ -23,13 +23,14 @@ l'un ou l'autre ; la remise a l'arrivee reste reservee a l'informatique).
 import hashlib
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
-from ..auth import writer_guard
+from ..auth import client_ip, get_current_account, writer_guard
 from ..db import get_session
 from ..models import (
+    Account,
     Asset,
     AssetStatus,
     Assignment,
@@ -40,6 +41,12 @@ from ..models import (
     User,
 )
 from ..pdfgen import build_receipt
+from ..signature_image import (
+    HANDWRITTEN_REQUIRED,
+    MAX_B64_CHARS,
+    SignatureImageError,
+    prepare_signature,
+)
 from ..signing import seal_pdf
 from ..filestore import store_document
 
@@ -54,10 +61,13 @@ class DepartRequest(BaseModel):
 
 
 class RestitutionRequest(BaseModel):
+    """Le signataire n'est PAS fourni par le client : il est deduit de la fiche du salarie."""
     user_id: int
     asset_ids: list[int] | None = None  # None = tout le materiel detenu
-    signataire: str
-    methode: str = "manuscrite_ecran"
+    consent: bool = False
+    signature_image: str | None = Field(default=None, max_length=MAX_B64_CHARS)
+    strokes: int | None = Field(default=None, ge=0, le=1000)
+    duration_ms: int | None = Field(default=None, ge=0, le=600000)
 
 
 def _holdings(session: Session, user_id: int) -> list[tuple[Asset, int]]:
@@ -107,8 +117,33 @@ def declarer_depart(user_id: int, data: DepartRequest, session: Session = Depend
     }
 
 
+@router.get("/recap/{user_id}")
+def recap(user_id: int, session: Session = Depends(get_session)):
+    """Recapitulatif affiche sur la tablette avant la signature de la restitution."""
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "Utilisateur introuvable")
+    entite = session.get(Entite, user.entite_id) if user.entite_id else None
+    return {
+        "signature_obligatoire": HANDWRITTEN_REQUIRED,
+        "salarie": {"prenom": user.prenom, "nom": user.nom, "matricule": user.matricule,
+                    "service": user.service, "entite": entite.nom if entite else None,
+                    "statut": user.statut.value if hasattr(user.statut, "value") else user.statut},
+        "materiel": [
+            {"id": a.id, "type": a.type, "marque": a.marque, "modele": a.modele,
+             "numero_serie": a.numero_serie, "identifiant_interne": a.identifiant_interne}
+            for a, _ in _holdings(session, user_id)
+        ],
+    }
+
+
 @router.post("/restituer", response_model=Signature, status_code=201)
-def restituer(data: RestitutionRequest, session: Session = Depends(get_session)):
+def restituer(
+    data: RestitutionRequest,
+    request: Request,
+    session: Session = Depends(get_session),
+    account: Account = Depends(get_current_account),
+):
     user = session.get(User, data.user_id)
     if not user:
         raise HTTPException(404, "Utilisateur introuvable")
@@ -118,11 +153,17 @@ def restituer(data: RestitutionRequest, session: Session = Depends(get_session))
         held = [(a, aid) for a, aid in held if a.id in data.asset_ids]
     if not held:
         raise HTTPException(400, "Aucun materiel a restituer pour ce salarie")
+    try:
+        signature_png, image_meta, methode = prepare_signature(data.consent, data.signature_image)
+    except SignatureImageError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    signataire = f"{user.prenom} {user.nom}".strip()  # deduit de la fiche, jamais saisi librement
 
     entite = session.get(Entite, user.entite_id) if user.entite_id else None
     assets = [a for a, _ in held]
     assignment_ids = {aid for _, aid in held}
 
+    now = datetime.utcnow()
     pdf = build_receipt(
         user={"nom": user.nom, "prenom": user.prenom, "matricule": user.matricule},
         entite_nom=entite.nom if entite else None,
@@ -130,11 +171,15 @@ def restituer(data: RestitutionRequest, session: Session = Depends(get_session))
                  "numero_serie": a.numero_serie, "identifiant_interne": a.identifiant_interne}
                 for a in assets],
         title="Accuse de restitution de materiel",
+        kind="restitution",
+        signature_png=signature_png,
+        signataire=signataire,
+        temoin=account.username,
+        signed_at=now,
     )
-    sealed = seal_pdf(pdf, reason="Restitution de materiel", name=data.signataire)
+    sealed = seal_pdf(pdf, reason="Restitution de materiel", name=signataire)
     empreinte = hashlib.sha256(sealed).hexdigest()
 
-    now = datetime.utcnow()
     # Rangement par annee (AAAA/...) sur le stockage actif (volume, partage SMB ou WebDAV).
     reference = store_document(f"{now.year}/restitution_{data.user_id}_{now:%Y%m%d%H%M%S}.pdf", sealed)
 
@@ -157,12 +202,15 @@ def restituer(data: RestitutionRequest, session: Session = Depends(get_session))
 
     signature = Signature(
         assignment_id=sorted(assignment_ids)[0],
-        signataire=data.signataire,
-        methode=data.methode,
+        signataire=signataire,
+        methode=methode,
         horodatage=now,
         empreinte_doc=empreinte,
+        # Faisceau de preuves : l'image n'est PAS stockee en base (elle reste dans le PDF scelle).
         audit_json={"type": "restitution", "assignments": sorted(assignment_ids),
-                    "assets": [a.id for a in assets]},
+                    "assets": [a.id for a in assets], "temoin": account.username,
+                    "ip": client_ip(request), "user_agent": (request.headers.get("user-agent") or "")[:200],
+                    "image": image_meta, "traits": data.strokes, "duree_ms": data.duration_ms},
         ged_reference=reference,
     )
     session.add(signature)

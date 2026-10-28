@@ -29,6 +29,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 | Conteneurs | API en utilisateur non privilégié, système de fichiers en lecture seule, toutes les capacités Linux retirées, `no-new-privileges`. Base de données sans port publié. Ports publiés sur `127.0.0.1` par défaut. |
 | Signature | Clé privée du certificat de scellement en mode `0600`, hors de l'image et du dépôt (volume dédié). PDF scellé PAdES : toute modification invalide la signature. |
 | Stockage des documents | Dépôt sur lecteur réseau (SMB 3, chiffrement activé par défaut) ou partage WebDAV (HTTPS obligatoire, certificat toujours vérifié sans aucune option pour le désactiver, HTTP refusé sauf autorisation explicite). Dépôt toujours vérifié par empreinte SHA-256 puis relu ; empreinte recontrôlée à chaque lecture (un fichier altéré sur le partage est refusé et journalisé). Clés de stockage strictement filtrées (pas de `..` ni de chemin absolu). Identifiants du partage uniquement dans l'environnement, jamais en base ni dans les journaux. Signature jamais bloquée par une panne du partage (dépôt différé, repris ensuite). |
+| Signature manuscrite | L'image reçue du navigateur est traitée comme non fiable : PNG uniquement, taille et dimensions vérifiées avant décodage (bombes de décompression refusées), trace réel exigé, ré-encodage sans métadonnées. Le nom du signataire est déduit de la fiche du salarié (jamais fourni par le client), l'acceptation est obligatoire et une remise ne se signe qu'une fois. L'image n'est stockée que dans le PDF scellé : la base ne garde que ses empreintes, le nombre de traits et la durée du tracé. |
 | Production | `KIKAN_ENV=production` masque la documentation interactive (`/docs`). |
 | Dépendances | Versions figées et auditées avec `pip-audit` et `npm audit` (aucune vulnérabilité connue à la date de la dernière vérification). |
 
@@ -61,6 +62,8 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 - **Journal d'audit non chaîné** : un administrateur de la base PostgreSQL peut le modifier. Pour une preuve
   renforcée, exporter régulièrement le journal vers un système externe.
 - **Pas d'analyse d'images** de conteneurs, ni de limitation de débit au-delà de la connexion.
+- **La signature manuscrite est une donnée personnelle** : elle figure dans le PDF scellé, donc dans le stockage choisi (volume,
+  partage SMB ou WebDAV). Protéger l'accès à ce stockage et appliquer la durée de rétention RGPD.
 - **Identifiants du partage dans `.env`** (SMB ou WebDAV) : utiliser un compte de service dédié, limité au seul
   dossier de Kikan, et protéger le fichier `.env` (droits restreints, sauvegardes chiffrées).
 
@@ -77,6 +80,9 @@ docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api p
 
 # Audit des dépendances Python (le même contrôle existe côté front avec `npm audit`)
 docker run --rm -v "$PWD/backend/requirements.txt:/r.txt:ro" -v "$PWD/tests/audit_deps.py:/a.py:ro" python:3.12-slim python /a.py
+
+# Signature manuscrite : images invalides ou piégées, nom non falsifiable, preuves, PDF scellé, restitution
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/signature_check.py
 
 # Stockage SMB et WebDAV : dépôt, relecture, intégrité, purge (serveurs de test jetables)
 docker compose -f tests/storage-test-servers.yml up -d

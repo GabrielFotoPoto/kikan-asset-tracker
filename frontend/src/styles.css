@@ -107,3 +107,25 @@ button:hover { opacity: 0.92; }
   .sidebar { width: auto; }
   form.grid { grid-template-columns: 1fr; }
 }
+
+/* Signature manuscrite (tablette) */
+.sigpad-wrap { position: relative; max-width: 760px; }
+.sigpad {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 5 / 2;
+  background: #fff;
+  border: 2px dashed var(--muted);
+  border-radius: 12px;
+  touch-action: none;
+  cursor: crosshair;
+  display: block;
+}
+.sigpad-hint {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--line); font-size: 28px; pointer-events: none; user-select: none;
+}
+.check { flex-direction: row; align-items: center; gap: 10px; font-size: 15px; color: var(--ink); }
+.check input { width: 22px; height: 22px; }
+.charte { max-height: 220px; overflow: auto; white-space: pre-wrap; font-size: 13px; color: var(--muted); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }

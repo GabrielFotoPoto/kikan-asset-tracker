@@ -33,6 +33,25 @@ B = os.environ.get("TEST_BASE_URL", "http://localhost:8000")
 fails = 0
 
 
+def signature_b64():
+    """Signature manuscrite de test (PNG 1000x400, trace fonce sur fond transparent)."""
+    import base64
+    import io
+
+    from PIL import Image, ImageDraw
+
+    img = Image.new("RGBA", (1000, 400), (0, 0, 0, 0))
+    ImageDraw.Draw(img).line([(100, 300), (250, 110), (380, 300), (520, 130), (700, 290), (860, 150)],
+                             fill=(17, 17, 17, 255), width=7)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+SIG = signature_b64()
+SIGN = {"consent": True, "signature_image": SIG, "strokes": 4, "duration_ms": 1800}
+
+
 def call(method, path, body=None, token=None, raw=None, headers=None):
     h = {"Content-Type": "application/json"}
     if token:
@@ -90,8 +109,9 @@ show("autocompletion des modeles", s == 200 and "Latitude" in md, str(md))
 print("== Remise signee (PAdES) ==")
 s, asg = j("POST", "/assignments", {"user_id": u["id"], "asset_ids": [a1["id"], a2["id"]], "cree_par": "test"})
 show("creation de l'affectation (2 actifs)", s == 201 and asg.get("statut") == "en_cours", f"HTTP {s}")
-s, sig = j("POST", f"/assignments/{asg['id']}/sign", {"signataire": "Test Fonctionnel"})
+s, sig = j("POST", f"/assignments/{asg['id']}/sign", SIGN)
 show("signature et scellement", s == 201 and sig.get("empreinte_doc"), f"HTTP {s}")
+show("signataire deduit de la fiche du salarie", sig.get("signataire") == "Test Fonctionnel", sig.get("signataire"))
 s, pdf = call("GET", f"/assignments/{asg['id']}/document", token=T)
 show("telechargement du PDF scelle", s == 200 and pdf[:4] == b"%PDF", f"{len(pdf)} octets")
 try:
@@ -135,7 +155,7 @@ show("statistiques", s == 200 and st["actifs_total"] >= 2 and st["renouvellement
 print("== Depart et restitution ==")
 s, dep = j("POST", f"/lifecycle/depart/{u['id']}", {"date_sortie": "2026-12-31"})
 show("declaration du depart", s == 200 and len(dep["materiel_a_recuperer"]) == 2, f"HTTP {s}")
-s, rs = j("POST", "/lifecycle/restituer", {"user_id": u["id"], "signataire": "Test Fonctionnel"})
+s, rs = j("POST", "/lifecycle/restituer", {"user_id": u["id"], **SIGN})
 show("restitution signee", s == 201 and rs["audit_json"]["type"] == "restitution", f"HTTP {s}")
 s, u2 = j("GET", f"/users/{u['id']}")
 show("le salarie passe en 'sorti'", u2.get("statut") == "sorti")
@@ -158,7 +178,7 @@ show("salarie purge introuvable", s == 404)
 s, o3 = j("POST", "/users", {"nom": "Ancien", "prenom": "Affecte", "matricule": "ZZFN3", "statut": "actif"})
 s, a3 = j("POST", "/assets", {"type": "PC", "marque": "ZZFN-HP", "numero_serie": "ZZFN-SN3", "statut": "stock"})
 s, asg3 = j("POST", "/assignments", {"user_id": o3["id"], "asset_ids": [a3["id"]]})
-s, sg3 = j("POST", f"/assignments/{asg3['id']}/sign", {"signataire": "Ancien"})
+s, sg3 = j("POST", f"/assignments/{asg3['id']}/sign", SIGN)
 j("PUT", f"/users/{o3['id']}", {"nom": "Ancien", "prenom": "Affecte", "matricule": "ZZFN3",
                                  "statut": "sorti", "date_sortie": "2019-01-01"})
 s, pg3 = j("POST", "/rgpd/purge", {})

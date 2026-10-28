@@ -16,10 +16,10 @@ et A.5.18 (droits d'accès).
 
 - **Cycle de vie du salarié** : formulaire d'entrée (RH), départ avec génération automatique de
   la liste du matériel à récupérer, passage automatique en « sorti » une fois tout rendu.
-- **Remise signée** : génération d'un accusé PDF (matériel + charte informatique annexée),
-  signature sur tablette, puis **scellement PAdES** (certificat auto-signé de l'organisation,
-  horodatage RFC 3161 optionnel). Document infalsifiable et vérifiable.
-- **Restitution signée** (A.5.11), conduite par l'informatique ou les RH.
+- **Remise signée** : génération d'un accusé PDF (matériel + charte informatique annexée), **signature manuscrite
+  de l'employé sur tablette** (doigt, stylet ou souris), puis **scellement PAdES** (certificat auto-signé de
+  l'organisation, horodatage RFC 3161 optionnel). Document infalsifiable et vérifiable.
+- **Restitution signée** (A.5.11), avec la même signature manuscrite, conduite par l'informatique ou les RH.
 - **Multi-entités / filiales** : rattachement des salariés, données filtrables par entité.
 - **Accès applicatifs** (A.5.18) : catalogue d'applications, attribution par salarié avec note
   de niveau (ex. administrateur, « mêmes droits que... »).
@@ -86,6 +86,22 @@ avant le premier démarrage, ou monter le certificat de l'organisation dans le v
 
 > Cible v0.2 : authentification **SSO Microsoft 365 (Entra ID)** avec comptes nominatifs,
 > réservée aux groupes `Kikan-IT` (informatique) et `Kikan-RH` (rh).
+
+## Signature manuscrite
+
+À la remise, l'informatique ouvre l'**écran de signature** (bouton « Signer » de la page Remises ; « Restituer et
+signer » pour une sortie), pensé pour une tablette. L'écran affiche le récapitulatif (salarié, matériel, charte), le
+nom du salarié **repris de sa fiche et non modifiable**, une case d'acceptation obligatoire et le cadre de signature.
+La signature est insérée dans le PDF, avec le nom, la date et l'heure (UTC) et le compte qui conduit la remise
+(témoin), puis le tout est scellé.
+
+- L'image est traitée comme une donnée non fiable : PNG uniquement, taille et dimensions bornées, trace réel exigé
+  (signature vide ou réduite à un point refusée), protection contre les images piégées, ré-encodage sans métadonnées.
+- La signature n'est conservée **que dans le PDF scellé** (donc supprimée avec lui par la purge RGPD) ; la base ne
+  garde que des empreintes, le nombre de traits et la durée du tracé comme éléments de preuve.
+- Une remise ne se signe qu'une seule fois.
+- Par défaut la signature manuscrite est **obligatoire**. `KIKAN_SIGNATURE_MANUSCRITE_OBLIGATOIRE=false` autorise une
+  simple confirmation (méthode `confirmation`, moins probante).
 
 ## Import de l'existant
 
@@ -175,7 +191,7 @@ docker-compose.yml
 
 Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1 est livrée.
 
-- **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1), gestion des
+- **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
   chartes d'usage (A2), page d'import CSV (A3), modification et suppression dans l'interface (A4), interface de
   paramétrage (A5), gestion des comptes (A6), accès applicatifs dans le document de remise (A7), autocomplétion des
   modèles (A8).

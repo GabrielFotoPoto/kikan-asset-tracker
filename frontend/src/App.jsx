@@ -35,6 +35,7 @@ import Stats from "./pages/Stats.jsx";
 import Audit from "./pages/Audit.jsx";
 import Compte from "./pages/Compte.jsx";
 import Stockage from "./pages/Stockage.jsx";
+import Sign from "./pages/Sign.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -95,6 +96,7 @@ export default function App() {
             <Route path="/acces" element={<Acces />} />
             <Route path="/remises" element={<Assignments />} />
             <Route path="/sorties" element={<Departures />} />
+            <Route path="/signer/:mode/:id" element={<Sign />} />
             <Route path="/rapports" element={<Reports />} />
             <Route path="/statistiques" element={<Stats />} />
             <Route path="/rgpd" element={<Rgpd />} />

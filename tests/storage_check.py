@@ -36,6 +36,25 @@ EXPECT = os.environ.get("TEST_EXPECT_BACKEND", "local")
 fails = 0
 
 
+def signature_b64():
+    """Signature manuscrite de test (PNG 1000x400, trace fonce sur fond transparent)."""
+    import base64
+    import io
+
+    from PIL import Image, ImageDraw
+
+    img = Image.new("RGBA", (1000, 400), (0, 0, 0, 0))
+    ImageDraw.Draw(img).line([(100, 300), (250, 110), (380, 300), (520, 130), (700, 290), (860, 150)],
+                             fill=(17, 17, 17, 255), width=7)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+SIG = signature_b64()
+SIGN = {"consent": True, "signature_image": SIG, "strokes": 4, "duration_ms": 1800}
+
+
 def show(name, ok, detail=""):
     global fails
     if not ok:
@@ -81,7 +100,7 @@ print("== Remise signee deposee sur le stockage ==")
 s, u = j("POST", "/users", {"nom": "Stockage", "prenom": "Test", "matricule": "ZZST1", "statut": "actif"})
 s, a = j("POST", "/assets", {"type": "PC", "marque": "ZZST", "modele": "M1", "numero_serie": "ZZST-SN1", "statut": "stock"})
 s, asg = j("POST", "/assignments", {"user_id": u["id"], "asset_ids": [a["id"]]})
-s, sig = j("POST", f"/assignments/{asg['id']}/sign", {"signataire": "Test Stockage"})
+s, sig = j("POST", f"/assignments/{asg['id']}/sign", SIGN)
 ref = sig.get("ged_reference", "") if s == 201 else ""
 show("signature creee", s == 201, s)
 show(f"reference au format {EXPECT}:AAAA/...", ref.startswith(f"{EXPECT}:") and "/" in ref, ref)
@@ -95,7 +114,7 @@ show(f"le document est compte sous '{EXPECT}'", st["documents"]["par_backend"].g
 
 print("== Restitution deposee sur le stockage ==")
 s, _ = j("POST", f"/lifecycle/depart/{u['id']}", {"date_sortie": "2026-12-31"})
-s, rs = j("POST", "/lifecycle/restituer", {"user_id": u["id"], "signataire": "Test Stockage"})
+s, rs = j("POST", "/lifecycle/restituer", {"user_id": u["id"], **SIGN})
 rref = rs.get("ged_reference", "") if s == 201 else ""
 show("restitution signee et deposee", s == 201 and rref.startswith(f"{EXPECT}:"), rref)
 print("KEY_RESTIT=" + rref.partition(":")[2])
@@ -123,7 +142,7 @@ print("== Purge RGPD : le document disparait aussi du stockage ==")
 s, u2 = j("POST", "/users", {"nom": "Ancien", "prenom": "Stockage", "matricule": "ZZST2", "statut": "actif"})
 s, a2 = j("POST", "/assets", {"type": "PC", "marque": "ZZST", "modele": "M2", "numero_serie": "ZZST-SN2", "statut": "stock"})
 s, asg2 = j("POST", "/assignments", {"user_id": u2["id"], "asset_ids": [a2["id"]]})
-s, sig2 = j("POST", f"/assignments/{asg2['id']}/sign", {"signataire": "Ancien"})
+s, sig2 = j("POST", f"/assignments/{asg2['id']}/sign", SIGN)
 print("KEY_PURGED=" + sig2.get("ged_reference", "").partition(":")[2])
 s, _ = j("PUT", f"/users/{u2['id']}", {"nom": "Ancien", "prenom": "Stockage", "matricule": "ZZST2",
                                         "statut": "sorti", "date_sortie": "2019-01-01"})

@@ -18,10 +18,12 @@
  */
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, downloadFile } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 
 export default function Assignments() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const writable = canWrite(user.role, "remises");
   const [users, setUsers] = useState([]);
@@ -61,16 +63,8 @@ export default function Assignments() {
     } catch (ex) { setErr(ex.message); }
   };
 
-  const sign = async (id) => {
-    const signataire = window.prompt("Nom du signataire (salarie) :");
-    if (!signataire) return;
-    setErr(null);
-    try {
-      await api.post(`/assignments/${id}/sign`, { signataire, methode: "manuscrite_ecran" });
-      setSigned((s) => ({ ...s, [id]: true }));
-      setMsg("Document signe et scelle.");
-    } catch (ex) { setErr(ex.message); }
-  };
+  // La signature se fait sur l'ecran tablette dedie (signature manuscrite de l'employe).
+  const sign = (id) => navigate(`/signer/remise/${id}`);
 
   return (
     <div>

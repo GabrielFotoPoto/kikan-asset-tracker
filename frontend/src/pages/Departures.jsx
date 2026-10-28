@@ -18,10 +18,12 @@
  */
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 
 export default function Departures() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const writable = canWrite(user.role, "users"); // RH ou informatique
   const [users, setUsers] = useState([]);
@@ -56,16 +58,8 @@ export default function Departures() {
     } catch (ex) { setErr(ex.message); }
   };
 
-  const restituer = async (u) => {
-    const signataire = window.prompt(`Restitution de ${u.prenom} ${u.nom} - nom du signataire :`);
-    if (!signataire) return;
-    setErr(null); setMsg(null);
-    try {
-      await api.post("/lifecycle/restituer", { user_id: u.id, signataire });
-      setMsg("Restitution signee et scellee.");
-      await load();
-    } catch (ex) { setErr(ex.message); }
-  };
+  // La signature se fait sur l'ecran tablette dedie (signature manuscrite de l'employe).
+  const restituer = (u) => navigate(`/signer/restitution/${u.id}`);
 
   return (
     <div>
