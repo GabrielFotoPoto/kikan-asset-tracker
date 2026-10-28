@@ -20,9 +20,18 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
-from ..auth import writer_guard
+from ..auth import get_current_account, require_roles, writer_guard
 from ..db import get_session
-from ..models import EmployeeStatus, User, UserBase
+from ..models import (
+    Account,
+    Assignment,
+    EmployeeStatus,
+    Entite,
+    User,
+    UserApplication,
+    UserBase,
+)
+from ..rules import audit_change, changed_fields, count, refuse_delete, taken
 
 router = APIRouter(
     prefix="/users", tags=["users"],
@@ -54,8 +63,15 @@ def list_users(
     return results
 
 
+def _check_entite(session: Session, entite_id: int | None) -> None:
+    if entite_id is not None and not session.get(Entite, entite_id):
+        raise HTTPException(400, "Entite inconnue")
+
+
 @router.post("", response_model=User, status_code=201)
 def create_user(data: UserBase, session: Session = Depends(get_session)):
+    taken(session, User, User.matricule, data.matricule, None, "Matricule")
+    _check_entite(session, data.entite_id)
     obj = User.model_validate(data)
     session.add(obj)
     session.commit()
@@ -72,23 +88,46 @@ def get_user(user_id: int, session: Session = Depends(get_session)):
 
 
 @router.put("/{user_id}", response_model=User)
-def update_user(user_id: int, data: UserBase, session: Session = Depends(get_session)):
+def update_user(
+    user_id: int, data: UserBase,
+    session: Session = Depends(get_session), account: Account = Depends(get_current_account),
+):
     obj = session.get(User, user_id)
     if not obj:
         raise HTTPException(404, "Utilisateur introuvable")
-    for key, value in data.model_dump().items():
+    taken(session, User, User.matricule, data.matricule, obj.id, "Matricule")
+    _check_entite(session, data.entite_id)
+    new = data.model_dump()
+    # Le depart passe par la page Sorties (restitution du materiel) ; un salarie sorti n'est pas reactive.
+    if new["statut"] != obj.statut:
+        if obj.statut == EmployeeStatus.sorti:
+            raise HTTPException(409, "Un salarie sorti ne peut pas etre reactive")
+        if new["statut"] in (EmployeeStatus.en_depart, EmployeeStatus.sorti):
+            raise HTTPException(409, "Le depart se declare depuis la page Sorties (restitution du materiel)")
+    fields = changed_fields(obj, new)
+    for key, value in new.items():
         setattr(obj, key, value)
     obj.maj_le = datetime.utcnow()
     session.add(obj)
     session.commit()
     session.refresh(obj)
+    audit_change(account.username, "users", obj.id, fields)
     return obj
 
 
-@router.delete("/{user_id}", status_code=204)
+@router.delete("/{user_id}", status_code=204, dependencies=[Depends(require_roles("informatique"))])
 def delete_user(user_id: int, session: Session = Depends(get_session)):
     obj = session.get(User, user_id)
     if not obj:
         raise HTTPException(404, "Utilisateur introuvable")
+    refuse_delete(
+        "ce salarie",
+        {
+            "affectation(s) de materiel": count(session, Assignment, Assignment.user_id == obj.id),
+            "acces applicatif(s)": count(session, UserApplication, UserApplication.user_id == obj.id),
+        },
+        "Un salarie avec historique se conserve (statut sorti via la page Sorties) ; "
+        "son effacement definitif releve de la purge RGPD.",
+    )
     session.delete(obj)
     session.commit()

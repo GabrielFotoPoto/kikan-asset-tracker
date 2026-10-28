@@ -20,9 +20,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
-from ..auth import writer_guard
+from ..auth import get_current_account, writer_guard
 from ..db import get_session
-from ..models import Asset, AssetBase, AssetStatus
+from ..models import Account, Asset, AssetBase, AssetStatus, AssignmentAsset, Entite
+from ..rules import audit_change, changed_fields, count, refuse_delete, taken
 
 router = APIRouter(
     prefix="/assets", tags=["assets"],
@@ -71,8 +72,18 @@ def catalogue_modeles(
     return values
 
 
+def _check_asset(session: Session, data: AssetBase, own_id: int | None) -> None:
+    taken(session, Asset, Asset.numero_serie, data.numero_serie, own_id, "Numero de serie")
+    taken(session, Asset, Asset.identifiant_interne, data.identifiant_interne, own_id, "Identifiant interne")
+    if data.entite_id is not None and not session.get(Entite, data.entite_id):
+        raise HTTPException(400, "Entite inconnue")
+
+
 @router.post("", response_model=Asset, status_code=201)
 def create_asset(data: AssetBase, session: Session = Depends(get_session)):
+    if data.statut in (AssetStatus.affecte, AssetStatus.rendu):
+        raise HTTPException(409, "Le statut affecte ou rendu s'obtient par la remise ou la restitution")
+    _check_asset(session, data, None)
     obj = Asset.model_validate(data)
     session.add(obj)
     session.commit()
@@ -89,16 +100,29 @@ def get_asset(asset_id: int, session: Session = Depends(get_session)):
 
 
 @router.put("/{asset_id}", response_model=Asset)
-def update_asset(asset_id: int, data: AssetBase, session: Session = Depends(get_session)):
+def update_asset(
+    asset_id: int, data: AssetBase,
+    session: Session = Depends(get_session), account: Account = Depends(get_current_account),
+):
     obj = session.get(Asset, asset_id)
     if not obj:
         raise HTTPException(404, "Actif introuvable")
-    for key, value in data.model_dump().items():
+    _check_asset(session, data, obj.id)
+    new = data.model_dump()
+    # Les statuts affecte et rendu viennent de la remise et de la restitution, pas d'une saisie manuelle.
+    if new["statut"] != obj.statut:
+        if obj.statut == AssetStatus.affecte:
+            raise HTTPException(409, "Cet actif est affecte : il se libere par la restitution du salarie")
+        if new["statut"] in (AssetStatus.affecte, AssetStatus.rendu):
+            raise HTTPException(409, "Le statut affecte ou rendu s'obtient par la remise ou la restitution")
+    fields = changed_fields(obj, new)
+    for key, value in new.items():
         setattr(obj, key, value)
     obj.maj_le = datetime.utcnow()
     session.add(obj)
     session.commit()
     session.refresh(obj)
+    audit_change(account.username, "assets", obj.id, fields)
     return obj
 
 
@@ -107,5 +131,10 @@ def delete_asset(asset_id: int, session: Session = Depends(get_session)):
     obj = session.get(Asset, asset_id)
     if not obj:
         raise HTTPException(404, "Actif introuvable")
+    refuse_delete(
+        "cet actif",
+        {"affectation(s)": count(session, AssignmentAsset, AssignmentAsset.asset_id == obj.id)},
+        "Un actif deja remis se conserve : passez-le au statut reforme.",
+    )
     session.delete(obj)
     session.commit()

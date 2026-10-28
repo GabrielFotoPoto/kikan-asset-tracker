@@ -144,8 +144,8 @@ s, a2 = j("POST", "/assets", {"type": "PC", "marque": "ZZST", "modele": "M2", "n
 s, asg2 = j("POST", "/assignments", {"user_id": u2["id"], "asset_ids": [a2["id"]]})
 s, sig2 = j("POST", f"/assignments/{asg2['id']}/sign", SIGN)
 print("KEY_PURGED=" + sig2.get("ged_reference", "").partition(":")[2])
-s, _ = j("PUT", f"/users/{u2['id']}", {"nom": "Ancien", "prenom": "Stockage", "matricule": "ZZST2",
-                                        "statut": "sorti", "date_sortie": "2019-01-01"})
+j("POST", f"/lifecycle/depart/{u2['id']}", {"date_sortie": "2019-01-01"})
+s, _ = j("POST", "/lifecycle/restituer", {"user_id": u2["id"], **SIGN})
 j("PUT", "/rgpd/retention", {"mois": 36})
 s, pg = j("POST", "/rgpd/purge", {})
 show("purge effectuee avec suppression du document", s == 200 and pg.get("documents_supprimes", 0) >= 1, pg)

@@ -179,8 +179,9 @@ s, o3 = j("POST", "/users", {"nom": "Ancien", "prenom": "Affecte", "matricule": 
 s, a3 = j("POST", "/assets", {"type": "PC", "marque": "ZZFN-HP", "numero_serie": "ZZFN-SN3", "statut": "stock"})
 s, asg3 = j("POST", "/assignments", {"user_id": o3["id"], "asset_ids": [a3["id"]]})
 s, sg3 = j("POST", f"/assignments/{asg3['id']}/sign", SIGN)
-j("PUT", f"/users/{o3['id']}", {"nom": "Ancien", "prenom": "Affecte", "matricule": "ZZFN3",
-                                 "statut": "sorti", "date_sortie": "2019-01-01"})
+# Le statut sorti ne se saisit plus a la main : depart puis restitution signee.
+j("POST", f"/lifecycle/depart/{o3['id']}", {"date_sortie": "2019-01-01"})
+j("POST", "/lifecycle/restituer", {"user_id": o3["id"], **SIGN})
 s, pg3 = j("POST", "/rgpd/purge", {})
 show("purge d'un salarie avec affectation et document", s == 200 and pg3.get("documents_supprimes", 0) >= 1, f"HTTP {s} {pg3}")
 s, _ = j("GET", f"/users/{o3['id']}")

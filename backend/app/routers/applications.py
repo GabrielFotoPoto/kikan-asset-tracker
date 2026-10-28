@@ -16,11 +16,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlmodel import Session, select
 
-from ..auth import writer_guard
+from ..auth import get_current_account, writer_guard
 from ..db import get_session
-from ..models import Application, ApplicationBase
+from ..models import Account, Application, ApplicationBase, Entite, UserApplication
+from ..rules import audit_change, changed_fields, count, refuse_delete
 
 router = APIRouter(
     prefix="/applications", tags=["applications"],
@@ -38,8 +40,23 @@ def list_applications(
     return session.exec(stmt).all()
 
 
+def _check_application(session: Session, data: ApplicationBase, own_id: int | None) -> None:
+    nom = (data.nom or "").strip()
+    if not nom:
+        raise HTTPException(400, "Le nom est obligatoire")
+    if data.entite_id is not None and not session.get(Entite, data.entite_id):
+        raise HTTPException(400, "Entite inconnue")
+    same_scope = (Application.entite_id == data.entite_id) if data.entite_id is not None else Application.entite_id.is_(None)
+    stmt = select(Application).where(func.lower(Application.nom) == nom.lower(), same_scope)
+    if own_id is not None:
+        stmt = stmt.where(Application.id != own_id)
+    if session.exec(stmt).first():
+        raise HTTPException(409, f"Application deja presente : {nom}")
+
+
 @router.post("", response_model=Application, status_code=201)
 def create_application(data: ApplicationBase, session: Session = Depends(get_session)):
+    _check_application(session, data, None)
     obj = Application.model_validate(data)
     session.add(obj)
     session.commit()
@@ -57,16 +74,21 @@ def get_application(application_id: int, session: Session = Depends(get_session)
 
 @router.put("/{application_id}", response_model=Application)
 def update_application(
-    application_id: int, data: ApplicationBase, session: Session = Depends(get_session)
+    application_id: int, data: ApplicationBase,
+    session: Session = Depends(get_session), account: Account = Depends(get_current_account),
 ):
     obj = session.get(Application, application_id)
     if not obj:
         raise HTTPException(404, "Application introuvable")
-    for key, value in data.model_dump().items():
+    _check_application(session, data, obj.id)
+    new = data.model_dump()
+    fields = changed_fields(obj, new)
+    for key, value in new.items():
         setattr(obj, key, value)
     session.add(obj)
     session.commit()
     session.refresh(obj)
+    audit_change(account.username, "applications", obj.id, fields)
     return obj
 
 
@@ -75,5 +97,10 @@ def delete_application(application_id: int, session: Session = Depends(get_sessi
     obj = session.get(Application, application_id)
     if not obj:
         raise HTTPException(404, "Application introuvable")
+    refuse_delete(
+        "cette application",
+        {"acces attribue(s)": count(session, UserApplication, UserApplication.application_id == obj.id)},
+        "Desactivez l'application (actif = non) plutot que de la supprimer.",
+    )
     session.delete(obj)
     session.commit()

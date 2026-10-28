@@ -32,6 +32,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 | Signature manuscrite | L'image reçue du navigateur est traitée comme non fiable : PNG uniquement, taille et dimensions vérifiées avant décodage (bombes de décompression refusées), trace réel exigé, ré-encodage sans métadonnées. Le nom du signataire est déduit de la fiche du salarié (jamais fourni par le client), l'acceptation est obligatoire et une remise ne se signe qu'une fois. L'image n'est stockée que dans le PDF scellé : la base ne garde que ses empreintes, le nombre de traits et la durée du tracé. |
 | Chartes deposees | Le fichier est traité comme non fiable : format reconnu par son contenu (pas par l'extension), taille et pages plafonnées, PDF reconstruit (pages seules, sans JavaScript, action, lien ni annotation) puis contrôlé par un second moteur ; Markdown rendu avec balises échappées. Les documents Word sont convertis par un service dédié **sans accès à Internet** (réseau Docker interne), en lecture seule, non privilégié, une conversion à la fois, avec délai maximal ; archives piégées (bombes de décompression) et macros refusées avant conversion. Empreinte de la charte recontrôlée à chaque lecture et avant chaque signature. Dépôt réservé à l'informatique, versions jamais supprimées. |
 | Import CSV | Réservé à l'informatique (écriture et lecture des modèles). Simulation sans écriture ; l'import réel exige l'empreinte du fichier simulé et refuse tout fichier en erreur (tout ou rien). Fichiers binaires, trop gros (5 Mo) ou trop longs (20 000 lignes) refusés ; colonnes obligatoires vérifiées ; textes importés jamais interprétés (échappés à l'affichage, formules neutralisées à l'export). Journal : type, compteurs et empreinte, jamais le contenu. |
+| Modification et suppression | Un élément ayant un historique (salarié affecté, actif remis, entité ou application utilisée) ne peut pas être supprimé : refus explicite (409) plutôt qu'une perte de traçabilité. Les statuts d'actif et de salarié liés aux documents signés (affecté, rendu, sorti) ne se saisissent pas à la main. Suppression d'un salarié réservée à l'informatique. Le journal des modifications liste les champs changés, jamais les valeurs (données personnelles). |
 | Production | `KIKAN_ENV=production` masque la documentation interactive (`/docs`). |
 | Dépendances | Versions figées et auditées avec `pip-audit` et `npm audit` (aucune vulnérabilité connue à la date de la dernière vérification). |
 
@@ -88,6 +89,9 @@ docker run --rm -v "$PWD/backend/requirements.txt:/r.txt:ro" -v "$PWD/tests/audi
 
 # Signature manuscrite : images invalides ou piégées, nom non falsifiable, preuves, PDF scellé, restitution
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/signature_check.py
+
+# Modification et suppression : refus des suppressions utilisées, cohérence des statuts, hiérarchie, doublons, rôles, audit
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/crud_check.py
 
 # Import CSV : simulation, tout ou rien, empreinte, encodages, fichiers hostiles, rôles, audit
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/import_check.py

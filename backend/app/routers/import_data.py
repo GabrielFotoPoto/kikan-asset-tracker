@@ -273,11 +273,16 @@ def _import_utilisateurs(rows, session, rep):
 def _import_materiel(rows, session, rep):
     emap = _entite_map(session)
     existing_sn = {a.numero_serie for a in session.exec(select(Asset)).all() if a.numero_serie}
+    existing_id = {a.identifiant_interne for a in session.exec(select(Asset)).all() if a.identifiant_interne}
     for i, row in enumerate(rows, start=2):
         rep.total += 1
         sn = as_str(row.get("numero_serie"))
+        ident = as_str(row.get("identifiant_interne"))
         if sn and sn in existing_sn:
             rep.error(i, f"numero de serie deja present: {sn}")
+            continue
+        if ident and ident in existing_id:
+            rep.error(i, f"identifiant interne deja present: {ident}")
             continue
         code_ent = as_str(row.get("code_entite"))
         entite_id = emap.get(code_ent) if code_ent else None
@@ -302,6 +307,8 @@ def _import_materiel(rows, session, rep):
         ))
         if sn:
             existing_sn.add(sn)
+        if ident:
+            existing_id.add(ident)
         rep.imported += 1
         rep.created(i, " ".join(x for x in (as_str(row.get("type")), as_str(row.get("marque")),
                                             as_str(row.get("modele")), sn) if x))

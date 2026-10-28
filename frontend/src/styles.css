@@ -135,3 +135,5 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .warn { background: #fff7e0; border: 1px solid #ecd48a; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
 .ok-msg { color: #17603a; font-size: 13px; }
 .badge.bad { background: #fde8e8; color: #9b1c1c; }
+.danger { background: #b32020; color: #fff; }
+.danger:hover { background: #8f1818; }

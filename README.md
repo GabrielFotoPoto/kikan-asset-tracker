@@ -124,6 +124,25 @@ changent pas.
 - Limites : `KIKAN_MAX_CHARTE_MB` (10 Mo), 60 pages. Le texte Markdown est rendu avec les polices standard du PDF
   (lettres accentuées courantes, pas les emojis).
 
+## Modification et suppression
+
+Les pages Entités, Utilisateurs, Matériel et Accès applicatifs (catalogue) offrent **Modifier** (formulaire
+pré-rempli) et **Supprimer** (confirmation en deux temps). Principe : **ce qui a une histoire ne se supprime pas, on le
+désactive ou on l'archive** (traçabilité ISO 27001).
+
+| Élément | Suppression autorisée si | Sinon |
+|---|---|---|
+| Entité | aucun salarié, actif, application, charte ni entité fille | la désactiver |
+| Salarié (informatique seule) | jamais d'affectation ni d'accès | statut « sorti » via la page Sorties ; effacement définitif par la purge RGPD |
+| Actif | jamais remis | statut « réformé » |
+| Application | aucun accès attribué | la désactiver |
+
+Le refus indique précisément ce qui bloque (« utilisé par 3 salariés... »). Règles de cohérence : les statuts
+« affecté » et « rendu » d'un actif viennent de la remise et de la restitution, jamais d'une saisie ; un salarié passe
+« sorti » uniquement par le départ (restitution signée) et n'est pas réactivé ; renommer le code d'une entité met à
+jour ses filiales ; les boucles de parenté, les codes, matricules, numéros de série et identifiants internes en double
+sont refusés. Le journal d'audit conserve les **noms des champs modifiés**, jamais leurs valeurs.
+
 ## Import de l'existant
 
 Page **Import** (informatique) : choix du type de fichier, aide colonne par colonne, **modèle CSV téléchargeable**
@@ -210,6 +229,7 @@ backend/            API FastAPI
     signing.py      scellement PAdES
     pdfgen.py       generation des PDF
     importer.py     lecture CSV (encodage, separateur)
+    rules.py        regles de modification et de suppression protegee
     charte.py       chartes deposees : validation, normalisation PDF, portees, annexe
     docx_convert.py appel du service de conversion Word
     routers/        endpoints (entites, users, assets, assignments,
@@ -229,7 +249,7 @@ docker-compose.yml
 Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1 est livrée.
 
 - **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
-  chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), modification et suppression dans l'interface (A4), interface de
+  chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), modification et suppression dans l'interface (A4, **fait**), interface de
   paramétrage (A5), gestion des comptes (A6), accès applicatifs dans le document de remise (A7), autocomplétion des
   modèles (A8).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1), comptes cloisonnés par
