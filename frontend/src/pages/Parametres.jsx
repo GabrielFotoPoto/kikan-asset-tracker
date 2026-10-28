@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { api, downloadFile, errorText, fetchDataUrl } from "../api.js";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import Glpi from "./Glpi.jsx";
 
 const TABS = [
   ["types", "Types d'actifs"],
@@ -741,6 +742,7 @@ function JetonsApi({ setErr, setMsg }) {
 function Integrations({ setErr, setMsg }) {
   return (
     <div>
+      <Glpi setErr={setErr} setMsg={setMsg} />
       <JetonsApi setErr={setErr} setMsg={setMsg} />
     </div>
   );

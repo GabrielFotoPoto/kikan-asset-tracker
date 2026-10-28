@@ -1,0 +1,10 @@
+# Surcharge de TEST : donne a l'API de Kikan les jetons GLPI du jeu d'essai (jamais ceux d'un GLPI reel).
+#   GLPI_TEST_TOKEN=<jeton utilisateur du GLPI de test> docker compose -f docker-compose.yml -f tests/glpi-test.override.yml up -d api
+# Sans GLPI_TEST_TOKEN, un faux jeton est utilise (suite tests/glpi_check.py avec le faux GLPI integre).
+# Retour a la normale : docker compose up -d --force-recreate api
+services:
+  api:
+    environment:
+      KIKAN_GLPI_USER_TOKEN: ${GLPI_TEST_TOKEN:-ZZFAKEGLPITOKEN0000000000000000000000000}
+      KIKAN_GLPI_APP_TOKEN: ${GLPI_TEST_APP_TOKEN:-}
+      KIKAN_GLPI_ALLOW_HTTP: "1"

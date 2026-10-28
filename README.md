@@ -200,6 +200,27 @@ l'**informatique** le prépare puis le remet. Page **Besoins** (lecture pour tou
 
 ![Compteur du tableau de bord](docs/captures/besoins-tableau-de-bord.png)
 
+## Intégrations : API d'import et GLPI
+
+**Paramétrage, onglet Intégrations** (informatique). Tout est facultatif.
+
+- **API d'import par jetons** (`/api/v1`, documentation : [docs/API.md](docs/API.md)) : un outil externe envoie du matériel et
+  des salariés vers Kikan avec un **jeton** (affiché une seule fois, empreinte seule conservée, expiration obligatoire, droits et
+  périmètre limités, débit limité). Idempotente, avec simulation (`?dry_run=1`) et lots ; **jamais de suppression, jamais d'écrasement**,
+  les éléments déjà connus (même numéro de série, matricule ou e-mail) sont **liés** et non dupliqués.
+- **Connecteur GLPI** (documentation : [docs/GLPI.md](docs/GLPI.md)) : à la demande, Kikan **importe** ce qui existe dans GLPI après votre
+  sélection (ordinateurs et téléphones avec leur **numéro de série**, utilisateurs) et **exporte** vers GLPI les salariés et leur
+  matériel affecté avec les numéros de série (de quoi créer ensuite des tickets d'assistance). La source de vérité des salariés reste
+  Kikan. Testé contre de vrais GLPI **10.0.28, 11.0.12 et 12.0.1** (API REST historique) ; jetons dans le `.env`, jamais affichés.
+
+![Connecteur GLPI : réglages](docs/captures/glpi-reglages.png)
+
+![Import : Kikan propose, vous choisissez](docs/captures/glpi-import.png)
+
+![Export : salariés et matériel avec numéros de série](docs/captures/glpi-export.png)
+
+![Jetons de l'API d'import](docs/captures/api-jetons.png)
+
 ## E-mails : rappels et rapport mensuel
 
 Kikan peut envoyer des e-mails automatiques par **le serveur SMTP de votre entreprise** (aucun serveur de messagerie n'est
@@ -411,7 +432,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   paramétrage (A5, **fait**), gestion des comptes (A6, **fait**), accès applicatifs dans le document de remise (A7, **fait**), autocomplétion des
   modèles (A8, **fait**).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1, **fait**, à valider sur votre tenant), comptes cloisonnés par
-  entité (B2, **fait**), rappels par e-mail (B3, **fait**), rapport mensuel automatique (B4, **fait**), connecteur GLPI (B5), dépôt via l'API
+  entité (B2, **fait**), rappels par e-mail (B3, **fait**), rapport mensuel automatique (B4, **fait**), connecteur GLPI et API d'import (B5, **fait**), dépôt via l'API
   SharePoint Online et DocuWare (B6), besoins matériels saisis par les RH (B7, **fait**), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : statistiques exportables (C1), revue périodique des droits d'accès (C2), prévision des
   renouvellements (C3), étiquettes et QR codes (C4), pièces jointes (C5).

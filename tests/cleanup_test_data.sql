@@ -10,7 +10,7 @@
 -- Le journal d'audit n'est volontairement PAS vide (il est append-only).
 
 BEGIN;
-CREATE TEMP TABLE tu AS SELECT id FROM users WHERE matricule LIKE 'ZZ%' OR prenom LIKE 'ZZ%';
+CREATE TEMP TABLE tu AS SELECT id FROM users WHERE matricule LIKE 'ZZ%' OR prenom LIKE 'ZZ%' OR nom LIKE '%ZZ';
 CREATE TEMP TABLE ta AS SELECT id FROM assignments WHERE user_id IN (SELECT id FROM tu);
 DELETE FROM besoins WHERE user_id IN (SELECT id FROM tu) OR assignment_id IN (SELECT id FROM ta);
 DELETE FROM signatures WHERE assignment_id IN (SELECT id FROM ta);
@@ -18,8 +18,8 @@ DELETE FROM assignment_assets WHERE assignment_id IN (SELECT id FROM ta);
 DELETE FROM assignments WHERE id IN (SELECT id FROM ta);
 DELETE FROM user_applications WHERE user_id IN (SELECT id FROM tu);
 DELETE FROM users WHERE id IN (SELECT id FROM tu);
-DELETE FROM assignment_assets WHERE asset_id IN (SELECT id FROM assets WHERE numero_serie LIKE 'ZZ%');
-DELETE FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%';
+DELETE FROM assignment_assets WHERE asset_id IN (SELECT id FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%');
+DELETE FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%';
 DELETE FROM user_applications WHERE application_id IN (SELECT id FROM applications WHERE nom LIKE 'ZZ%');
 DELETE FROM applications WHERE nom LIKE 'ZZ%';
 DELETE FROM account_scopes WHERE account_id IN (SELECT id FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE '%@exemple.test' OR sso_upn LIKE '%@exemple.test')
@@ -27,7 +27,8 @@ DELETE FROM account_scopes WHERE account_id IN (SELECT id FROM accounts WHERE us
 DELETE FROM api_token_scopes WHERE token_id IN (SELECT id FROM api_tokens WHERE nom LIKE 'ZZ%')
   OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
 DELETE FROM api_tokens WHERE nom LIKE 'ZZ%';
-DELETE FROM external_links WHERE systeme LIKE 'zz%';
+DELETE FROM external_links WHERE systeme LIKE 'zz%' OR systeme = 'glpi';
+DELETE FROM integration_runs;
 UPDATE assignments SET policy_id = NULL WHERE policy_id IN (SELECT id FROM policies WHERE titre LIKE 'ZZ%');
 DELETE FROM policies WHERE titre LIKE 'ZZ%' OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
 DELETE FROM entite WHERE code LIKE 'ZZ%';
@@ -38,6 +39,7 @@ DELETE FROM settings WHERE key LIKE 'sso\_%' OR key = 'session_ttl_min';
 DELETE FROM asset_types t WHERE NOT EXISTS (SELECT 1 FROM assets a WHERE lower(a.type) = lower(t.nom));
 DELETE FROM services s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE lower(u.service) = lower(s.nom));
 DELETE FROM settings WHERE key LIKE 'pdf\_%';
+DELETE FROM settings WHERE key LIKE 'glpi\_%';
 DELETE FROM settings WHERE key LIKE 'mail\_%' OR key LIKE 'rappel\_%' OR key LIKE 'rapport\_%';
 DELETE FROM reminder_sent WHERE destinataire LIKE '%@exemple.test';
 DELETE FROM settings WHERE key = 'remise_inclure_acces';

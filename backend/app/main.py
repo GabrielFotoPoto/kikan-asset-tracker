@@ -42,6 +42,7 @@ from .routers import (
     entites,
     import_data,
     integrations,
+    glpi_admin,
     api_v1,
     lifecycle,
     mail_admin,
@@ -147,4 +148,5 @@ app.include_router(storage_admin.router)
 app.include_router(mail_admin.router)
 app.include_router(besoins.router)
 app.include_router(integrations.router)
+app.include_router(glpi_admin.router)
 app.include_router(api_v1.router)

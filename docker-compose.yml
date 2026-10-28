@@ -42,6 +42,12 @@ services:
       # E-mails (rappels, rapport mensuel) : le serveur SMTP se regle dans Parametrage, onglet E-mails.
       # Mot de passe SMTP, seulement si le serveur en exige un (jamais stocke en base).
       KIKAN_SMTP_PASSWORD: ${KIKAN_SMTP_PASSWORD:-}
+      # Connecteur GLPI (facultatif) : adresse et reglages dans Parametrage > Integrations ; seuls les jetons se mettent ici.
+      KIKAN_GLPI_USER_TOKEN: ${KIKAN_GLPI_USER_TOKEN:-}
+      KIKAN_GLPI_APP_TOKEN: ${KIKAN_GLPI_APP_TOKEN:-}
+      KIKAN_GLPI_CA_BUNDLE: ${KIKAN_GLPI_CA_BUNDLE:-}
+      KIKAN_GLPI_PROXY: ${KIKAN_GLPI_PROXY:-}
+      KIKAN_GLPI_ALLOW_HTTP: ${KIKAN_GLPI_ALLOW_HTTP:-}
       # Conversion des chartes Word en PDF (service isole, sans acces Internet). Vide = desactivee.
       KIKAN_WORD_CONVERTER_URL: ${KIKAN_WORD_CONVERTER_URL:-http://converter:8090}
       KIKAN_CORS_ORIGINS: ${KIKAN_CORS_ORIGINS:-http://localhost:3000,https://localhost:3443}

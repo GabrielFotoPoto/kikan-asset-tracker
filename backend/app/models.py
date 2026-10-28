@@ -287,6 +287,19 @@ class ExternalLink(SQLModel, table=True):
     empreinte: Optional[str] = None     # empreinte des champs tels qu'ecrits a la derniere synchronisation (detecte les modifications locales)
 
 
+class IntegrationRun(SQLModel, table=True):
+    """Historique des synchronisations avec un systeme externe (GLPI) : resume chiffre, sans donnees personnelles."""
+    __tablename__ = "integration_runs"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    systeme: str = Field(index=True)
+    sens: str                           # import ou export
+    lance_par: Optional[str] = None
+    debut: NaiveDatetime = Field(default_factory=utcnow)
+    fin: Optional[NaiveDatetime] = None
+    resume: Optional[str] = None        # JSON : compteurs par resultat
+    erreurs: Optional[str] = None
+
+
 class Besoin(SQLModel, table=True):
     """Besoin de materiel declare par les RH pour un salarie (arrivee), traite par l'informatique."""
     __tablename__ = "besoins"
