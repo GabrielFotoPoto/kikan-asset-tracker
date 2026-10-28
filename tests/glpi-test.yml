@@ -1,0 +1,51 @@
+# Instance GLPI de TEST (jetable) pour valider le connecteur Kikan, sans toucher a un GLPI de production.
+#
+#   docker compose -f tests/glpi-test.yml up -d
+#   (premiere installation automatique : compter 2 a 4 minutes ; interface sur http://127.0.0.1:8088, compte glpi / glpi)
+#   docker compose -f tests/glpi-test.yml down -v        # arret et suppression complete
+#
+# L'image est l'image officielle du projet GLPI (glpi/glpi). Changer GLPI_TEST_TAG pour tester une autre version
+# (12.0.1 par defaut ; 11.0.12 ou 10.0.28 pour verifier la compatibilite). Le service est joint au reseau de Kikan
+# (kikan_default) sous le nom "glpi" : dans Kikan, l'adresse du serveur GLPI est donc http://glpi (sans TLS, test seulement).
+name: glpi-test
+services:
+  glpi:
+    image: "glpi/glpi:${GLPI_TEST_TAG:-12.0.1}"
+    container_name: kikan-glpi-test
+    restart: "no"
+    environment:
+      GLPI_DB_HOST: db
+      GLPI_DB_PORT: "3306"
+      GLPI_DB_NAME: glpi
+      GLPI_DB_USER: glpi
+      GLPI_DB_PASSWORD: glpi-test-only
+    volumes:
+      - glpi_data:/var/glpi
+    depends_on:
+      - db
+    ports:
+      - "127.0.0.1:8088:80"
+    networks:
+      default: {}
+      kikan_default:
+        aliases: ["glpi"]
+
+  db:
+    image: "mysql:8.4"
+    container_name: kikan-glpi-test-db
+    restart: "no"
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: glpi
+      MYSQL_USER: glpi
+      MYSQL_PASSWORD: glpi-test-only
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  glpi_data:
+  db_data:
+
+networks:
+  kikan_default:
+    external: true

@@ -71,10 +71,8 @@ class Scope:
 GLOBAL = Scope(True)
 
 
-def compute_scope(session: Session, account: Account) -> Scope:
-    if account.role == Role.informatique or account.portee_globale:
-        return GLOBAL
-    chosen = {r.entite_id for r in session.exec(select(AccountScope).where(AccountScope.account_id == account.id)).all()}
+def expand_scope(session: Session, chosen: set[int]) -> Scope:
+    """Portee limitee aux entites `chosen` et a leurs sous-entites."""
     if not chosen:
         return Scope(False)
     entites = session.exec(select(Entite)).all()
@@ -98,6 +96,13 @@ def compute_scope(session: Session, account: Account) -> Scope:
                 ancestors.add(parent.id)
                 parent = by_code.get(parent.code_parent) if parent.code_parent else None
     return Scope(False, frozenset(visible), frozenset(ancestors))
+
+
+def compute_scope(session: Session, account: Account) -> Scope:
+    if account.role == Role.informatique or account.portee_globale:
+        return GLOBAL
+    chosen = {r.entite_id for r in session.exec(select(AccountScope).where(AccountScope.account_id == account.id)).all()}
+    return expand_scope(session, chosen)
 
 
 def scope_dep(account: Account = Depends(get_current_account), session: Session = Depends(get_session)) -> Scope:

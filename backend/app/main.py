@@ -41,6 +41,8 @@ from .routers import (
     besoins,
     entites,
     import_data,
+    integrations,
+    api_v1,
     lifecycle,
     mail_admin,
     parametres,
@@ -144,3 +146,5 @@ app.include_router(audit_log.router)
 app.include_router(storage_admin.router)
 app.include_router(mail_admin.router)
 app.include_router(besoins.router)
+app.include_router(integrations.router)
+app.include_router(api_v1.router)

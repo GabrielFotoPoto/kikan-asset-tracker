@@ -26,6 +26,7 @@ const TABS = [
   ["services", "Services"],
   ["marques", "Marques et modeles"],
   ["mail", "E-mails"],
+  ["integrations", "Integrations"],
   ["pdf", "Modele de PDF"],
   ["auth", "Authentification"],
   ["etat", "Etat du scellement"],
@@ -605,6 +606,146 @@ function Courriel({ setErr, setMsg }) {
   );
 }
 
+const DROITS_API = [
+  ["assets_lecture", "Lire le materiel"], ["assets_ecriture", "Ecrire le materiel"],
+  ["users_lecture", "Lire les salaries"], ["users_ecriture", "Ecrire les salaries"],
+];
+const fmtDate = (d) => (d ? String(d).replace("T", " ").slice(0, 16) : "jamais");
+
+// Jetons de l'API d'integration (/v1) : un outil externe pousse du materiel et des salaries vers Kikan.
+function JetonsApi({ setErr, setMsg }) {
+  const emptyForm = { nom: "", source: "api", droits: ["assets_lecture", "assets_ecriture"], globale: false, entites: [], jours: 90 };
+  const [tokens, setTokens] = useState([]);
+  const [entites, setEntites] = useState([]);
+  const [form, setForm] = useState(emptyForm);
+  const [secret, setSecret] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const load = async () => {
+    const [t, e] = await Promise.all([api.get("/integrations/tokens"), api.get("/entites")]);
+    setTokens(t); setEntites(e);
+  };
+  useEffect(() => { load().catch((e) => setErr(errorText(e))); }, []);
+
+  const toggle = (key, value) => setForm((f) => ({ ...f, [key]: f[key].includes(value) ? f[key].filter((x) => x !== value) : [...f[key], value] }));
+
+  const create = async (e) => {
+    e.preventDefault();
+    setErr(null); setMsg(null);
+    try {
+      const r = await api.post("/integrations/tokens", {
+        nom: form.nom, source: form.source, droits: form.droits, portee_globale: form.globale,
+        entites: form.globale ? [] : form.entites, jours: Number(form.jours) || 90,
+      });
+      setSecret({ nom: r.nom, jeton: r.jeton }); setCopied(false);
+      setForm(emptyForm);
+      setMsg(`Jeton « ${r.nom} » cree.`);
+      await load();
+    } catch (ex) { setErr(errorText(ex)); }
+  };
+
+  const revoke = async (t) => {
+    setErr(null); setMsg(null);
+    try { await api.post(`/integrations/tokens/${t.id}/revoquer`, {}); setMsg(`Jeton « ${t.nom} » revoque.`); await load(); } catch (ex) { setErr(errorText(ex)); }
+  };
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(secret.jeton); setCopied(true); } catch { setErr("Copie impossible : selectionnez le jeton a la main."); }
+  };
+  const scope = (t) => (t.portee_globale ? "Toute l'organisation" : t.entites.map((id) => entites.find((e) => e.id === id)?.nom || "?").join(", "));
+  const etat = (t) => (!t.actif ? <span className="badge bad">revoque</span> : t.expire ? <span className="badge bad">expire</span> : <span className="badge ok">actif</span>);
+
+  return (
+    <div>
+      {secret && (
+        <div className="card" role="alert">
+          <h3>Jeton « {secret.nom} »</h3>
+          <p>Copiez-le maintenant : il ne sera <strong>plus jamais affiche</strong> (Kikan n'en garde que l'empreinte).</p>
+          <p><code style={{ wordBreak: "break-all", fontSize: 15 }}>{secret.jeton}</code></p>
+          <div className="row">
+            <button onClick={copy}>{copied ? "Copie" : "Copier"}</button>
+            <button className="ghost" onClick={() => setSecret(null)}>J'ai note le jeton, fermer</button>
+          </div>
+        </div>
+      )}
+
+      <div className="card">
+        <h3>Jetons d'acces a l'API</h3>
+        <p className="muted">
+          Un jeton permet a un outil externe (inventaire, script...) d'envoyer du materiel et des salaries vers Kikan par
+          l'API <code>/api/v1</code>, sans compte humain. Droits et perimetre limites, expiration obligatoire, revocable a tout
+          moment. L'API ne supprime jamais rien et ne cree pas de remises signees (voir docs/API.md).
+        </p>
+        <form onSubmit={create}>
+          <div className="grid">
+            <label>Nom du jeton<input value={form.nom} minLength={3} maxLength={60} required placeholder="ex. Inventaire GLPI"
+                                      onChange={(e) => setForm({ ...form, nom: e.target.value })} /></label>
+            <label>Systeme d'origine (identifiant court)<input value={form.source} pattern="[a-z][a-z0-9_-]{1,29}" required
+                                      onChange={(e) => setForm({ ...form, source: e.target.value })} /></label>
+            <label>Duree de validite (jours, 730 au plus)<input type="number" min="1" max="730" value={form.jours}
+                                      onChange={(e) => setForm({ ...form, jours: e.target.value })} /></label>
+          </div>
+          <strong>Droits</strong>
+          <div>
+            {DROITS_API.map(([k, l]) => (
+              <label key={k} style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, margin: "2px 0" }}>
+                <input type="checkbox" style={{ width: "auto" }} checked={form.droits.includes(k)} onChange={() => toggle("droits", k)} /> {l}
+              </label>
+            ))}
+          </div>
+          <strong>Perimetre</strong>
+          <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, margin: "2px 0" }}>
+            <input type="checkbox" style={{ width: "auto" }} checked={form.globale} onChange={(e) => setForm({ ...form, globale: e.target.checked })} />
+            Toute l'organisation
+          </label>
+          {!form.globale && (
+            <div style={{ columns: 2, marginLeft: 20 }}>
+              {entites.map((e) => (
+                <label key={e.id} style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 6, margin: "2px 0" }}>
+                  <input type="checkbox" style={{ width: "auto" }} checked={form.entites.includes(e.id)} onChange={() => toggle("entites", e.id)} /> {e.nom}
+                </label>
+              ))}
+            </div>
+          )}
+          <div style={{ marginTop: 10 }}><button type="submit" disabled={form.droits.length === 0}>Creer le jeton</button></div>
+        </form>
+      </div>
+
+      <div className="card">
+        {tokens.length === 0 ? <p className="muted">Aucun jeton.</p> : (
+          <table>
+            <thead><tr><th>Nom</th><th>Debut</th><th>Systeme</th><th>Droits</th><th>Perimetre</th><th>Expire le</th><th>Derniere utilisation</th><th>Etat</th><th></th></tr></thead>
+            <tbody>
+              {tokens.map((t) => (
+                <tr key={t.id}>
+                  <td>{t.nom}</td>
+                  <td><code>{t.prefixe}...</code></td>
+                  <td>{t.source}</td>
+                  <td>{t.droits.map((d) => DROITS_API.find(([k]) => k === d)?.[1] || d).join(", ")}</td>
+                  <td>{scope(t)}</td>
+                  <td>{t.expire_le}</td>
+                  <td>{fmtDate(t.derniere_utilisation)}{t.utilisations ? ` (${t.utilisations})` : ""}</td>
+                  <td>{etat(t)}</td>
+                  <td>{t.actif && <ConfirmButton confirmLabel="Confirmer la revocation" onConfirm={() => revoke(t)}>Revoquer</ConfirmButton>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Integrations : jetons d'API et connecteurs.
+function Integrations({ setErr, setMsg }) {
+  return (
+    <div>
+      <JetonsApi setErr={setErr} setMsg={setMsg} />
+    </div>
+  );
+}
+
 export default function Parametres() {
   const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get("sso_test") ? "auth" : "types"));
   const [err, setErr] = useState(null);
@@ -630,6 +771,7 @@ export default function Parametres() {
       {tab === "marques" && <MergeTool setErr={setErr} setMsg={setMsg} />}
       {tab === "pdf" && <PdfTemplate setErr={setErr} setMsg={setMsg} />}
       {tab === "mail" && <Courriel setErr={setErr} setMsg={setMsg} />}
+      {tab === "integrations" && <Integrations setErr={setErr} setMsg={setMsg} />}
       {tab === "auth" && <AuthSso setErr={setErr} setMsg={setMsg} />}
       {tab === "etat" && <Etat setErr={setErr} />}
     </div>

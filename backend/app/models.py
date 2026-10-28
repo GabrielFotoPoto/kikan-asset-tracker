@@ -247,6 +247,46 @@ class AccountScope(SQLModel, table=True):
     entite_id: int = Field(foreign_key="entite.id", primary_key=True)
 
 
+class ApiToken(SQLModel, table=True):
+    """Jeton d'acces de l'API d'integration (/v1) : stocke uniquement sous forme d'empreinte SHA-256."""
+    __tablename__ = "api_tokens"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    nom: str
+    token_hash: str = Field(index=True, unique=True)
+    prefixe: str                       # debut du jeton, pour le reconnaitre dans la liste (jamais le jeton entier)
+    source: str                        # etiquette du systeme d'origine (ex. glpi) : cle des liens d'identifiants externes
+    droits: str                        # assets_lecture, assets_ecriture, users_lecture, users_ecriture (separes par des virgules)
+    portee_globale: bool = False
+    expire_le: date
+    actif: bool = True
+    cree_par: Optional[str] = None
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)
+    derniere_utilisation: Optional[NaiveDatetime] = None
+    utilisations: int = 0
+
+
+class ApiTokenScope(SQLModel, table=True):
+    __tablename__ = "api_token_scopes"
+    token_id: int = Field(foreign_key="api_tokens.id", primary_key=True)
+    entite_id: int = Field(foreign_key="entite.id", primary_key=True)
+
+
+class ExternalLink(SQLModel, table=True):
+    """Lien entre un element de Kikan et son identifiant dans un systeme externe (GLPI, API...)."""
+    __tablename__ = "external_links"
+    __table_args__ = (
+        Index("uq_external_by_ext", "systeme", "objet", "externe_id", unique=True),
+        Index("uq_external_by_kikan", "systeme", "objet", "kikan_id", unique=True),
+    )
+    id: Optional[int] = Field(default=None, primary_key=True)
+    systeme: str
+    objet: str                          # asset ou user
+    kikan_id: int
+    externe_id: str
+    synchro_le: NaiveDatetime = Field(default_factory=utcnow)
+    empreinte: Optional[str] = None     # empreinte des champs tels qu'ecrits a la derniere synchronisation (detecte les modifications locales)
+
+
 class Besoin(SQLModel, table=True):
     """Besoin de materiel declare par les RH pour un salarie (arrivee), traite par l'informatique."""
     __tablename__ = "besoins"

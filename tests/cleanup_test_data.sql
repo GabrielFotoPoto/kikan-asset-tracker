@@ -24,6 +24,10 @@ DELETE FROM user_applications WHERE application_id IN (SELECT id FROM applicatio
 DELETE FROM applications WHERE nom LIKE 'ZZ%';
 DELETE FROM account_scopes WHERE account_id IN (SELECT id FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE '%@exemple.test' OR sso_upn LIKE '%@exemple.test')
   OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
+DELETE FROM api_token_scopes WHERE token_id IN (SELECT id FROM api_tokens WHERE nom LIKE 'ZZ%')
+  OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
+DELETE FROM api_tokens WHERE nom LIKE 'ZZ%';
+DELETE FROM external_links WHERE systeme LIKE 'zz%';
 UPDATE assignments SET policy_id = NULL WHERE policy_id IN (SELECT id FROM policies WHERE titre LIKE 'ZZ%');
 DELETE FROM policies WHERE titre LIKE 'ZZ%' OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
 DELETE FROM entite WHERE code LIKE 'ZZ%';

@@ -173,6 +173,8 @@ def create_access_token(username: str, role: str, epoch: int = 0) -> str:
 def actor_from_request(request: Request) -> str:
     """Identifiant de l'appelant (sans acces base) pour le journal d'audit."""
     header = request.headers.get("authorization", "")
+    if header.lower().startswith("bearer kik_"):
+        return "api"  # jeton d'integration : le nom du jeton est ajoute au journal par l'API elle-meme
     if header.lower().startswith("bearer "):
         try:
             return str(jwt.decode(header[7:], SECRET, algorithms=[ALGO]).get("sub", "?"))
