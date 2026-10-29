@@ -148,7 +148,7 @@ j("POST", f"/lifecycle/depart/{u2['id']}", {"date_sortie": "2019-01-01"})
 s, _ = j("POST", "/lifecycle/restituer", {"user_id": u2["id"], **SIGN})
 j("PUT", "/rgpd/retention", {"mois": 36})
 s, pg = j("POST", "/rgpd/purge", {})
-show("purge effectuee avec suppression du document", s == 200 and pg.get("documents_supprimes", 0) >= 1, pg)
+show("purge effectuee avec suppression du document", s == 200 and pg.get("documents", 0) >= 1, pg)
 
 print(f"\n{'ECHEC' if fails else 'OK'} : {fails} test(s) en echec")
 sys.exit(1 if fails else 0)

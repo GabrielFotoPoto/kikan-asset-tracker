@@ -49,6 +49,8 @@ class MailConfigIn(BaseModel):
     depart_jours: int = Field(default=14, ge=1, le=90)
     nonrestit: bool = False
     nonrestit_sem: int = Field(default=2, ge=1, le=12)
+    purge: bool = True
+    purge_sem: int = Field(default=1, ge=1, le=12)
     besoins: bool = False
     besoins_jours: int = Field(default=14, ge=1, le=90)
     rapport: bool = False
@@ -69,7 +71,7 @@ KEYS = {  # champ de l'API -> cle de reglage
     "utilisateur": "mail_utilisateur", "expediteur": "mail_expediteur", "verifier_cert": "mail_verifier_cert",
     "liste": "mail_liste", "heure": "mail_heure", "renouv": "rappel_renouv", "renouv_jours": "rappel_renouv_jours",
     "depart": "rappel_depart", "depart_jours": "rappel_depart_jours", "nonrestit": "rappel_nonrestit",
-    "nonrestit_sem": "rappel_nonrestit_sem", "besoins": "rappel_besoins", "besoins_jours": "rappel_besoins_jours", "rapport": "rapport_actif", "rapport_jour": "rapport_jour",
+    "nonrestit_sem": "rappel_nonrestit_sem", "purge": "rappel_purge", "purge_sem": "rappel_purge_sem", "besoins": "rappel_besoins", "besoins_jours": "rappel_besoins_jours", "rapport": "rapport_actif", "rapport_jour": "rapport_jour",
     "rapport_pj": "rapport_pj",
 }
 

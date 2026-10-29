@@ -18,7 +18,7 @@ déposé plus tard.
 
 Créez dans DocuWare un utilisateur dédié (par exemple `svc-kikan`) **avec mot de passe** (le jeton est obtenu par le service
 d'identité de DocuWare, « password grant »), appartenant à un profil qui permet, sur l'armoire cible : **stocker** des documents,
-les **télécharger** et les **supprimer** (la suppression ne sert qu'au document d'essai et à la purge RGPD). Évitez un compte
+les **télécharger** et les **supprimer** (la suppression ne sert qu'au document d'essai : la purge RGPD ne supprime rien dans DocuWare, voir [RGPD.md](RGPD.md)). Évitez un compte
 administrateur. Si votre organisation n'autorise que l'authentification Windows ou SSO, demandez à votre partenaire DocuWare un
 compte de service local.
 
@@ -83,7 +83,7 @@ d'index.
 - Identifiants uniquement dans l'environnement (jamais en base, jamais affichés ni journalisés) ; certificat toujours vérifié ;
   HTTPS obligatoire.
 - Jeton renouvelé automatiquement s'il expire ou est rejeté ; nouvelle tentative après une limitation de débit.
-- Kikan ne supprime jamais un PDF scellé (sauf la purge RGPD et le document d'essai).
+- Kikan ne supprime jamais un PDF scellé dans DocuWare (sauf le document d'essai) : la purge RGPD liste les documents, l'équipe DocuWare les supprime.
 
 ## Changer de moteur
 

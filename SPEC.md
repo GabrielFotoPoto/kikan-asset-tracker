@@ -333,12 +333,17 @@ Personnalisation maximale, sans toucher au code :
 
 ## 9. RGPD - rétention paramétrable
 
-- Paramètre `retention_apres_sortie` (durée) ; défaut **3 ans**, modifiable (1, 2, 10 ans…).
+- Paramètre `retention_apres_sortie_mois` (durée) ; défaut **12 mois**, modifiable (jamais codé en dur), ainsi que le **délai de grace** (30 jours par défaut)
+  entre la mise en quarantaine d'un PDF et sa suppression définitive.
 - Un utilisateur `sorti` est conservé jusqu'à `date_sortie + retention`.
 - **Prévisualisation obligatoire avant suppression** : l'application de la règle **liste
   d'abord** les utilisateurs/données qui seront supprimés ; l'admin **valide** (ou non)
   avant toute suppression effective.
-- Journaliser les suppressions (qui, quand, quoi) pour la traçabilité.
+- Journaliser les suppressions (qui, quand, combien, empreinte SHA-256 des PDF) pour la traçabilité, **sans nom ni matricule**.
+- **Purge par bouton réservé à l'informatique**, avec rappel par e-mail si elle n'est pas faite à l'échéance.
+- **Partage SMB, WebDAV, volume local** : le PDF va dans `A_PURGER/` puis est supprimé par Kikan après le délai de grace.
+- **SharePoint, DocuWare** : Kikan liste les documents, la suppression est faite par l'équipe de la GED puis confirmée dans Kikan.
+- Détail : [docs/RGPD.md](docs/RGPD.md).
 - Principe de minimisation : ne stocker que les données nécessaires au suivi.
 
 ## 10. Statistiques (plus tard)

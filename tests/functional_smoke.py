@@ -214,7 +214,7 @@ s, sg3 = j("POST", f"/assignments/{asg3['id']}/sign", SIGN)
 j("POST", f"/lifecycle/depart/{o3['id']}", {"date_sortie": "2019-01-01"})
 j("POST", "/lifecycle/restituer", {"user_id": o3["id"], **SIGN})
 s, pg3 = j("POST", "/rgpd/purge", {})
-show("purge d'un salarie avec affectation et document", s == 200 and pg3.get("documents_supprimes", 0) >= 1, f"HTTP {s} {pg3}")
+show("purge d'un salarie avec affectation et document", s == 200 and pg3.get("documents", 0) >= 1, f"HTTP {s} {pg3}")
 s, _ = j("GET", f"/users/{o3['id']}")
 show("salarie avec affectation purge introuvable", s == 404)
 

@@ -86,7 +86,7 @@ Messages d'erreur courants : *authentification refusée* (identifiant, secret ou
 - Fichiers de plus de 4 Mio : session de téléversement par blocs de 10 Mio ; jeton renouvelé automatiquement s'il expire ou est
   rejeté ; nouvelle tentative après une limitation de débit (429).
 - Dans SharePoint, activez le **versionnage** et une **étiquette de rétention** adaptée à la durée de conservation des remises :
-  Kikan ne supprime jamais un PDF scellé (sauf la purge RGPD, qui supprime le document correspondant).
+  Kikan ne supprime jamais un PDF scellé dans SharePoint : la purge RGPD liste les documents à supprimer, l'équipe de la GED les supprime ([RGPD.md](RGPD.md)).
 
 ## Changer de moteur
 
