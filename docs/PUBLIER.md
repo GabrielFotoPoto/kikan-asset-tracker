@@ -40,10 +40,10 @@ pour la pile de test.
   *Private vulnerability reporting* (le signalement privé annoncé par `SECURITY.md`).
 - **Actions** : jeton des workflows en **lecture seule** par défaut (chaque workflow demande ce dont il a besoin) ; les workflows d'un contributeur extérieur à sa première
   contribution attendent l'**approbation d'un mainteneur** (bouton « Approuver et exécuter les workflows » en bas de la demande de fusion).
-- Toutes les actions des workflows sont **figées sur une empreinte de commit** (contrôlé par `tests/hygiene_check.py`).
-
-**Recommandé, non appliqué** : exiger l'empreinte de commit au niveau du dépôt (*Actions, General, Require actions to be pinned to a full-length commit SHA*) et protéger les
-étiquettes `v*` par une règle (*Rules, Rulesets, cible : étiquettes*), pour que seul un mainteneur puisse publier une version.
+- Toutes les actions des workflows sont **figées sur une empreinte de commit**, et le dépôt **l'exige** (*Actions, General, Require actions to be pinned to a full-length commit SHA*) :
+  un workflow qui utiliserait une action non figée est refusé. `tests/hygiene_check.py` le contrôle aussi en amont.
+- **Règle « Protection des étiquettes de version »** (cible : étiquettes `v*`) : seuls les administrateurs du dépôt peuvent créer une étiquette de version ; une étiquette
+  existante ne peut être ni déplacée, ni modifiée, ni supprimée. Une version publiée ne peut donc pas être remplacée en silence.
 
 ## Dependabot
 

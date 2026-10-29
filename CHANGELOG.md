@@ -50,7 +50,8 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - Le mot de passe initial **généré** (affiché dans les journaux) impose un changement à la première connexion.
 - Journal d'audit : les refus 401/403 sont plafonnés à 60 par minute et par adresse IP ; les écritures authentifiées sont toujours journalisées.
 - Images de base (python, postgres, node, nginx) figées par empreinte, mises à jour par Dependabot ; `PATCH` autorisé côté CORS ; exemple de configuration `set_real_ip_from` derrière un reverse-proxy.
-- Signalement privé des vulnérabilités activé sur le dépôt (annoncé par `SECURITY.md`).
+- Signalement privé des vulnérabilités activé sur le dépôt (annoncé par `SECURITY.md`). Le dépôt exige désormais que toute action de workflow soit figée sur une empreinte de commit,
+  et une règle protège les étiquettes de version `v*` (création réservée aux administrateurs, aucune modification ni suppression).
 - Contributions externes relues et reprises : limiteur de connexion et images figées (#36), session en cookie HttpOnly (#37).
 
 ## [0.2.0] - 2026-10-29
