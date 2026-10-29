@@ -23,14 +23,29 @@
 - NNN : compteur propre au salarie (un par document signe, remise ou restitution, jamais reutilise).
 Deux homonymes ont chacun leur compteur : si le nom est tout de meme deja pris, on ajoute -2, -3... (filet de securite).
 """
+import os
 import re
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import update
 from sqlmodel import Session, select
 
 from .models import Signature, User
+
+
+def fuseau() -> ZoneInfo:
+    """Fuseau des dates des noms de fichier (KIKAN_TIMEZONE, Europe/Paris par defaut : heure d'ete et d'hiver comprises)."""
+    try:
+        return ZoneInfo(os.environ.get("KIKAN_TIMEZONE", "").strip() or "Europe/Paris")
+    except ZoneInfoNotFoundError:
+        return ZoneInfo("Europe/Paris")
+
+
+def heure_locale(when: datetime) -> datetime:
+    """Heure UTC naive du stockage -> heure murale du fuseau de l'organisation (naive)."""
+    return when.replace(tzinfo=timezone.utc).astimezone(fuseau()).replace(tzinfo=None)
 
 
 def ascii_maj(value: str | None) -> str:
@@ -85,6 +100,7 @@ def nom_document(session: Session, user: User, when: datetime) -> str:
     """Cle de stockage du prochain document scelle du salarie (alloue son numero)."""
     acr = assurer_acronyme(user)
     numero = prochain_numero(session, user)
+    when = heure_locale(when)
     base = f"{when:%Y_%m_%d}_{ascii_maj(user.nom) or 'X'}_{ascii_maj(user.prenom) or 'X'}_{acr}_{numero:03d}"
     key, n = f"{when.year}/{base}.pdf", 1
     while session.exec(select(Signature.id).where(Signature.ged_reference.like(f"%:{key}"))).first() is not None:
