@@ -90,6 +90,19 @@ Par défaut l'interface n'est publiée que sur la machine locale. Pour l'ouvrir 
 définir dans `.env` `KIKAN_BIND` (adresse IP du serveur) et `KIKAN_TLS_SAN` (ex. `DNS:kikan.exemple.local,IP:192.168.1.10`)
 avant le premier démarrage, ou monter le certificat de l'organisation dans le volume `kikan_webcerts`.
 
+## Jeu de données de démonstration
+
+Pour montrer ou essayer Kikan sans saisir de données : `bash scripts/demo.sh charger` (environ 10 secondes) crée un groupe fictif, **Groupe SICA Atlantique** et ses
+filiales (SICA Atlantique, AMT, SISP, ALLFAST, ATENA), 52 salariés, 76 matériels (PC et smartphones), 6 applications et leurs accès, **49 remises signées avec de vrais
+PDF scellés**, des restitutions, des besoins ouverts, des départs à venir, du matériel non restitué, du matériel à renouveler et 3 salariés sortis à purger (page RGPD).
+L'import des entités est un lot que l'on retrouve sur la page Import.
+
+- **Sécurité** : le chargement **refuse** si la base contient déjà autre chose que des données de démonstration (salariés, matériel ou entités réels). À utiliser
+  sur une instance vide ou de test, jamais sur vos données. Tout est marqué `DEMO-` et fictif (adresses en `@exemple.test`).
+- `bash scripts/demo.sh etat` compte les éléments de démonstration ; `bash scripts/demo.sh effacer` retire **tout ce que le jeu a créé et seulement cela**, PDF scellés compris.
+- Pour viser une autre pile : `KIKAN_PREFIX=<nom> bash scripts/demo.sh charger` (par défaut `kikan` ; la pile de test de `tests/run_all.sh` est `kiktest`).
+- Les identifiants de l'administrateur sont lus dans `.env` (`KIKAN_ADMIN_PASSWORD`) ou dans la variable d'environnement du même nom (utile si vous avez changé le mot de passe).
+
 ## Rôles
 
 | Rôle | Droits |
