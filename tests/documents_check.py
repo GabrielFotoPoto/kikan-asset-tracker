@@ -384,6 +384,19 @@ if MODE == "docuware":
     last = max(k for k in S.files if isinstance(k, int))
     show("type d'index : Restitution", S.files[last]["fields"].get("TYPE_DOC") == ("Restitution", "String"), S.files[last]["fields"])
 
+s, d_remise = call("GET", "/assignments/%d/document" % asg1["id"], token=ADM)
+s2, d_resti = call("GET", "/assignments/%d/document?type=restitution" % asg1["id"], token=ADM)
+show("apres restitution, le document par defaut reste celui de la remise (choix deterministe)", s == 200 and hashlib.sha256(d_remise).hexdigest() == sg["empreinte_doc"])
+show("la restitution se lit explicitement (?type=restitution)", s2 == 200 and hashlib.sha256(d_resti).hexdigest() == rs["empreinte_doc"] and d_resti != d_remise)
+s3, _ = call("GET", "/assignments/%d/document?type=nimporte" % asg1["id"], token=ADM)
+show("type de document inconnu -> 422", s3 == 422)
+for _ in range(5):   # plus de lecture au hasard : toujours la remise
+    if call("GET", "/assignments/%d/document" % asg1["id"], token=ADM)[1] != d_remise:
+        show("lectures repetees : toujours la remise", False)
+        break
+else:
+    show("lectures repetees : toujours la remise", True)
+
 print("== Les chartes restent en local (uniquement les PDF scelles) ==")
 before = dict(stored_files())
 bd = "zzdocbd"
@@ -417,6 +430,11 @@ print("== Jeton expire ou revoque ==")
 tokens_before = S.tokens_issued
 S.valid_tokens.clear()      # le service rejette le jeton en cours
 s, pdf = call("GET", "/assignments/%d/document" % asg1["id"], token=ADM)
+if not (s == 200 and pdf == data):   # diagnostic : ce que la base et le faux service contiennent
+    with Session(engine) as s_:
+        sigs = s_.exec(select(Signature).where(Signature.assignment_id == asg1["id"])).all()
+        print("DIAG signatures asg1:", [(x.id, x.ged_reference, x.empreinte_doc[:12]) for x in sigs])
+    print("DIAG fichiers du service:", {k: (len(v), hashlib.sha256(v).hexdigest()[:12]) for k, v in stored_files().items()}, "data:", len(data), hashlib.sha256(data).hexdigest()[:12], "pdf:", len(pdf), hashlib.sha256(pdf).hexdigest()[:12])
 show("jeton rejete : renouvele une fois, la lecture reussit", s == 200 and pdf == data and S.tokens_issued == tokens_before + 1, (s, S.tokens_issued - tokens_before, len(pdf), len(data), pdf[:60]))
 S.once_429 = True
 s, pdf = call("GET", "/assignments/%d/document" % asg1["id"], token=ADM)

@@ -18,7 +18,7 @@
 import hashlib
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
@@ -285,11 +285,19 @@ def sign_assignment(
 
 
 @router.get("/{assignment_id}/document")
-def get_document(assignment_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+def get_document(assignment_id: int, type: str = Query("remise", pattern="^(remise|restitution)$"),
+                 session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    """PDF scelle de la remise (par defaut) ou de la restitution rattachee a cette affectation (?type=restitution).
+
+    Une affectation peut porter deux signatures (remise, puis restitution) : le choix est explicite et deterministe."""
     visible_assignment(session, scope, assignment_id)
-    sig = session.exec(
-        select(Signature).where(Signature.assignment_id == assignment_id)
-    ).first()
+    sigs = session.exec(select(Signature).where(Signature.assignment_id == assignment_id).order_by(Signature.id)).all()
+
+    def kind(sig):
+        name = (sig.ged_reference or "").rsplit("/", 1)[-1]
+        return "restitution" if name.startswith("restitution_") else "remise"
+
+    sig = next((x for x in sigs if kind(x) == type), None)
     if not sig or not sig.ged_reference:
         raise HTTPException(404, "Document scelle introuvable")
     data = read_document(sig.ged_reference)
@@ -298,4 +306,4 @@ def get_document(assignment_id: int, session: Session = Depends(get_session), sc
         audit("systeme", "document_altere", target=sig.ged_reference, status=500)
         raise HTTPException(500, "Integrite du document non verifiee (empreinte differente)")
     return Response(content=data, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="remise_{assignment_id}.pdf"'})
+                    headers={"Content-Disposition": f'inline; filename="{type}_{assignment_id}.pdf"'})

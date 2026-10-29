@@ -1,5 +1,7 @@
 # Kikan
 
+[![CI](https://github.com/GabrielFotoPoto/kikan-asset-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielFotoPoto/kikan-asset-tracker/actions/workflows/ci.yml)
+
 **Kikan** (機器管理, *kiki-kanri*, « gestion des équipements ») est une application de
 **suivi des actifs** (PC, smartphones...) par utilisateur et par entité, avec **remise et
 restitution de matériel signées et scellées** (sans papier), import de l'existant, reporting
@@ -478,13 +480,20 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
 - **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).
 - **Sécurité et exploitation, en continu** : MFA locale (E1), certificat de scellement reconnu et clé dans un coffre
   (E2), journal d'audit infalsifiable (E3), révocation des sessions (E4), intégration continue, Dependabot et images
-  publiées (E5), tests unitaires et d'interface (E6), sauvegarde et restauration (E7, **fait**), accessibilité et thème
+  publiées (E5), tests unitaires et d'interface (E6), sauvegarde et restauration (E7, **fait**), GitHub Actions et images publiées (E5, **fait**), accessibilité et thème
   sombre (E8).
 
-## Développement
+## Développement et intégration continue
 
 Ce projet a été développé avec l'assistance d'une **intelligence artificielle**
 (Claude, d'Anthropic), sous la direction et la relecture de l'auteur.
+
+- **Tests** : `bash tests/run_all.sh` rejoue toutes les suites (sur une pile de développement) ; `python tests/hygiene_check.py` vérifie les
+  règles du dépôt. **GitHub Actions** les rejoue à chaque envoi et à chaque demande de fusion, avec l'audit des dépendances, la
+  sauvegarde de bout en bout et la construction des images ; **Dependabot** propose les mises à jour chaque semaine.
+- **Versions et images Docker prêtes à l'emploi** : une étiquette `vX.Y.Z` publie quatre images sur le GitHub Container Registry
+  (`kikan-api`, `kikan-web`, `kikan-converter`, `kikan-backup`) et crée la version GitHub ; installation sans compilation avec
+  `docker-compose.ghcr.yml`. Procédure, réglages GitHub recommandés : [docs/PUBLIER.md](docs/PUBLIER.md). Historique : [CHANGELOG.md](CHANGELOG.md).
 
 ## Licence
 

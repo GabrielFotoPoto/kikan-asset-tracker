@@ -1,0 +1,25 @@
+# Utilisation des images Docker PUBLIEES (aucune compilation sur le serveur) :
+#
+#   export KIKAN_VERSION=0.2.0            # version voulue (liste : onglet Packages du depot GitHub) ; par defaut latest
+#   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
+#
+# Les images sont construites par .github/workflows/release.yml a chaque version (etiquette vX.Y.Z). Le reste de la configuration
+# (volumes, reseaux, securite, variables) est celui de docker-compose.yml. Sauvegarde et restauration :
+#   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml --profile backup run --rm backup backup
+services:
+  api:
+    image: ghcr.io/gabrielfotopoto/kikan-api:${KIKAN_VERSION:-latest}
+    pull_policy: always
+  web:
+    image: ghcr.io/gabrielfotopoto/kikan-web:${KIKAN_VERSION:-latest}
+    pull_policy: always
+  converter:
+    image: ghcr.io/gabrielfotopoto/kikan-converter:${KIKAN_VERSION:-latest}
+    pull_policy: always
+  backup:
+    image: ghcr.io/gabrielfotopoto/kikan-backup:${KIKAN_VERSION:-latest}
+    pull_policy: always
+  restore:
+    image: ghcr.io/gabrielfotopoto/kikan-backup:${KIKAN_VERSION:-latest}
+    pull_policy: always

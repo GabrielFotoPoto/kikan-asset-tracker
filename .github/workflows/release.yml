@@ -1,0 +1,93 @@
+# Publication d'une version : a l'envoi d'une etiquette vX.Y.Z, construit et publie les images Docker (GitHub Container Registry)
+# puis cree la version GitHub avec le fichier compose des images publiees.
+#
+#   git tag v0.2.0 && git push origin v0.2.0
+name: Publication
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  images:
+    name: Image ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            context: backend
+          - image: web
+            context: frontend
+          - image: converter
+            context: converter
+          - image: backup
+            context: backup
+    steps:
+      - uses: actions/checkout@v4
+      - name: Nom d'image en minuscules
+        run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.OWNER }}/kikan-${{ matrix.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=Kikan ${{ matrix.image }}
+            org.opencontainers.image.licenses=GPL-3.0-or-later
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            KIKAN_VERSION=${{ github.ref_name }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  release:
+    name: Version GitHub
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            Images Docker publiees (GitHub Container Registry) : `ghcr.io/${{ github.repository_owner }}/kikan-api`, `-web`, `-converter`, `-backup`.
+
+            Installation sans compilation :
+
+            ```bash
+            export KIKAN_VERSION=${{ github.ref_name }}
+            docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
+            ```
+
+            Voir CHANGELOG.md et README.md.
+          files: |
+            docker-compose.yml
+            docker-compose.ghcr.yml
+            .env.example

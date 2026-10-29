@@ -86,7 +86,8 @@ async def lifespan(app: FastAPI):
 
 # En production, la documentation interactive n'est pas exposee.
 _docs = {"docs_url": None, "redoc_url": None, "openapi_url": None} if IS_PROD else {}
-app = FastAPI(title=f"{settings.app_name} API", version="0.1.0", lifespan=lifespan, **_docs)
+VERSION = os.environ.get("KIKAN_VERSION", "dev").lstrip("v")
+app = FastAPI(title=f"{settings.app_name} API", version=VERSION, lifespan=lifespan, **_docs)
 
 # CORS : le front passe par Nginx (meme origine), donc inutile en usage normal.
 # Seules les origines listees sont autorisees (jamais "*").
@@ -126,7 +127,7 @@ async def audit_and_headers(request: Request, call_next):
 
 @app.get("/health", tags=["meta"])
 def health():
-    return {"status": "ok", "app": settings.app_name, "version": "0.1.0"}
+    return {"status": "ok", "app": settings.app_name, "version": VERSION}
 
 
 app.include_router(auth.router)

@@ -1,0 +1,130 @@
+# Integration continue : a chaque envoi sur main et a chaque demande de fusion.
+# Rejoue les memes controles qu'en local (tests/run_all.sh, tests/hygiene_check.py, tests/backup_check.py).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: Hygiene du depot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - run: python tests/hygiene_check.py
+
+  dependencies:
+    name: Audit des dependances
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependances Python (pip-audit)
+        run: |
+          docker run --rm -v "$PWD/backend/requirements.txt:/r.txt:ro" -v "$PWD/tests/audit_deps.py:/a.py:ro" python:3.12-slim python /a.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Dependances du front (npm audit)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+
+  frontend:
+    name: Compilation du front
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+  tests:
+    name: Suites de tests (pile complete)
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fichier .env de test (secrets aleatoires, jetables)
+        run: |
+          cp .env.example .env
+          sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" .env
+          sed -i "s|^KIKAN_SECRET_KEY=.*|KIKAN_SECRET_KEY=$(openssl rand -hex 32)|" .env
+          sed -i "s|^KIKAN_ADMIN_PASSWORD=.*|KIKAN_ADMIN_PASSWORD=Ci-$(openssl rand -hex 12)-Aa1|" .env
+          grep -c '^KIKAN_ADMIN_PASSWORD=Ci-' .env
+      - name: Toutes les suites
+        run: bash tests/run_all.sh
+      - name: Journaux de la pile (en cas d'echec)
+        if: failure()
+        run: docker compose logs --no-color --tail 200 api db converter
+
+  backup:
+    name: Sauvegarde et restauration de bout en bout
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fichier .env de test
+        run: |
+          cp .env.example .env
+          sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" .env
+          sed -i "s|^KIKAN_SECRET_KEY=.*|KIKAN_SECRET_KEY=$(openssl rand -hex 32)|" .env
+          sed -i "s|^KIKAN_ADMIN_PASSWORD=.*|KIKAN_ADMIN_PASSWORD=Ci-$(openssl rand -hex 12)-Aa1|" .env
+      - name: Pile de developpement
+        run: |
+          docker compose up -d --build db converter api
+          for _ in $(seq 1 60); do curl -sf http://localhost:8080/health >/dev/null && break; sleep 2; done
+      - name: Test de sauvegarde et de restauration
+        run: python tests/backup_check.py
+
+  images:
+    name: Construction des images Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fichier .env minimal pour la construction
+        run: |
+          cp .env.example .env
+          sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=ci-build-only|" .env
+      - name: Images api, web, converter et sauvegarde
+        run: docker compose --profile backup build
+      - name: Analyse des vulnerabilites des images (information, ne bloque pas)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: kikan-api
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "0"
