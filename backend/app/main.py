@@ -27,7 +27,7 @@ from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
 from .audit import audit
-from .auth import IS_PROD, MUTATING, actor_from_request, client_ip, ensure_bootstrap_account
+from .auth import IS_PROD, MUTATING, LoginLimiter, actor_from_request, client_ip, ensure_bootstrap_account
 from .config import settings
 from .db import engine, init_db
 from . import reminders
@@ -97,7 +97,7 @@ _origins = [o.strip() for o in os.environ.get(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -107,14 +107,27 @@ async def storage_error_handler(request: Request, exc: StorageError):
     return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
+# Les refus (401/403) sont journalises, mais plafonnes par adresse IP : sans cela, des requetes anonymes
+# en boucle rempliraient la table d'audit. Les ecritures authentifiees restent toujours journalisees.
+_denied = LoginLimiter(max_per_account=10**9, max_per_ip=60, window=60)
+
+
+def _denial_loggable(ip: str) -> bool:
+    if _denied.retry_after(ip, ""):
+        return False
+    _denied.fail(ip, "")
+    return True
+
+
 @app.middleware("http")
 async def audit_and_headers(request: Request, call_next):
     response = await call_next(request)
     path = request.url.path
     # Journal : toute ecriture, et tout refus d'acces (401/403). Jamais de corps de requete
     # (mots de passe, donnees personnelles). Les connexions sont journalisees dans /auth/login.
+    denied = response.status_code in (401, 403)
     if path != "/health" and path != "/auth/login" and (
-        request.method in MUTATING or response.status_code in (401, 403)
+        (request.method in MUTATING and not denied) or (denied and _denial_loggable(client_ip(request)))
     ):
         await run_in_threadpool(
             audit, actor_from_request(request), f"{request.method} {path}",

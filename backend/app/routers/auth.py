@@ -173,27 +173,29 @@ class ResetResult(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 def login(data: LoginRequest, request: Request, session: Session = Depends(get_session)):
     ip = client_ip(request)
-    wait = login_limiter.retry_after(ip, data.username)
+    # Identifiant normalise une seule fois : meme cle pour le limiteur, le journal et la recherche du compte.
+    username = data.username.strip().lower()
+    wait = login_limiter.retry_after(ip, username)
     if wait:
-        audit(data.username, "login_bloque", ip=ip, status=429)
+        audit(username[:100], "login_bloque", ip=ip, status=429)
         raise HTTPException(429, "Trop de tentatives, reessayez plus tard",
                             headers={"Retry-After": str(wait)})
 
     account = session.exec(
-        select(Account).where(func.lower(Account.username) == data.username.strip().lower())
+        select(Account).where(func.lower(Account.username) == username)
     ).first()
     hashed = account.hashed_password if account else _DUMMY_HASH
     valid = verify_password(data.password, hashed)
     if not account or not account.actif or not valid:
-        login_limiter.fail(ip, data.username)
-        audit(data.username, "login_echec", ip=ip, status=401)
+        login_limiter.fail(ip, username)
+        audit(username[:100], "login_echec", ip=ip, status=401)
         raise HTTPException(401, "Identifiants invalides")
 
     if not sso_policy.local_login_allowed(session, account):
-        login_limiter.success(ip, data.username)
+        login_limiter.success(ip, username)
         audit(account.username, "login_local_refuse", ip=ip, status=403, detail="reserve a Microsoft 365 ou aux comptes de secours")
         raise HTTPException(403, "Connexion par mot de passe reservee aux comptes de secours : utilisez Microsoft 365")
-    login_limiter.success(ip, data.username)
+    login_limiter.success(ip, username)
     account.derniere_connexion = datetime.utcnow()
     session.add(account)
     session.commit()

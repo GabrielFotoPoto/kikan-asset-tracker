@@ -266,6 +266,7 @@ def ensure_bootstrap_account() -> None:
             role=Role.informatique,
             actif=True,
             hashed_password=hash_password(password),
+            must_change_password=generated,  # mot de passe affiche dans les journaux : inutilisable apres la 1re connexion
         ))
         session.commit()
         if generated:
