@@ -19,7 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
-import { api, getToken, setToken } from "./api.js";
+import { api, endSession, hasSession, setSession } from "./api.js";
 import { AuthContext } from "./auth.jsx";
 import Login from "./pages/Login.jsx";
 import ForcePassword from "./pages/ForcePassword.jsx";
@@ -54,10 +54,10 @@ export default function App() {
   useEffect(() => {
     const onUnauth = () => setUser(null);
     window.addEventListener("kikan-unauth", onUnauth);
-    if (getToken()) {
+    if (hasSession()) {
       api.get("/auth/me")
         .then((a) => setUser({ username: a.username, role: a.role, mustChange: a.must_change_password }))
-        .catch(() => setToken(null))
+        .catch(() => setSession(false))
         .finally(() => setChecking(false));
     } else {
       setChecking(false);
@@ -71,7 +71,7 @@ export default function App() {
     api.get("/auth/me").then((a) => setPortee(a.portee)).catch(() => {});
   }, [user?.username]);
 
-  const logout = () => { setToken(null); setUser(null); };
+  const logout = () => { endSession(); setUser(null); };
 
   if (checking) return null;
   if (!user) {

@@ -18,7 +18,7 @@
  */
 
 import { useState } from "react";
-import { api, errorText, setToken } from "../api.js";
+import { api, errorText, setSession } from "../api.js";
 
 // Ecran affiche seul tant que le mot de passe est provisoire : rien d'autre n'est accessible avant.
 export default function ForcePassword({ user, onDone, onLogout }) {
@@ -35,7 +35,7 @@ export default function ForcePassword({ user, onDone, onLogout }) {
     setBusy(true);
     try {
       const res = await api.post("/auth/change-password", { old_password: oldPw, new_password: newPw });
-      setToken(res.access_token);
+      setSession(true);
       onDone();
     } catch (ex) {
       setErr(errorText(ex));
