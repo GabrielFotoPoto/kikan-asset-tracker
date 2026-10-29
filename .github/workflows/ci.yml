@@ -121,7 +121,7 @@ jobs:
       - name: Images api, web, converter et sauvegarde
         run: docker compose --profile backup build
       - name: Analyse des vulnerabilites des images (information, ne bloque pas)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           image-ref: kikan-api
           format: table

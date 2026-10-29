@@ -199,7 +199,8 @@ services:
     cap_drop:
       - ALL
     cap_add:
-      - DAC_READ_SEARCH
+      - DAC_READ_SEARCH   # lire les volumes (monte en lecture seule, impose par le noyau)
+      - DAC_OVERRIDE      # ecrire dans le dossier de destination, quel qu'en soit le proprietaire (Linux)
     security_opt:
       - no-new-privileges:true
     depends_on:

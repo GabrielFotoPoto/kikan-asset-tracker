@@ -91,7 +91,15 @@ def newest(directory):
 
 
 print("== Preparation ==")
-shutil.rmtree(TMP, ignore_errors=True)
+def purge_tmp():
+    """Supprime le dossier temporaire, y compris les fichiers crees par les conteneurs (proprietaire root sous Linux)."""
+    if TMP.exists():
+        sh(["docker", "run", "--rm", "-v", f"{posix(TMP)}:/t", "alpine", "sh", "-c", "rm -rf /t/* /t/.[!.]* 2>/dev/null; true"])
+    shutil.rmtree(TMP, ignore_errors=True)
+
+
+purge_tmp()
+TMP.mkdir(exist_ok=True)
 for d in ("keys", "keys2", "backups", "backups_bad", "out", "out2"):
     (TMP / d).mkdir(parents=True)
 rc, out = sh(["docker", "compose", "--profile", "backup", "build", "backup"])
@@ -156,8 +164,10 @@ show("memes volumes de donnees que la source", rest == COUNTS, (rest, COUNTS))
 show("meme version de migration", psql("kikan-dr-db", "select version_num from alembic_version") == MIG)
 rc, shaout = sh(["docker", "run", "--rm", "-v", "kikan_dr_archive:/a:ro", "alpine", "sha256sum", f"/a/{KEY}"])
 show("le PDF scelle restaure est identique a l'original (empreinte)", rc == 0 and shaout.split()[0] == SHA, shaout[:100])
+# le fichier restaure appartient a root (0600) : on le relit par un conteneur, pas depuis l'hote
+rc, envsha = sh(["docker", "run", "--rm", "-v", f"{posix(TMP / 'out')}:/o:ro", "alpine", "sha256sum", "/o/env.restored"])
 show("le fichier .env de la sauvegarde est restitue a part, sans remplacer le votre",
-     (TMP / "out" / "env.restored").exists() and (TMP / "out" / "env.restored").read_bytes() == (ROOT / ".env").read_bytes())
+     rc == 0 and envsha.split()[0] == hashlib.sha256((ROOT / ".env").read_bytes()).hexdigest(), envsha[:80])
 rc, o = sh(["docker", "run", "--rm", "-v", "kikan_dr_certs:/c:ro", "alpine", "sh", "-c", "ls -ln /c | head -5; ls /c | wc -l"])
 show("les cles de scellement sont restaurees (propriete de l'utilisateur de l'API)", rc == 0 and "10001" in o, o[:150])
 
@@ -253,7 +263,7 @@ sh(["docker", "rm", "-f", "kikan-dr-db"])
 for v in ("kikan_dr_archive", "kikan_dr_certs", "kikan_dr_webcerts", "kikan_dr_work"):
     sh(["docker", "volume", "rm", "-f", v])
 sh(["docker", "compose", "-f", "tests/storage-test-servers.yml", "down", "-v"])
-shutil.rmtree(TMP, ignore_errors=True)
+purge_tmp()
 print("")
 print("ECHECS: %d" % fails)
 sys.exit(1 if fails else 0)

@@ -48,7 +48,8 @@ vivre **hors du serveur** (coffre de mots de passe, clé USB dans un coffre).
    KIKAN_BACKUP_SMB_DOMAIN=SOCIETE
    ```
    Le compte du partage a besoin de **lire, écrire, lister et supprimer** dans ce seul dossier (la suppression sert à la rétention).
-   Sans partage SMB, `KIKAN_BACKUP_DIR` désigne un dossier (disque externe, lecteur monté).
+   Sans partage SMB, `KIKAN_BACKUP_DIR` désigne un dossier (disque externe, lecteur monté) ; le conteneur de sauvegarde y écrit en root, quel
+   qu'en soit le propriétaire.
 3. **Première sauvegarde** :
    ```bash
    docker compose --profile backup run --rm backup backup
