@@ -5,6 +5,21 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.3.0] - 2026-10-30
+
+Pilotage, conformité et durcissement : revue des droits d'accès, purge RGPD paramétrable, annulation d'import, session sécurisée, guides.
+
+### Mise à jour depuis 0.2.x
+- **Sauvegardez avant** (voir [docs/SAUVEGARDE.md](docs/SAUVEGARDE.md)). Les migrations 0014 à 0016 (suivi de la purge RGPD, lots d'import, revue des accès) s'appliquent seules au
+  démarrage de l'API.
+- **Tout le monde devra se reconnecter une fois** : la session du navigateur est maintenant un cookie `HttpOnly`. Les scripts qui utilisent un jeton `Authorization: Bearer` et l'API
+  d'import par jetons ne changent pas.
+- **Durée de conservation RGPD** : la valeur proposée par défaut passe de 36 à **12 mois** (une valeur déjà enregistrée est conservée), avec un **délai de grace de 30 jours** réglable
+  avant la suppression définitive des PDF du partage. Vérifiez la page RGPD avant de lancer une purge.
+- Un mot de passe initial **généré** (premier démarrage) doit être changé dès la première connexion.
+- Si le serveur web répond « 502 » après la mise à jour : `docker compose restart web` (corrigé pour les prochaines recréations de l'API).
+- `KIKAN_TSA_URL` (horodatage RFC 3161) se règle désormais dans `.env`.
+
 ### Modifié
 - **Session du navigateur dans un cookie `HttpOnly`** au lieu de `localStorage` : un script injecté (XSS) ne peut plus lire le jeton. Cookie
   `SameSite=Strict` (et `Secure` en HTTPS), limité à `/api`, plus en-tête `X-Kikan-Request` exigé sur les requêtes qui modifient (CSRF). Nouvelle
