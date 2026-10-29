@@ -47,6 +47,8 @@ DELETE FROM settings WHERE key LIKE 'mail\_%' OR key LIKE 'rappel\_%' OR key LIK
 DELETE FROM reminder_sent WHERE destinataire LIKE '%@exemple.test';
 DELETE FROM purge_documents;
 DELETE FROM import_lots;
+DELETE FROM revue_lignes;
+DELETE FROM revues_acces;
 DELETE FROM settings WHERE key IN ('retention_apres_sortie_mois', 'purge_delai_grace_jours');
 DELETE FROM settings WHERE key = 'remise_inclure_acces';
 COMMIT;

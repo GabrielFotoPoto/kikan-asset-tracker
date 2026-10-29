@@ -51,6 +51,7 @@ from .routers import (
     policies,
     reports,
     sso,
+    revues,
     rgpd,
     stats,
     storage_admin,
@@ -143,6 +144,7 @@ app.include_router(import_data.router)
 app.include_router(lifecycle.router)
 app.include_router(reports.router)
 app.include_router(rgpd.router)
+app.include_router(revues.router)
 app.include_router(user_apps.router)
 app.include_router(stats.router)
 app.include_router(audit_log.router)

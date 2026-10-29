@@ -278,6 +278,44 @@ class PasswordResetToken(SQLModel, table=True):
     utilise_le: Optional[NaiveDatetime] = None
 
 
+class RevueAcces(SQLModel, table=True):
+    """Campagne de revue des droits d'acces (ISO 27001 A.5.18) : lancee a la demande par l'informatique, cloturee par un rapport PDF scelle."""
+    __tablename__ = "revues_acces"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    titre: str
+    statut: str = "en_cours"                      # en_cours | cloturee
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)
+    cree_par: Optional[str] = None
+    echeance: Optional[date] = None
+    perimetre: Optional[dict] = Field(default=None, sa_column=Column(JSON))   # {"entites": [id...], "applications": [id...]} (vide = tout)
+    cloture_le: Optional[NaiveDatetime] = None
+    cloture_par: Optional[str] = None
+    rapport_ref: Optional[str] = None             # reference de stockage du PDF scelle
+    rapport_empreinte: Optional[str] = None       # SHA-256 du PDF scelle
+
+
+class RevueLigne(SQLModel, table=True):
+    """Un acces a revoir. Sans cle etrangere vers le salarie ni l'acces : la purge RGPD supprime les lignes d'un salarie sans bloquer ;
+    le rapport scelle ne reprend que le matricule (pas de nom)."""
+    __tablename__ = "revue_lignes"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    revue_id: int = Field(foreign_key="revues_acces.id", index=True)
+    user_id: int = Field(index=True)
+    user_application_id: Optional[int] = None
+    entite_id: Optional[int] = Field(default=None, index=True)   # entite du salarie au lancement (cloisonnement)
+    matricule: Optional[str] = None
+    application: str
+    note: Optional[str] = None
+    anomalie: Optional[str] = None
+    decision: str = Field(default="a_traiter", index=True)       # a_traiter | maintenu | a_retirer
+    commentaire: Optional[str] = None
+    decide_par: Optional[str] = None
+    decide_le: Optional[NaiveDatetime] = None
+    retrait: Optional[str] = None                 # None | a_faire | fait (retrait confirme dans le systeme concerne)
+    retrait_par: Optional[str] = None
+    retrait_le: Optional[NaiveDatetime] = None
+
+
 class ImportLot(SQLModel, table=True):
     """Un import reel (page Import) : ce qu'il a cree, pour pouvoir l'annuler tant que rien n'en depend."""
     __tablename__ = "import_lots"
