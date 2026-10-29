@@ -7,6 +7,14 @@ laissé en risque accepté, et comment vérifier le tout.
 > preuve (remises et restitutions signées). Il doit être déployé **on-premise**, derrière le réseau
 > de l'organisation, et jamais exposé directement sur Internet.
 
+## Contrôler la sécurité du code
+
+`bash scripts/securite_scan.sh` (Docker seulement, environ une minute) enchaîne l'hygiène du dépôt, Bandit (Python), Semgrep (Python, JavaScript, React,
+Dockerfile), gitleaks (secrets, historique compris), hadolint, actionlint et zizmor (workflows), pip-audit et npm audit. Un faux positif est justifié
+dans le code (`# nosec`, `# nosemgrep`) ou dans `.gitleaks.toml` et `.hadolint.yaml`, jamais ignoré en bloc. Le skill de projet **`/kikan-securite`**
+(Claude Code, dossier `.claude/skills/`) lance ces scans puis relit les changements avec la liste de contrôle de Kikan (rôles, périmètre par entité,
+journal sans donnée personnelle, secrets, fichiers, verrous, tests).
+
 ## Signaler une vulnérabilité
 
 Merci d'utiliser le signalement privé de GitHub (onglet **Security** > **Report a vulnerability**

@@ -10,4 +10,7 @@ RUN apt-get update \
 ENV PATH=/opt/venv/bin:$PATH
 WORKDIR /app
 COPY kikan_backup.py test_retention.py /app/
+# Execute en root a dessein : la sauvegarde ecrit sur un partage ou un dossier de l'hote (droits DAC_READ_SEARCH et DAC_OVERRIDE, voir
+# docs/SAUVEGARDE.md) ; le conteneur n'ecoute aucun port et n'est lance que par le profil backup ou restore.
+# nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint
 ENTRYPOINT ["python", "/app/kikan_backup.py"]

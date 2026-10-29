@@ -1,0 +1,7 @@
+# Configuration de hadolint (analyse des Dockerfile).
+# DL3008 / DL3018 : figer la version de chaque paquet apt ou apk casse les reconstructions des qu'une version disparait des depots ;
+# les images de base sont deja fixees et auditees (Trivy, Dependabot). DL3066 : l'utilisateur non numerique du service de conversion est voulu.
+ignored:
+  - DL3008
+  - DL3018
+  - DL3066

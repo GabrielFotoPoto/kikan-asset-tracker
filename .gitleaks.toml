@@ -1,0 +1,17 @@
+# Configuration de gitleaks (recherche de secrets dans le code et l'historique) : regles par defaut + valeurs de TEST connues.
+# Une seule valeur par ligne : ne jamais autoriser un dossier entier (un vrai secret glisse dans tests/ serait alors invisible).
+title = "Kikan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Mots de passe et secrets de test (fixtures jetables), alphabet du generateur de mots de passe"
+regexTarget = "line"
+regexes = [
+  '''kikan-test-pw-12345''',
+  '''zz-secret-test-0123456789''',
+  '''Autre-Mot-De-Passe-2026''',
+  '''_PASSWORD_ALPHABET''',
+  '''glpi:glpi''',
+]

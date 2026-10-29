@@ -59,7 +59,8 @@ def docx_to_pdf(raw: bytes) -> bytes:
     req = urllib.request.Request(CONVERTER_URL + "/convert", data=raw, method="POST",
                                  headers={"Content-Type": "application/octet-stream"})
     try:
-        with urllib.request.urlopen(req, timeout=100) as resp:
+        # Faux positif B310 : CONVERTER_URL est une adresse interne fixee par l'administrateur (service de conversion de la pile Docker).
+        with urllib.request.urlopen(req, timeout=100) as resp:  # nosec B310
             pdf = resp.read(60 * 1024 * 1024 + 1)
     except urllib.error.HTTPError as exc:
         if exc.code == 422:
