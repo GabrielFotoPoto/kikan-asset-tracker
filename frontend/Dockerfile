@@ -5,7 +5,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.29-alpine
 RUN apk add --no-cache openssl
 # Modele de configuration : les variables ${KIKAN_*} sont substituees au demarrage.
 COPY nginx.conf /etc/nginx/templates/default.conf.template
