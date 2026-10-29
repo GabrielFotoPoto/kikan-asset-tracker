@@ -428,8 +428,9 @@ s, soon = j("POST", "/users", {"matricule": "ZZML-BS1", "nom": "NomBS1", "prenom
                                "date_arrivee": (TODAY + timedelta(days=5)).isoformat()})
 s, far = j("POST", "/users", {"matricule": "ZZML-BS2", "nom": "NomBS2", "prenom": "ZZMLbs2", "entite_id": EA, "statut": "prevu",
                               "date_arrivee": (TODAY + timedelta(days=60)).isoformat()})
-s, b_soon = j("POST", "/besoins", {"user_id": soon["id"], "type": "ZZML type", "quantite": 2})
-j("POST", "/besoins", {"user_id": far["id"], "type": "ZZML type"})
+j("POST", "/parametres/categories-besoin", {"nom": "ZZML categorie"})
+s, b_soon = j("POST", "/besoins", {"user_id": soon["id"], "type": "ZZML categorie", "quantite": 2})
+j("POST", "/besoins", {"user_id": far["id"], "type": "ZZML categorie"})
 show("besoins crees pour les tests de rappel", s == 201, b_soon)
 s, r = run()
 bi = mails_for("it@exemple.test")
