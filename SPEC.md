@@ -456,7 +456,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | # | Fonctionnalité | Origine |
 |---|---|---|
 | C1 | **Statistiques exportables** (CSV et PDF), avec filtres par entité et période | SPEC |
-| C2 | **Revue périodique des droits d'accès** : rapport « qui a accès à quoi » et campagne de validation (ISO A.5.18) | Prop. |
+| C2 | **Revue périodique des droits d'accès** : rapport « qui a accès à quoi » et campagne de validation (ISO A.5.18) **Fait (2026-11-05)** : anomalies (salarié sorti, application désactivée) et rapport exportable ; campagne à la demande, décisions par les RH dans leur périmètre et l'informatique ; clôture seulement si tout est décidé, accès à retirer passés à non, rapport PDF scellé, retraits suivis jusqu'à confirmation ; rappels (échéance, retraits, revue annuelle) | Prop. |
 | C3 | **Prévision des renouvellements** avec budget estimé | Prop. |
 | C4 | **Étiquettes et QR codes** sur le matériel, recherche par scan | Prop. |
 | C5 | **Pièces jointes** au matériel (facture, garantie) | Prop. |

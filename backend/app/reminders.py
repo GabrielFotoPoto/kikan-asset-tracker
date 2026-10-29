@@ -32,7 +32,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import text
 from sqlmodel import Session, select
 
-from . import appsettings, mailer, purge
+from . import appsettings, mailer, purge, revue_acces
 from .audit import audit
 from .db import engine
 from .mailer import MailConfig, MailError
@@ -123,7 +123,7 @@ def _fmt(d: date) -> str:
 
 def collect(session: Session, cfg: MailConfig, today: date) -> dict[str, list[dict]]:
     """Elements a signaler, par type : {cle, entite_id, ligne}."""
-    out: dict[str, list[dict]] = {"renouv": [], "depart": [], "nonrestit": [], "besoins": [], "purge": []}
+    out: dict[str, list[dict]] = {"renouv": [], "depart": [], "nonrestit": [], "besoins": [], "purge": [], "revue": []}
     if cfg.purge:  # purge RGPD en retard ou non terminee (informatique) : nombres seulement, jamais de nom
         st = purge.etat(session, today)
         late = [("candidats", st["candidats"], "salarie(s) sorti(s) depuis plus longtemps que la duree de conservation : purge a lancer (page RGPD)"),
@@ -147,6 +147,14 @@ def collect(session: Session, cfg: MailConfig, today: date) -> dict[str, list[di
                                        clean(u.prenom), clean(u.nom), clean(u.matricule) or "sans matricule", b.quantite,
                                        clean(b.type), _fmt(due), " (date depassee)" if late else "",
                                        "en preparation" if b.statut == "en_preparation" else "a traiter")})
+    if cfg.revue:  # revue des droits d'acces : echeance, retraits a confirmer, revue annuelle (informatique ; nombres seulement)
+        st = revue_acces.etat_rappels(session, today)
+        if st["echeance_proche"]:
+            out["revue"].append({"cle": "revue:echeance", "entite_id": None, "ligne": "- %d acces restent a traiter dans la revue en cours : echeance proche ou depassee (page Revue des acces)" % st["a_traiter"]})
+        if st["retraits_en_attente"]:
+            out["revue"].append({"cle": "revue:retraits", "entite_id": None, "ligne": "- %d retrait(s) d'acces a confirmer dans les applications concernees (page Revue des acces)" % st["retraits_en_attente"]})
+        if st["annuelle"]:
+            out["revue"].append({"cle": "revue:annuelle", "entite_id": None, "ligne": "- aucune revue des droits d'acces cloturee depuis plus d'un an : a lancer (page Revue des acces)"})
     if cfg.renouv:
         horizon = today + timedelta(days=cfg.renouv_jours)
         for a in session.exec(select(Asset).where(Asset.echeance_renouvellement.is_not(None),
@@ -179,6 +187,7 @@ TITRES = {
     "nonrestit": "Materiel non restitue apres la date de sortie",
     "besoins": "Besoins de materiel pour des arrivees proches",
     "purge": "Purge RGPD a traiter",
+    "revue": "Revue des droits d'acces",
 }
 
 
@@ -193,17 +202,17 @@ def digests(session: Session, cfg: MailConfig, now: datetime) -> list[Digest]:
             sent[key] = r.envoye_le
     period = {"renouv": timedelta(days=RELANCE_RENOUV_J), "depart": timedelta(days=RELANCE_DEPART_J),
               "nonrestit": timedelta(weeks=max(1, cfg.nonrestit_sem)), "besoins": timedelta(days=RELANCE_DEPART_J),
-              "purge": timedelta(weeks=max(1, cfg.purge_sem))}
+              "purge": timedelta(weeks=max(1, cfg.purge_sem)), "revue": timedelta(days=RELANCE_DEPART_J)}
     link = mailer.public_url()
     result = []
     for rcp in recipients(session, cfg):
         sections, marks, counts = [], [], {}
-        for kind in ("besoins", "renouv", "depart", "nonrestit", "purge"):
-            if kind in ("renouv", "besoins", "purge") and not rcp.admin:
+        for kind in ("besoins", "renouv", "depart", "nonrestit", "purge", "revue"):
+            if kind in ("renouv", "besoins", "purge", "revue") and not rcp.admin:
                 continue
             lines = []
             for it in items[kind]:
-                if kind not in ("renouv", "purge") and not rcp.scope.allows(it["entite_id"]):
+                if kind not in ("renouv", "purge", "revue") and not rcp.scope.allows(it["entite_id"]):
                     continue
                 last = sent.get((kind, it["cle"], rcp.email))
                 if last is not None and now - last < period[kind]:

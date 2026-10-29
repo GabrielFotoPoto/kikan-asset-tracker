@@ -114,7 +114,7 @@ lect = login("sec_lecture", TEST_PW)
 
 print("== 1. Acces sans jeton ==")
 for p in ["/users", "/assets", "/entites", "/applications", "/assignments", "/stats", "/audit",
-          "/reports/holdings", "/rgpd/retention", "/rgpd/etat", "/rgpd/documents", "/import/lots", "/auth/accounts", "/auth/me", "/lifecycle/holdings/1"]:
+          "/reports/holdings", "/rgpd/retention", "/rgpd/etat", "/rgpd/documents", "/import/lots", "/revues", "/revues/anomalies", "/revues/acces", "/auth/accounts", "/auth/me", "/lifecycle/holdings/1"]:
     s, _, _ = call("GET", p)
     show(f"GET {p} sans jeton -> 401", s == 401, f"HTTP {s}")
 
@@ -154,6 +154,11 @@ for name, tok in (("lecture", lect), ("rh", rh)):
         ("GET", "/rgpd/documents", None),
         ("GET", "/import/lots", None),
         ("POST", "/import/lots/1/annuler", {}),
+        ("POST", "/revues", {"titre": "x"}),
+        ("POST", "/revues/1/cloturer", {}),
+        ("GET", "/revues/retraits", None),
+        ("POST", "/revues/retraits/confirmer", {"ids": [1]}),
+        ("GET", "/revues/1/rapport", None),
         ("POST", "/auth/accounts", {"username": "x", "password": TEST_PW, "role": "informatique"}),
         ("PUT", f"/auth/accounts/{id_rh}", {"role": "informatique"}),
     ]:

@@ -203,6 +203,14 @@ Les pages d'administration (comptes, paramétrage, stockage, journal d'audit, RG
 
 *Captures réalisées avec des données de démonstration fictives.*
 
+## Revue des droits d'accès
+
+Page **Revue des accès** : anomalies (accès actif d'un salarié sorti ou d'une application désactivée, affichées aussi sur le tableau de bord), rapport
+« qui a accès à quoi » exportable (Excel, CSV), et **campagnes de revue** à la demande : l'informatique lance, les **RH décident dans leur périmètre**
+(maintenir ou retirer), l'informatique clôture. À la clôture, les accès à retirer passent à « non » (historique conservé), un **rapport PDF scellé** est
+enregistré et les retraits sont suivis jusqu'à leur confirmation dans l'application concernée. Rappel par e-mail (échéance, retraits en attente, revue
+annuelle). Détail : [docs/REVUE-ACCES.md](docs/REVUE-ACCES.md).
+
 ## Besoins de matériel
 
 Les **RH** déclarent le matériel nécessaire à un salarié, typiquement à son arrivée (salarié au statut « prévu ») ;

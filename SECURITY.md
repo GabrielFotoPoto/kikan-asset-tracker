@@ -182,6 +182,8 @@ docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api p
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/purge_check.py
 # Annulation d'un import (lots, garde-fous, ordre inverse)
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/import_annulation_check.py
+# Revue des droits d'acces (anomalies, perimetre par entite, decisions, cloture scellee, retraits, rappels)
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/revue_check.py
 
 # Schéma de la base : aucune dérive entre le modèle et les migrations
 docker compose exec api alembic check

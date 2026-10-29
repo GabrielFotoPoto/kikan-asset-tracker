@@ -550,6 +550,8 @@ function Courriel({ setErr, setMsg }) {
           (informatique, relance chaque semaine)</label>
         <label style={row}><input type="checkbox" style={{ width: "auto" }} checked={f.purge} onChange={set("purge")} />
           Purge RGPD en retard ou non terminee (informatique), relance toutes les <input type="number" min="1" max="12" style={num} value={f.purge_sem} onChange={setN("purge_sem")} /> semaine(s)</label>
+        <label style={row}><input type="checkbox" style={{ width: "auto" }} checked={f.revue} onChange={set("revue")} />
+          Revue des droits d'acces : echeance proche, retraits a confirmer, revue annuelle a lancer (informatique, relance chaque semaine)</label>
         <label style={row}>Heure d'envoi :
           <input type="number" min="0" max="23" style={num} value={f.heure} onChange={setN("heure")} /> h (heure du serveur)</label>
       </div>
@@ -597,9 +599,9 @@ function Courriel({ setErr, setMsg }) {
           <h3>Apercu des envois</h3>
           {apercu.rappels.length === 0 ? <p className="muted">Aucun rappel a envoyer pour le moment.</p> : (
             <table>
-              <thead><tr><th>Destinataire</th><th>Renouvellements</th><th>Departs</th><th>Non restitue</th><th>Besoins</th><th>Purge RGPD</th></tr></thead>
+              <thead><tr><th>Destinataire</th><th>Renouvellements</th><th>Departs</th><th>Non restitue</th><th>Besoins</th><th>Purge RGPD</th><th>Revue des acces</th></tr></thead>
               <tbody>{apercu.rappels.map((d) => (
-                <tr key={d.destinataire}><td>{d.destinataire}</td><td>{d.elements.renouv || 0}</td><td>{d.elements.depart || 0}</td><td>{d.elements.nonrestit || 0}</td><td>{d.elements.besoins || 0}</td><td>{d.elements.purge || 0}</td></tr>
+                <tr key={d.destinataire}><td>{d.destinataire}</td><td>{d.elements.renouv || 0}</td><td>{d.elements.depart || 0}</td><td>{d.elements.nonrestit || 0}</td><td>{d.elements.besoins || 0}</td><td>{d.elements.purge || 0}</td><td>{d.elements.revue || 0}</td></tr>
               ))}</tbody>
             </table>
           )}
