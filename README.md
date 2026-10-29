@@ -34,6 +34,16 @@ et A.5.18 (droits d'accès).
   suppression définitive et liste des documents à supprimer dans la GED : voir [docs/RGPD.md](docs/RGPD.md).
 - **Authentification et rôles** : RH, informatique, lecture seule.
 
+## Documentation
+
+| Pour... | Lire |
+|---|---|
+| **installer** Kikan, le configurer, le sauvegarder et le mettre à jour | [Guide d'installation](docs/INSTALLATION.md) |
+| **utiliser** Kikan (RH, informatique, lecture) : arrivées, remises signées, départs, revue des accès, purge | [Guide d'utilisation](docs/GUIDE-UTILISATEUR.md) |
+| comprendre la sécurité et la mise en production | [SECURITY.md](SECURITY.md) |
+| brancher Microsoft 365, GLPI, SharePoint, DocuWare, l'API | [SSO](docs/SSO.md), [GLPI](docs/GLPI.md), [SharePoint](docs/SHAREPOINT.md), [DocuWare](docs/DOCUWARE.md), [API](docs/API.md) |
+| sauvegarder et restaurer | [Sauvegarde](docs/SAUVEGARDE.md) |
+
 ## Pile technique
 
 - **Front** : React (Vite), servi par Nginx (reverse-proxy `/api`).
@@ -93,7 +103,7 @@ avant le premier démarrage, ou monter le certificat de l'organisation dans le v
 ## Jeu de données de démonstration
 
 Pour montrer ou essayer Kikan sans saisir de données : `bash scripts/demo.sh charger` (environ 10 secondes) crée un groupe fictif, **Groupe SICA Atlantique** et ses
-filiales (SICA Atlantique, AMT, SISP, ALLFAST, ATENA), 52 salariés, 76 matériels (PC et smartphones), 6 applications et leurs accès, **49 remises signées avec de vrais
+filiales (SICA Atlantique, AMT, SISP, ALLFAST, ATENA), 52 salariés, 77 matériels (PC et smartphones), 6 applications et leurs accès, **49 remises signées avec de vrais
 PDF scellés**, des restitutions, des besoins ouverts, des départs à venir, du matériel non restitué, du matériel à renouveler et 3 salariés sortis à purger (page RGPD).
 L'import des entités est un lot que l'on retrouve sur la page Import.
 
