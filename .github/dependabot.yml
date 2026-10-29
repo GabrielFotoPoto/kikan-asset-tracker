@@ -17,6 +17,13 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     groups:
+      # Ces paquets se requierent mutuellement : react et react-dom (meme version majeure), vite et son
+      # plugin. Les grouper evite des demandes de fusion separees qui echouent (ERESOLVE). Ils passent
+      # avant npm-minor-patch : Dependabot range chaque paquet dans le premier groupe qui le contient.
+      react:
+        patterns: [react, react-dom]
+      vite:
+        patterns: [vite, "@vitejs/*"]
       npm-minor-patch:
         update-types: [minor, patch]
   - package-ecosystem: docker
