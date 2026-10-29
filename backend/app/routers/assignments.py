@@ -16,6 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import hashlib
+import re
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -40,6 +41,7 @@ from ..models import (
     User,
 )
 from ..pdf_template import load_template
+from ..docname import nom_document
 from ..pdfgen import build_receipt
 from ..signature_image import (
     HANDWRITTEN_REQUIRED,
@@ -256,7 +258,7 @@ def sign_assignment(
     empreinte = hashlib.sha256(sealed).hexdigest()
 
     # Rangement par annee (AAAA/...) sur le stockage actif (volume, partage SMB ou WebDAV).
-    reference = store_document(f"{now.year}/remise_{assignment_id}_{now:%Y%m%d%H%M%S}.pdf", sealed,
+    reference = store_document(nom_document(session, user, now), sealed,
                                meta_for("Remise", now.year, assignment_id, entite, user, now))
 
     signature = Signature(
@@ -294,6 +296,10 @@ def get_document(assignment_id: int, type: str = Query("remise", pattern="^(remi
     sigs = session.exec(select(Signature).where(Signature.assignment_id == assignment_id).order_by(Signature.id)).all()
 
     def kind(sig):
+        # Le type est dans le faisceau de preuves ; l'ancien nom de fichier (restitution_...) ne sert que de repli.
+        known = (sig.audit_json or {}).get("type")
+        if known in ("remise", "restitution"):
+            return known
         name = (sig.ged_reference or "").rsplit("/", 1)[-1]
         return "restitution" if name.startswith("restitution_") else "remise"
 
@@ -305,5 +311,8 @@ def get_document(assignment_id: int, type: str = Query("remise", pattern="^(remi
     if sig.empreinte_doc and sha256_hex(data) != sig.empreinte_doc:
         audit("systeme", "document_altere", target=sig.ged_reference, status=500)
         raise HTTPException(500, "Integrite du document non verifiee (empreinte differente)")
+    # Nom propose au telechargement : celui du fichier range (AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf), sinon l'ancien nom.
+    stored = sig.ged_reference.rsplit("/", 1)[-1]
+    filename = stored if re.fullmatch(r"[A-Za-z0-9_.\-]+\.pdf", stored) else f"{type}_{assignment_id}.pdf"
     return Response(content=data, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="{type}_{assignment_id}.pdf"'})
+                    headers={"Content-Disposition": f'inline; filename="{filename}"'})

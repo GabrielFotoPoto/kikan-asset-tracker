@@ -31,6 +31,7 @@ import base64
 import email.parser
 import email.policy
 import hashlib
+import re
 import io
 import json
 import os
@@ -51,6 +52,7 @@ PW = "Sec-Test-Passw0rd-2026"
 MODE = os.environ.get("KIKAN_STORAGE_BACKEND", "local")
 if MODE not in ("sharepoint", "docuware"):
     sys.exit("Ce script teste le moteur sharepoint ou docuware (voir l'en-tete)")
+NOM_RE = re.compile(r"\d{4}_\d{2}_\d{2}_[A-Z0-9-]+_[A-Z0-9-]+_[A-Z]{3}_\d{3}(-\d+)?\.pdf")
 fails = 0
 
 
@@ -360,7 +362,7 @@ data = next(iter(files.values())) if files else b""
 show("empreinte enregistree = empreinte du fichier depose", sg["empreinte_doc"] == hashlib.sha256(data).hexdigest())
 if MODE == "sharepoint":
     path = next(iter(files))
-    show("rangement <dossier>/<annee>/<fichier>", path.startswith("Kikan/20") and "/remise_%d_" % asg1["id"] in path, path)
+    show("rangement <dossier>/<annee>/<fichier>", path.startswith("Kikan/20") and NOM_RE.search(path) is not None, path)
 else:
     did = next(iter(S.files))
     show("reference DocuWare : identifiant du document en tete de cle", ref.startswith("docuware:%d/" % did), ref)
@@ -369,8 +371,8 @@ else:
          fields.get("TYPE_DOC") == ("Remise", "String") and fields.get("ANNEE", (0, ""))[1] == "Int" and fields.get("NUMERO") == (asg1["id"], "Int")
          and fields.get("ENTITE") == ("ZZDOC Filiale", "String") and fields.get("CLE_KIKAN", ("",))[0].endswith(".pdf"), fields)
     show("aucune donnee nominative envoyee (champs non associes)", set(fields) == {"TYPE_DOC", "ANNEE", "NUMERO", "ENTITE", "CLE_KIKAN"}
-         and "NomZZ" not in json.dumps(fields, default=str) and "ZZDOC-1" not in json.dumps(fields, default=str), sorted(fields))
-    show("le fichier porte un nom de fichier propre", S.files[did]["name"].startswith("remise_") and S.files[did]["name"].endswith(".pdf"), S.files[did]["name"])
+         and "NOMZZ" not in json.dumps(fields, default=str).upper() and "ZZDOC-1" not in json.dumps(fields, default=str), sorted(fields))
+    show("le fichier porte un nom de fichier propre", NOM_RE.fullmatch(S.files[did]["name"]) is not None, S.files[did]["name"])
 s, pdf = call("GET", "/assignments/%d/document" % asg1["id"], token=ADM)
 show("relecture du document par l'API", s == 200 and pdf == data, s)
 s, pdf = call("GET", "/assignments/%d/document" % asg1["id"], token=ADM)
@@ -379,7 +381,7 @@ show("deuxieme lecture identique (jeton reutilise)", s == 200 and pdf == data)
 print("== Restitution signee ==")
 j("POST", "/lifecycle/depart/%d" % u1["id"], {"date_sortie": "2026-12-31"})
 s, rs = j("POST", "/lifecycle/restituer", {"user_id": u1["id"], **SIGN})
-show("restitution signee et deposee", s == 201 and rs["ged_reference"].startswith(MODE + ":") and "restitution_" in rs["ged_reference"], rs)
+show("restitution signee et deposee", s == 201 and rs["ged_reference"].startswith(MODE + ":") and NOM_RE.search(rs["ged_reference"]) is not None, rs)
 if MODE == "docuware":
     last = max(k for k in S.files if isinstance(k, int))
     show("type d'index : Restitution", S.files[last]["fields"].get("TYPE_DOC") == ("Restitution", "String"), S.files[last]["fields"])
@@ -418,7 +420,8 @@ print("== Integrite ==")
 u2, a2, asg2 = new_remise("2")
 s, sg2 = j("POST", "/assignments/%d/sign" % asg2["id"], SIGN)
 if MODE == "sharepoint":
-    key = next(k for k in S.files if isinstance(k, str) and "/remise_%d_" % asg2["id"] in k)
+    cle2 = sg2["ged_reference"].split(":", 1)[1]
+    key = next(k for k in S.files if isinstance(k, str) and k.endswith(cle2))
     S.files[key] = S.files[key] + b"x"
 else:
     did2 = int(sg2["ged_reference"].split(":")[1].split("/")[0])

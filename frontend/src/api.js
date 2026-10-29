@@ -60,10 +60,12 @@ export async function downloadFile(path, filename) {
   }
   if (!res.ok) throw new Error((await res.text()) || `Erreur ${res.status}`);
   const blob = await res.blob();
+  // Le nom propose par le serveur (en-tete Content-Disposition) prime sur le nom par defaut de l'appelant.
+  const served = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "")?.[1];
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename || "telechargement";
+  a.download = served || filename || "telechargement";
   document.body.appendChild(a);
   a.click();
   a.remove();

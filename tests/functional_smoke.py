@@ -95,6 +95,9 @@ show("creation entite", s == 201)
 s, u = j("POST", "/users", {"nom": "Fonctionnel", "prenom": "Test", "matricule": "ZZFN1", "service": "Compta",
                              "entite_id": ent.get("id"), "statut": "actif", "date_arrivee": "2026-01-05"})
 show("creation salarie (dates, cree_le/maj_le)", s == 201 and u.get("cree_le"), f"HTTP {s}")
+show("acronyme propose a la creation (initiale du prenom + 2 lettres du nom)", u.get("acronyme") == "TFO", u.get("acronyme"))
+s, bad = j("POST", "/users", {"nom": "Acro", "prenom": "Mauvais", "acronyme": "AB", "statut": "actif"})
+show("acronyme de moins de 3 lettres refuse", s == 422, f"HTTP {s}")
 s, a1 = j("POST", "/assets", {"type": "PC portable", "marque": "ZZFN-Dell", "modele": "Latitude",
                                "numero_serie": "ZZFN-SN1", "identifiant_interne": "ZZFN-PC1",
                                "date_achat": "2025-03-01", "echeance_renouvellement": "2027-03-01", "statut": "stock"})
@@ -130,6 +133,15 @@ try:
         show("signature PAdES validable", False, str(exc)[:80])
 except Exception as exc:  # noqa: BLE001
     show("lecture de la signature PAdES", False, str(exc)[:80])
+import re as _re
+NOM_RE = _re.compile(r"^(local|smb|webdav):(\d{4})/(\d{4})_(\d{2})_(\d{2})_FONCTIONNEL_TEST_TFO_(\d{3})\.pdf$")
+m1 = NOM_RE.match(sig["ged_reference"])
+show("nom du PDF : AAAA_MM_JJ_NOM_PRENOM_ACR_NNN, dossier de l'annee", bool(m1) and m1.group(2) == m1.group(3), sig["ged_reference"])
+show("premier document du salarie : numero 001", bool(m1) and m1.group(6) == "001", sig["ged_reference"])
+req = urllib.request.Request(B + f"/assignments/{asg['id']}/document", headers={"Authorization": "Bearer " + T})
+with urllib.request.urlopen(req) as resp:
+    cd = resp.headers.get("Content-Disposition", "")
+show("le telechargement propose le nom du fichier range", bool(m1) and cd.endswith('filename="%s"' % sig["ged_reference"].rsplit("/", 1)[-1]), cd)
 s, a1b = j("GET", f"/assets/{a1['id']}")
 show("l'actif est passe en 'affecte'", a1b.get("statut") == "affecte")
 
@@ -157,6 +169,8 @@ s, dep = j("POST", f"/lifecycle/depart/{u['id']}", {"date_sortie": "2026-12-31"}
 show("declaration du depart", s == 200 and len(dep["materiel_a_recuperer"]) == 2, f"HTTP {s}")
 s, rs = j("POST", "/lifecycle/restituer", {"user_id": u["id"], **SIGN})
 show("restitution signee", s == 201 and rs["audit_json"]["type"] == "restitution", f"HTTP {s}")
+m2 = NOM_RE.match(rs["ged_reference"])
+show("la restitution prend le numero suivant (002) du meme salarie", bool(m2) and m2.group(6) == "002", rs["ged_reference"])
 s, u2 = j("GET", f"/users/{u['id']}")
 show("le salarie passe en 'sorti'", u2.get("statut") == "sorti")
 s, a1c = j("GET", f"/assets/{a1['id']}")

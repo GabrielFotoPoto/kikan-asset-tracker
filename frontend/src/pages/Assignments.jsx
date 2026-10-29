@@ -22,6 +22,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, downloadFile, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 
+// Les dates du serveur sont en UTC sans fuseau : on les affiche a l'heure locale de l'utilisateur.
+const dateHeure = (iso) => {
+  if (!iso) return "-";
+  const d = new Date(/(Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : iso + "Z");
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "medium" });
+};
+
 export default function Assignments() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -144,14 +151,14 @@ export default function Assignments() {
       <div className="card">
         <h3>Affectations</h3>
         <table>
-          <thead><tr><th>#</th><th>Salarie</th><th>Statut</th><th>Remise</th><th>Document</th></tr></thead>
+          <thead><tr><th>#</th><th>Salarie</th><th>Statut</th><th>Remise (date et heure)</th><th>Document</th></tr></thead>
           <tbody>
-            {items.map((a) => (
+            {[...items].sort((x, y) => (y.date_remise || "").localeCompare(x.date_remise || "") || y.id - x.id).map((a) => (
               <tr key={a.id}>
                 <td>{a.id}</td>
                 <td>{userName(a.user_id)}</td>
                 <td><span className="badge">{a.statut}</span></td>
-                <td>{(a.date_remise || "").slice(0, 10)}</td>
+                <td>{dateHeure(a.date_remise)}</td>
                 <td>
                   <div className="row">
                     {writable && <button className="ghost" onClick={() => sign(a.id)}>Signer</button>}

@@ -33,6 +33,7 @@ import urllib.request
 import uuid
 from datetime import date, datetime, timezone
 
+from .docname import cle_sans_nom
 from .filestore import TIMEOUT, StorageError, _env, safe_key
 
 LOGICAL_FIELDS = ("cle", "type", "annee", "entite", "numero", "matricule", "salarie", "date")
@@ -175,7 +176,7 @@ class DocuWareBackend:
 
     # ------------------------------------------------------------------ indexation
     def _index(self, key: str, meta: dict | None) -> dict:
-        values = {"cle": key, **(meta or {})}
+        values = {"cle": cle_sans_nom(key), **(meta or {})}
         values.setdefault("annee", key.split("/")[0] if "/" in key else "")
         fields = []
         for logical, (name, kind) in self.fields.items():

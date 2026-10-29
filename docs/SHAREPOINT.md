@@ -16,8 +16,7 @@ et est déposé plus tard (au démarrage ou par *Reprendre les dépôts en atten
 ## Arborescence
 
 ```
-<bibliothèque>/<dossier>/<année>/remise_<n°>_<horodatage>.pdf
-<bibliothèque>/<dossier>/<année>/restitution_<n°>_<horodatage>.pdf
+<bibliothèque>/<dossier>/<année>/AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf
 ```
 
 ## 1. Application Entra ID
