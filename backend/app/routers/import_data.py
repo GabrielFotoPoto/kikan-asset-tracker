@@ -28,7 +28,7 @@ from ..auth import get_current_account, require_roles, writer_guard
 from ..asset_catalog import AssetCatalog
 from ..catalogs import canonical_service, canonical_type
 from ..db import get_session
-from .. import xlsx_io
+from .. import import_undo, xlsx_io
 from ..importer import as_bool, as_date, as_str, read_csv
 from ..models import (
     Account,
@@ -39,6 +39,7 @@ from ..models import (
     AssignmentAsset,
     EmployeeStatus,
     Entite,
+    ImportLot,
     User,
     UserApplication,
 )
@@ -529,7 +530,15 @@ async def import_csv(
 
     rep = Report(kind, dry_run)
     rep.extra = {"sha256": digest, "colonnes_ignorees": [h for h in headers if h and h not in known], **info}
-    HANDLERS[kind](rows, session, rep)
+    tracker = None if dry_run else import_undo.Tracker(session)  # lignes creees par cet import (pour pouvoir l'annuler)
+    statuts = import_undo.snapshot_statuts(session) if (tracker and kind == "affectations") else None
+    try:
+        HANDLERS[kind](rows, session, rep)
+        if tracker:
+            session.flush()
+    finally:
+        if tracker:
+            tracker.close()
     if numbers is not None:
         rep.remap(numbers)
 
@@ -542,8 +551,51 @@ async def import_csv(
         raise HTTPException(409, f"Import refuse : {rep.errors_total} ligne(s) en erreur. "
                                  "Corrigez le fichier puis relancez la simulation.")
     else:
+        lot = import_undo.record(session, kind, account.username, digest, tracker, statuts)
         session.commit()
+        if lot is not None:
+            rep.extra["lot_id"] = lot.id
     audit(account.username, "import_simulation" if dry_run else "import_reel", target=kind,
           detail=f"lignes={rep.total} creees={rep.imported} ignorees={rep.skipped} "
                  f"erreurs={rep.errors_total} sha256={digest[:12]}")
     return rep.dict()
+
+
+# --- Annulation d'un import ---
+
+def _lot(session: Session, lot_id: int) -> ImportLot:
+    lot = session.get(ImportLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "Import introuvable")
+    return lot
+
+
+@router.get("/lots", dependencies=[Depends(require_roles("informatique"))])
+def list_lots(limit: int = Query(30, ge=1, le=200), session: Session = Depends(get_session)):
+    """Derniers imports reels (le plus recent d'abord)."""
+    rows = session.exec(select(ImportLot).order_by(ImportLot.id.desc()).limit(limit)).all()
+    return [{"id": r.id, "kind": r.kind, "titre": SPECS.get(r.kind, {}).get("titre", r.kind), "cree_le": r.cree_le,
+             "cree_par": r.cree_par, "nb_creees": r.nb_creees, "statut": r.statut, "annule_le": r.annule_le,
+             "annule_par": r.annule_par} for r in rows]
+
+
+@router.get("/lots/{lot_id}/annulation", dependencies=[Depends(require_roles("informatique"))])
+def simulate_undo(lot_id: int, session: Session = Depends(get_session)):
+    """Ce que l'annulation supprimerait et ce qui l'empeche (aucune ecriture)."""
+    return import_undo.analyser(session, _lot(session, lot_id))
+
+
+@router.post("/lots/{lot_id}/annuler", dependencies=[Depends(require_roles("informatique"))])
+def undo_import(lot_id: int, session: Session = Depends(get_session), account: Account = Depends(get_current_account)):
+    """Annule un import : supprime ce qu'il a cree, tout ou rien ; refuse si un element est deja utilise ailleurs."""
+    lot = _lot(session, lot_id)
+    if lot.statut != "actif":
+        raise HTTPException(409, "Cet import est deja annule")
+    plan = import_undo.analyser(session, lot)
+    if plan["bloquants"]:
+        audit(account.username, "import_annulation_refusee", target=f"lot/{lot.id}", status=409, detail=lot.kind)
+        raise HTTPException(409, "Annulation impossible : " + " ; ".join(plan["bloquants"])
+                            + ". Ces elements sont deja utilises : annulez d'abord ce qui en depend, ou conservez-les.")
+    result = import_undo.annuler(session, lot, account.username)
+    audit(account.username, "import_annule", target=f"lot/{lot.id}", detail=f"{lot.kind} : {result['supprimes']} ligne(s) supprimee(s)")
+    return {**result, "id": lot.id}

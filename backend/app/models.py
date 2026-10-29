@@ -278,6 +278,21 @@ class PasswordResetToken(SQLModel, table=True):
     utilise_le: Optional[NaiveDatetime] = None
 
 
+class ImportLot(SQLModel, table=True):
+    """Un import reel (page Import) : ce qu'il a cree, pour pouvoir l'annuler tant que rien n'en depend."""
+    __tablename__ = "import_lots"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    kind: str
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)
+    cree_par: Optional[str] = None
+    sha256: Optional[str] = None
+    nb_creees: int = 0
+    elements: Optional[dict] = Field(default=None, sa_column=Column(JSON))   # {"ids": {type: [id...]}, "statuts_actifs": {id: statut}}
+    statut: str = "actif"                                                    # actif | annule
+    annule_le: Optional[NaiveDatetime] = None
+    annule_par: Optional[str] = None
+
+
 class PurgeDocument(SQLModel, table=True):
     """PDF d'un salarie purge : suivi jusqu'a sa suppression definitive (aucune donnee du salarie en base, seulement la reference technique).
 

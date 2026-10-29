@@ -19,6 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { api, downloadFile, errorText, postForm } from "../api.js";
+import ConfirmButton from "../components/ConfirmButton.jsx";
 
 // Enregistre un texte (CSV) sur le poste, avec BOM pour une ouverture directe dans Excel.
 function saveCsv(filename, text) {
@@ -200,6 +201,47 @@ export default function Import() {
           )}
         </div>
       )}
+      <ImportsRecents refresh={final} />
+    </div>
+  );
+}
+
+// Imports deja realises : chacun s'annule tant que rien de ce qu'il a cree n'est utilise ailleurs.
+function ImportsRecents({ refresh }) {
+  const [lots, setLots] = useState([]);
+  const [err, setErr] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const load = () => api.get("/import/lots?limit=15").then(setLots).catch((e) => setErr(errorText(e)));
+  useEffect(() => { load(); }, [refresh]);
+
+  const undo = async (lot) => {
+    setErr(null); setMsg(null);
+    try {
+      const r = await api.post(`/import/lots/${lot.id}/annuler`, {});
+      setMsg(`Import annule : ${r.supprimes} ligne(s) supprimee(s).`);
+    } catch (e) { setErr(errorText(e)); }
+    load();
+  };
+  if (lots.length === 0) return null;
+  const fmt = (d) => String(d || "").replace("T", " ").slice(0, 16);
+  return (
+    <div className="card">
+      <h3>Imports realises</h3>
+      <p className="muted">Un import peut etre annule tant que rien de ce qu'il a cree n'est utilise ailleurs (salarie avec du materiel, actif remis, entite utilisee...). L'annulation est tout ou rien.</p>
+      {err && <p className="err">{err}</p>}
+      {msg && <p className="ok-msg">{msg}</p>}
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th>Lignes creees</th><th>Par</th><th>Etat</th><th></th></tr></thead>
+        <tbody>
+          {lots.map((l) => (
+            <tr key={l.id}>
+              <td>{fmt(l.cree_le)}</td><td>{l.titre}</td><td>{l.nb_creees}</td><td>{l.cree_par || "-"}</td>
+              <td>{l.statut === "annule" ? <span className="badge bad">annule le {fmt(l.annule_le)}</span> : <span className="badge ok">actif</span>}</td>
+              <td>{l.statut === "actif" && <ConfirmButton confirmLabel="Confirmer l'annulation" onConfirm={() => undo(l)}>Annuler cet import</ConfirmButton>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
