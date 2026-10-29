@@ -14,12 +14,16 @@
 | Images Docker | construction des quatre images (api, web, convertisseur, sauvegarde) et analyse Trivy (information, ne bloque pas) |
 
 Le fichier `.env` de la CI est fabriqué avec des secrets aléatoires jetables : aucun secret réel n'est nécessaire. Le nom du projet Docker Compose
-est fixé à `kikan` (`COMPOSE_PROJECT_NAME`), car les tests supposent les réseaux et volumes `kikan_*` ; en local, le dossier du projet doit donc
-s'appeler `kikan`, ou la variable être définie de la même façon.
+est fixé à `kikan` (`COMPOSE_PROJECT_NAME`) pour les étapes de sauvegarde et d'images ; les suites de tests, elles, tournent dans leur propre projet
+`kiktest` (voir ci-dessous).
 
 **En local** : `bash tests/run_all.sh` (tout), `bash tests/run_all.sh --avec-sauvegarde` (plus la sauvegarde de bout en bout),
 `bash tests/run_all.sh security_check crud_check` (certaines suites), `python tests/hygiene_check.py` (hygiène seule). Uniquement sur une
-pile de **développement** : les tests créent puis nettoient des données `ZZ...`.
+**pile de test séparée** que le script crée lui-même (projet Docker `kiktest` : conteneurs `kiktest-*`, volumes, réseau et port 8081 propres,
+secrets repris de `.env` sans le reste) : les tests créent puis effacent des données `ZZ...` et des réglages (e-mails, GLPI...), et ne touchent jamais à
+votre instance ni à votre `.env`. Pour la supprimer : `docker compose -p kiktest down -v`. `KIKAN_TEST_PREFIX` et `KIKAN_TEST_API_PORT` changent le nom et
+le port. Les suites lancées à la main (`docker exec -i ... kikan-api`, voir SECURITY.md) visent la pile qui porte ce nom : remplacer par `kiktest-api`
+pour la pile de test.
 
 ## Réglages GitHub (appliqués le 2026-10-29, à contrôler de temps en temps)
 

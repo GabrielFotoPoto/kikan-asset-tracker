@@ -37,6 +37,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+PFX = os.environ.get("KIKAN_PREFIX", "kikan")  # nom de la pile testee (tests/run_all.sh : kiktest ; CI : kikan)
 TMP = ROOT / ".tmp-backup-test"
 fails = 0
 
@@ -75,7 +76,7 @@ def compose_backup(args, env, extra=None):
     return sh(["docker", "compose", "--profile", "backup", "run", "--rm"] + (extra or []) + ["backup"] + args, env=env)
 
 
-def dr_restore(args, backups_dir, keys_dir, out_dir, extra_env=None, net="kikan_default", db_host="kikan-dr-db"):
+def dr_restore(args, backups_dir, keys_dir, out_dir, extra_env=None, net=f"{PFX}_default", db_host="kikan-dr-db"):
     cmd = ["docker", "run", "--rm", "--network", net, "--cap-drop", "ALL", "--cap-add", "CHOWN", "--cap-add", "DAC_OVERRIDE", "--cap-add", "FOWNER",
            "-e", "POSTGRES_PASSWORD=drpass", "-e", "KIKAN_BACKUP_DB_HOST=" + db_host,
            "-v", "kikan_dr_archive:/data/archive", "-v", "kikan_dr_certs:/data/certs", "-v", "kikan_dr_webcerts:/data/webcerts", "-v", "kikan_dr_work:/work",
@@ -114,14 +115,14 @@ rc, out = sh(["docker", "run", "--rm", "-v", f"{posix(TMP / 'keys')}:/keys", "ki
 show("la cle existante n'est jamais remplacee", rc != 0 and "existe deja" in out, out[-120:])
 rc, out = sh(["docker", "run", "--rm", "-v", f"{posix(TMP / 'keys2')}:/keys", "kikan-backup", "keygen", "--out", "/keys"])
 
-rc, out = sh(["docker", "exec", "-i", "-e", "TEST_ADMIN_USER=admin", "-e", f"TEST_ADMIN_PASSWORD={ADMIN_PW}", "kikan-api", "python", "-"],
+rc, out = sh(["docker", "exec", "-i", "-e", "TEST_ADMIN_USER=admin", "-e", f"TEST_ADMIN_PASSWORD={ADMIN_PW}", f"{PFX}-api", "python", "-"],
              stdin=(ROOT / "tests" / "backup_seed.py").read_text(encoding="utf-8"))
 seed = json.loads(re.search(r"SEED:(\{.*\})", out).group(1)) if "SEED:" in out else {}
 show("remise signee creee (PDF scelle dans le stockage local)", seed.get("status") == 201 and str(seed.get("reference", "")).startswith("local:"), out[-200:])
 KEY = seed["reference"].split(":", 1)[1]
 SHA = seed["empreinte"]
-COUNTS = {t: psql("kikan-db", f"select count(*) from {t}") for t in ("accounts", "users", "assets", "assignments", "signatures")}
-MIG = psql("kikan-db", "select version_num from alembic_version")
+COUNTS = {t: psql(f"{PFX}-db", f"select count(*) from {t}") for t in ("accounts", "users", "assets", "assignments", "signatures")}
+MIG = psql(f"{PFX}-db", "select version_num from alembic_version")
 show("etat de reference releve", all(v is not None for v in COUNTS.values()) and MIG, (COUNTS, MIG))
 
 print("== Sauvegarde vers un dossier ==")
@@ -138,7 +139,7 @@ show("empreinte enregistree = empreinte de l'archive", arch and (arch.parent / (
 show("aucune trace de la cle privee dans la sortie", "AGE-SECRET-KEY" not in out and PG_PW not in out)
 rc, out = compose_backup(["list"], BENV)
 show("liste des sauvegardes", rc == 0 and arch.name in out, out[-150:])
-rc, out2 = sh(["docker", "exec", "kikan-api", "python", "-c",
+rc, out2 = sh(["docker", "exec", f"{PFX}-api", "python", "-c",
                "import json,urllib.request as u;"
                "t=json.loads(u.urlopen(u.Request('http://localhost:8000/auth/login',data=json.dumps({'username':'admin','password':'%s'}).encode(),headers={'Content-Type':'application/json'})).read())['access_token'];"
                "print(u.urlopen(u.Request('http://localhost:8000/backup/status',headers={'Authorization':'Bearer '+t})).read().decode())" % ADMIN_PW])
@@ -149,7 +150,7 @@ print("== Restauration dans une instance vierge (reprise apres sinistre) ==")
 sh(["docker", "rm", "-f", "kikan-dr-db"])
 for v in ("kikan_dr_archive", "kikan_dr_certs", "kikan_dr_webcerts", "kikan_dr_work"):
     sh(["docker", "volume", "rm", "-f", v])
-rc, out = sh(["docker", "run", "-d", "--name", "kikan-dr-db", "--network", "kikan_default", "-e", "POSTGRES_PASSWORD=drpass", "-e", "POSTGRES_USER=kikan",
+rc, out = sh(["docker", "run", "-d", "--name", "kikan-dr-db", "--network", f"{PFX}_default", "-e", "POSTGRES_PASSWORD=drpass", "-e", "POSTGRES_USER=kikan",
               "-e", "POSTGRES_DB=kikan", "postgres:16"])
 for _ in range(40):
     if sh(["docker", "exec", "kikan-dr-db", "pg_isready", "-U", "kikan", "-d", "kikan"])[0] == 0:
@@ -209,7 +210,7 @@ rc, out = compose_backup(["backup"], {**BENV, "KIKAN_BACKUP_RECIPIENT": "age1pas
 show("cle publique invalide : echec explicite", rc != 0 and "invalide" in out, out[-200:])
 rc, out = compose_backup(["backup"], BENV, ["-e", "KIKAN_BACKUP_DEST_DIR=/destination-inexistante"])
 show("destination inexistante : echec explicite", rc != 0 and "introuvable" in out and "ECHEC" in out, out[-200:])
-rc, out2 = sh(["docker", "exec", "kikan-api", "python", "-c",
+rc, out2 = sh(["docker", "exec", f"{PFX}-api", "python", "-c",
                "import json,urllib.request as u;"
                "t=json.loads(u.urlopen(u.Request('http://localhost:8000/auth/login',data=json.dumps({'username':'admin','password':'%s'}).encode(),headers={'Content-Type':'application/json'})).read())['access_token'];"
                "print(u.urlopen(u.Request('http://localhost:8000/backup/status',headers={'Authorization':'Bearer '+t})).read().decode())" % ADMIN_PW])

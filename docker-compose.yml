@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16
-    container_name: kikan-db
+    container_name: ${KIKAN_PREFIX:-kikan}-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: kikan
@@ -20,7 +20,7 @@ services:
 
   api:
     build: ./backend
-    container_name: kikan-api
+    container_name: ${KIKAN_PREFIX:-kikan}-api
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg2://kikan:${POSTGRES_PASSWORD}@db:5432/kikan
@@ -94,7 +94,7 @@ services:
       # KIKAN_TSA_URL: https://freetsa.org/tsr   # optionnel : horodatage PAdES-B-T
     # Acces direct a l'API reserve a la machine locale (dev, tests).
     ports:
-      - "127.0.0.1:8080:8000"
+      - "127.0.0.1:${KIKAN_API_PORT:-8080}:8000"
     networks:
       - default
       - convnet
@@ -119,7 +119,7 @@ services:
   # Conversion Word -> PDF : reseau interne uniquement (aucun acces a Internet ni a la base).
   converter:
     build: ./converter
-    container_name: kikan-converter
+    container_name: ${KIKAN_PREFIX:-kikan}-converter
     restart: unless-stopped
     networks:
       - convnet
@@ -135,7 +135,7 @@ services:
 
   web:
     build: ./frontend
-    container_name: kikan-web
+    container_name: ${KIKAN_PREFIX:-kikan}-web
     restart: unless-stopped
     environment:
       KIKAN_HTTPS_PORT: ${KIKAN_HTTPS_PORT:-3443}
@@ -158,7 +158,7 @@ services:
   # http://127.0.0.1:8025 (local uniquement). Aucun message ne sort de la machine.
   mailpit:
     image: axllent/mailpit:v1.32
-    container_name: kikan-mailpit
+    container_name: ${KIKAN_PREFIX:-kikan}-mailpit
     profiles: ["mail-test"]
     restart: "no"
     ports:
