@@ -5,7 +5,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
-## [0.3.0] - 2026-10-29
+## [0.3.0] - 2026-10-30
 
 Pilotage, conformité et durcissement : revue des droits d'accès, purge RGPD paramétrable, annulation d'import, session sécurisée, guides.
 
