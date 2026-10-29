@@ -309,7 +309,7 @@ s, r = j("GET", "/stats", token=IT)
 show("statistiques informatique : tout", r["actifs_total"] >= 3)
 
 print("== Pages reservees ==")
-for path in ("/auth/accounts", "/audit", "/rgpd/retention", "/parametres/types", "/storage/status", "/import/specs", "/auth/sso/admin/etat"):
+for path in ("/auth/accounts", "/audit", "/rgpd/retention", "/parametres/types", "/parametres/categories-besoin", "/storage/status", "/import/specs", "/auth/sso/admin/etat"):
     for who, tok in (("RH A", RA), ("lecture", LA), ("RH global", RG)):
         s, r = j("GET", path, token=tok)
         show("%s reservee a l'informatique (%s)" % (path, who), s in (403, 404), s)

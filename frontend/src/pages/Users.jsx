@@ -40,9 +40,12 @@ export default function Users() {
   const [q, setQ] = useState("");
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
+  const [types, setTypes] = useState([]);
+  const [besoins, setBesoins] = useState([]);
 
   const load = () => api.get("/users" + (q ? `?q=${encodeURIComponent(q)}` : "")).then(setItems).catch((e) => setErr(errorText(e)));
   useEffect(() => { api.get("/entites").then(setEntites); }, []);
+  useEffect(() => { api.get("/besoins/categories").then(setTypes).catch(() => {}); }, []);
   useEffect(() => { api.get("/users/catalogue/services").then(setServices).catch(() => {}); }, [items]);
   useEffect(() => { load(); }, [q]);
 
@@ -59,7 +62,8 @@ export default function Users() {
     setErr(null); setMsg(null);
     window.scrollTo({ top: 0 });
   };
-  const cancel = () => { setEditing(null); setForm(empty); setErr(null); };
+  const cancel = () => { setEditing(null); setForm(empty); setBesoins([]); setErr(null); };
+  const toggleBesoin = (t) => setBesoins((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
 
   const submit = async (e) => {
     e.preventDefault();
@@ -76,12 +80,19 @@ export default function Users() {
     try {
       if (editing) {
         await api.put(`/users/${editing.id}`, payload);
+        cancel();
         setMsg(`Fiche de ${form.prenom} ${form.nom} modifiee.`);
       } else {
-        await api.post("/users", payload);
-        setMsg(`${form.prenom} ${form.nom} ajoute.`);
+        const created = await api.post("/users", payload);
+        const failed = [];
+        for (const type of besoins) {
+          try { await api.post("/besoins", { user_id: created.id, type }); } catch { failed.push(type); }
+        }
+        const ok = besoins.length - failed.length;
+        cancel();
+        setMsg(`${form.prenom} ${form.nom} ajoute${ok ? `, ${ok} besoin(s) de materiel enregistre(s)` : ""}.`);
+        if (failed.length) setErr(`Besoin non enregistre (${failed.join(", ")}) : a saisir depuis la page Besoins.`);
       }
-      cancel();
       load();
     } catch (ex) { setErr(errorText(ex)); }
   };
@@ -126,6 +137,18 @@ export default function Users() {
           </label>
           <label>Date d'arrivee<input type="date" value={form.date_arrivee} onChange={(e) => setForm({ ...form, date_arrivee: e.target.value })} /></label>
           <label>Date de sortie<input type="date" value={form.date_sortie} onChange={(e) => setForm({ ...form, date_sortie: e.target.value })} /></label>
+          {!editing && types.length > 0 && (
+            <fieldset style={{ gridColumn: "1 / -1" }}>
+              <legend>Materiel necessaire</legend>
+              <div className="row">
+                {types.map((t) => (
+                  <label key={t} className="row" style={{ gap: 6 }}>
+                    <input type="checkbox" checked={besoins.includes(t)} onChange={() => toggleBesoin(t)} />{t}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <div className="row" style={{ alignSelf: "end" }}>
             <button type="submit">{editing ? "Enregistrer" : "Ajouter"}</button>
             {editing && <button type="button" className="ghost" onClick={cancel}>Annuler</button>}

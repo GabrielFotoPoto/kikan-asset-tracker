@@ -34,7 +34,7 @@ from ..auth import get_current_account, require_roles
 from ..catalogs import MAX_NAME
 from ..db import get_session
 from ..filestore import active_name
-from ..models import Account, Asset, AssetType, Service, Setting, User
+from ..models import Account, Asset, AssetType, Besoin, BesoinCategorie, Service, Setting, User
 from ..pdfgen import build_receipt
 from ..rules import audit_change, changed_fields, count, refuse_delete
 from .import_data import MAX_IMPORT_BYTES, MAX_IMPORT_ROWS
@@ -62,6 +62,8 @@ def _clean_name(value: str) -> str:
 def _usage(session: Session, kind: str, nom: str) -> int:
     if kind == "types":
         return count(session, Asset, func.lower(Asset.type) == nom.lower())
+    if kind == "categories-besoin":
+        return count(session, Besoin, func.lower(Besoin.type) == nom.lower())
     return count(session, User, func.lower(User.service) == nom.lower())
 
 
@@ -104,6 +106,8 @@ def _register(kind: str, model, usage_label: str) -> None:
             # Le renommage suit : toutes les fiches qui portaient l'ancien nom prennent le nouveau.
             if kind == "types":
                 res = session.exec(update(Asset).where(func.lower(Asset.type) == old.lower()).values(type=nom))
+            elif kind == "categories-besoin":
+                res = session.exec(update(Besoin).where(func.lower(Besoin.type) == old.lower()).values(type=nom))
             else:
                 res = session.exec(update(User).where(func.lower(User.service) == old.lower()).values(service=nom))
             renamed = res.rowcount or 0
@@ -129,6 +133,7 @@ def _register(kind: str, model, usage_label: str) -> None:
 
 _register("types", AssetType, "actif(s)")
 _register("services", Service, "salarie(s)")
+_register("categories-besoin", BesoinCategorie, "besoin(s)")
 
 
 # --- Fusion des marques et des modeles ---

@@ -36,6 +36,7 @@ DELETE FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE '%@exemple.te
 DELETE FROM settings WHERE key LIKE 'sso\_%' OR key = 'session_ttl_min';
 -- Les types d'actifs et services s'enrichissent seuls (liste souple) : on retire ceux qui ne servent plus.
 -- (Instance de developpement uniquement : cela retire aussi un type ou service cree a la main et inutilise.)
+DELETE FROM besoin_categories WHERE nom LIKE 'ZZ%';
 DELETE FROM asset_types t WHERE NOT EXISTS (SELECT 1 FROM assets a WHERE lower(a.type) = lower(t.nom));
 DELETE FROM services s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE lower(u.service) = lower(s.nom));
 DELETE FROM settings WHERE key LIKE 'pdf\_%';
