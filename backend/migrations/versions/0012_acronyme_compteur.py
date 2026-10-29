@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""acronyme du salarie et compteur de documents scelles (nom des PDF : AAAA_MM_JJ_XXX_NOM_PRENOM_NNN)
+"""acronyme du salarie et compteur de documents scelles (nom des PDF : AAAA_MM_JJ_NOM_PRENOM_ACR_NNN)
 
 Revision ID: 0012
 Revises: 0011

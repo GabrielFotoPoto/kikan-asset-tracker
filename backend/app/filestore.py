@@ -22,7 +22,7 @@ Principes :
   distant, il est ensuite depose, relu et verifie (SHA-256), puis le tampon est purge.
 - Si le partage est indisponible, la signature n'echoue pas : le document reste en local
   (reference "local:...") et sera depose plus tard (sync au demarrage ou POST /storage/sync).
-- La base ne garde que la REFERENCE "<backend>:<cle>" (ex. smb:2026/2026_11_02_GCH_DUPONT_MARIE_003.pdf) et
+- La base ne garde que la REFERENCE "<backend>:<cle>" (ex. smb:2026/2026_11_02_DUPONT_MARIE_GCH_003.pdf) et
   l'empreinte SHA-256 ; la cle est toujours rangee par annee (AAAA/...).
 - Les identifiants du partage viennent de l'environnement, jamais de la base ni des journaux.
 """

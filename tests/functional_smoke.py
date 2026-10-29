@@ -134,9 +134,9 @@ try:
 except Exception as exc:  # noqa: BLE001
     show("lecture de la signature PAdES", False, str(exc)[:80])
 import re as _re
-NOM_RE = _re.compile(r"^(local|smb|webdav):(\d{4})/(\d{4})_(\d{2})_(\d{2})_TFO_FONCTIONNEL_TEST_(\d{3})\.pdf$")
+NOM_RE = _re.compile(r"^(local|smb|webdav):(\d{4})/(\d{4})_(\d{2})_(\d{2})_FONCTIONNEL_TEST_TFO_(\d{3})\.pdf$")
 m1 = NOM_RE.match(sig["ged_reference"])
-show("nom du PDF : AAAA_MM_JJ_XXX_NOM_PRENOM_NNN, dossier de l'annee", bool(m1) and m1.group(2) == m1.group(3), sig["ged_reference"])
+show("nom du PDF : AAAA_MM_JJ_NOM_PRENOM_ACR_NNN, dossier de l'annee", bool(m1) and m1.group(2) == m1.group(3), sig["ged_reference"])
 show("premier document du salarie : numero 001", bool(m1) and m1.group(6) == "001", sig["ged_reference"])
 s, a1b = j("GET", f"/assets/{a1['id']}")
 show("l'actif est passe en 'affecte'", a1b.get("statut") == "affecte")

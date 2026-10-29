@@ -15,10 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Nom des PDF scelles : AAAA_MM_JJ_XXX_NOM_PRENOM_NNN.pdf, range dans le dossier de l'annee (AAAA/).
+"""Nom des PDF scelles : AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf, range dans le dossier de l'annee (AAAA/).
 
-- AAAA_MM_JJ : date de signature ; XXX : acronyme du salarie (3 lettres, fiche salarie) ;
+- AAAA_MM_JJ : date de signature ;
 - NOM_PRENOM : en majuscules, sans accents (espaces et apostrophes deviennent des tirets) ;
+- ACR : acronyme du salarie (3 lettres, fiche salarie) ;
 - NNN : compteur propre au salarie (un par document signe, remise ou restitution, jamais reutilise).
 Deux homonymes ont chacun leur compteur : si le nom est tout de meme deja pris, on ajoute -2, -3... (filet de securite).
 """
@@ -56,7 +57,7 @@ def normaliser_acronyme(value: str | None) -> str | None:
     return v
 
 
-_CLE_RE = re.compile(r"^(\d{4}/\d{4}_\d{2}_\d{2}_[A-Z]{3})_.+?(_\d{3}(?:-\d+)?\.pdf)$")
+_CLE_RE = re.compile(r"^(\d{4}/\d{4}_\d{2}_\d{2})_.+?(_[A-Z]{3}_\d{3}(?:-\d+)?\.pdf)$")
 
 
 def cle_sans_nom(key: str) -> str:
@@ -84,7 +85,7 @@ def nom_document(session: Session, user: User, when: datetime) -> str:
     """Cle de stockage du prochain document scelle du salarie (alloue son numero)."""
     acr = assurer_acronyme(user)
     numero = prochain_numero(session, user)
-    base = f"{when:%Y_%m_%d}_{acr}_{ascii_maj(user.nom) or 'X'}_{ascii_maj(user.prenom) or 'X'}_{numero:03d}"
+    base = f"{when:%Y_%m_%d}_{ascii_maj(user.nom) or 'X'}_{ascii_maj(user.prenom) or 'X'}_{acr}_{numero:03d}"
     key, n = f"{when.year}/{base}.pdf", 1
     while session.exec(select(Signature.id).where(Signature.ged_reference.like(f"%:{key}"))).first() is not None:
         n += 1

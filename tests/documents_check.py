@@ -52,7 +52,7 @@ PW = "Sec-Test-Passw0rd-2026"
 MODE = os.environ.get("KIKAN_STORAGE_BACKEND", "local")
 if MODE not in ("sharepoint", "docuware"):
     sys.exit("Ce script teste le moteur sharepoint ou docuware (voir l'en-tete)")
-NOM_RE = re.compile(r"\d{4}_\d{2}_\d{2}_[A-Z]{3}_[A-Z0-9-]+_[A-Z0-9-]+_\d{3}(-\d+)?\.pdf")
+NOM_RE = re.compile(r"\d{4}_\d{2}_\d{2}_[A-Z0-9-]+_[A-Z0-9-]+_[A-Z]{3}_\d{3}(-\d+)?\.pdf")
 fails = 0
 
 
