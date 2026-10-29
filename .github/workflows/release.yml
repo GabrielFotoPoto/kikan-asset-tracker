@@ -35,6 +35,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Nom d'image en minuscules
         run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v3
         with:
@@ -55,6 +56,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -72,6 +74,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      - name: Version sans le v (tag des images)
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
       - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
@@ -82,7 +86,7 @@ jobs:
             Installation sans compilation :
 
             ```bash
-            export KIKAN_VERSION=${{ github.ref_name }}
+            export KIKAN_VERSION=${{ env.VERSION }}
             docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
             docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
             ```
