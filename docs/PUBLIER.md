@@ -13,7 +13,9 @@
 | Sauvegarde et restauration | restauration dans une instance vierge, mauvaise clé, archive altérée, partage Samba (`tests/backup_check.py`) |
 | Images Docker | construction des quatre images (api, web, convertisseur, sauvegarde) et analyse Trivy (information, ne bloque pas) |
 
-Le fichier `.env` de la CI est fabriqué avec des secrets aléatoires jetables : aucun secret réel n'est nécessaire.
+Le fichier `.env` de la CI est fabriqué avec des secrets aléatoires jetables : aucun secret réel n'est nécessaire. Le nom du projet Docker Compose
+est fixé à `kikan` (`COMPOSE_PROJECT_NAME`), car les tests supposent les réseaux et volumes `kikan_*` ; en local, le dossier du projet doit donc
+s'appeler `kikan`, ou la variable être définie de la même façon.
 
 **En local** : `bash tests/run_all.sh` (tout), `bash tests/run_all.sh --avec-sauvegarde` (plus la sauvegarde de bout en bout),
 `bash tests/run_all.sh security_check crud_check` (certaines suites), `python tests/hygiene_check.py` (hygiène seule). Uniquement sur une
