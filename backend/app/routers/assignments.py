@@ -18,11 +18,12 @@
 import hashlib
 import re
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+from pydantic import BaseModel, Field, NaiveDatetime
+from sqlmodel import Session, SQLModel, select
 
 from ..audit import audit
 from ..auth import client_ip, get_current_account, writer_guard
@@ -41,7 +42,7 @@ from ..models import (
     User,
 )
 from ..pdf_template import load_template
-from ..docname import nom_document
+from ..docname import heure_locale, nom_document
 from ..pdfgen import build_receipt
 from ..signature_image import (
     HANDWRITTEN_REQUIRED,
@@ -146,12 +147,29 @@ def create_assignment(data: AssignmentCreate, session: Session = Depends(get_ses
     return assignment
 
 
-@router.get("", response_model=list[Assignment])
+class AssignmentOut(SQLModel):
+    id: int
+    user_id: int
+    date_remise: NaiveDatetime                      # creation de l'affectation
+    date_restitution: Optional[NaiveDatetime] = None
+    policy_id: Optional[int] = None
+    statut: str
+    cree_par: Optional[str] = None
+    date_signature: Optional[NaiveDatetime] = None  # heure de signature de la remise (None tant qu'elle n'est pas signee)
+
+
+@router.get("", response_model=list[AssignmentOut])
 def list_assignments(session: Session = Depends(get_session), user_id: int | None = None, scope: Scope = Depends(scope_dep)):
     stmt = scope.assignments(select(Assignment))
     if user_id is not None:
         stmt = stmt.where(Assignment.user_id == user_id)
-    return session.exec(stmt).all()
+    rows = session.exec(stmt).all()
+    signed: dict[int, datetime] = {}
+    if rows:
+        for sig in session.exec(select(Signature).where(Signature.assignment_id.in_([a.id for a in rows]))):
+            if (sig.audit_json or {}).get("type") != "restitution" and sig.horodatage:
+                signed[sig.assignment_id] = min(sig.horodatage, signed.get(sig.assignment_id, sig.horodatage))
+    return [AssignmentOut(**a.model_dump(), date_signature=signed.get(a.id)) for a in rows]
 
 
 @router.get("/{assignment_id}", response_model=Assignment)
@@ -259,7 +277,7 @@ def sign_assignment(
 
     # Rangement par annee (AAAA/...) sur le stockage actif (volume, partage SMB ou WebDAV).
     reference = store_document(nom_document(session, user, now), sealed,
-                               meta_for("Remise", now.year, assignment_id, entite, user, now))
+                               meta_for("Remise", heure_locale(now).year, assignment_id, entite, user, now))
 
     signature = Signature(
         assignment_id=assignment_id,

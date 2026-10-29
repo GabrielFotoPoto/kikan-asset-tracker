@@ -151,14 +151,14 @@ export default function Assignments() {
       <div className="card">
         <h3>Affectations</h3>
         <table>
-          <thead><tr><th>#</th><th>Salarie</th><th>Statut</th><th>Remise (date et heure)</th><th>Document</th></tr></thead>
+          <thead><tr><th>#</th><th>Salarie</th><th>Statut</th><th>Remise (signature)</th><th>Document</th></tr></thead>
           <tbody>
-            {[...items].sort((x, y) => (y.date_remise || "").localeCompare(x.date_remise || "") || y.id - x.id).map((a) => (
+            {[...items].sort((x, y) => (y.date_signature || y.date_remise || "").localeCompare(x.date_signature || x.date_remise || "") || y.id - x.id).map((a) => (
               <tr key={a.id}>
                 <td>{a.id}</td>
                 <td>{userName(a.user_id)}</td>
                 <td><span className="badge">{a.statut}</span></td>
-                <td>{dateHeure(a.date_remise)}</td>
+                <td>{a.date_signature ? dateHeure(a.date_signature) : <span className="muted">non signee ({dateHeure(a.date_remise)})</span>}</td>
                 <td>
                   <div className="row">
                     {writable && <button className="ghost" onClick={() => sign(a.id)}>Signer</button>}
