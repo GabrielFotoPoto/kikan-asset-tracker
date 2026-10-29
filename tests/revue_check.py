@@ -134,7 +134,7 @@ s, _ = j("GET", f"/revues/acces?entite_id={EB}", token=RHA)
 show("filtrer sur une entite hors perimetre -> 404", s == 404, s)
 s, b, h = call("GET", "/revues/acces?format=csv", token=ADM)
 text = b.decode("utf-8")
-show("export CSV (BOM, separateur ;, en-tete)", s == 200 and text.startswith("﻿Matricule;Salarie") and "ZZRV-a1" in text, text[:60])
+show("export CSV (BOM, separateur ;, en-tete)", s == 200 and text.startswith(chr(0xFEFF) + "Matricule;Salarie") and "ZZRV-a1" in text, text[:60])
 s, b, h = call("GET", "/revues/acces?format=xlsx", token=ADM)
 show("export Excel", s == 200 and b[:2] == b"PK" and "spreadsheetml" in h.get("Content-Type", ""), h.get("Content-Type"))
 
