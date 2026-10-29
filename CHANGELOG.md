@@ -16,6 +16,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - Le serveur web retrouve l'API après sa recréation (résolution DNS à chaque requête) : plus de « 502 Bad Gateway » jusqu'à son redémarrage.
 
 ### Ajouté
+- **Jeu de données de démonstration** (`scripts/demo.sh charger | etat | effacer`) : groupe fictif, 52 salariés, 76 matériels, remises signées avec de vrais PDF
+  scellés, restitutions, besoins, départs, matériel non restitué ou à renouveler, salariés à purger. Refuse de se charger sur des données réelles ;
+  l'effacement ne retire que ce qu'il a créé.
 - **Annulation d'un import** (A3b) : chaque import réel de la page Import est un lot ; le bouton *Annuler cet import* supprime ce qu'il a créé,
   tout ou rien, et seulement si rien n'en dépend (salarié avec matériel, accès ou besoins, actif remis, entité utilisée, remise signée ou
   restituée, lien GLPI) ; le refus indique ce qui bloque. Migration 0015.
