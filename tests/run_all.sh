@@ -26,7 +26,7 @@ for a in "$@"; do
 done
 
 NORMAL_SUITES=(security_check functional_smoke signature_check policy_check import_check crud_check parametres_check accounts_check
-               acces_pdf_check catalogue_check xlsx_check besoins_check scope_check mail_check api_check storage_check)
+               acces_pdf_check catalogue_check xlsx_check besoins_check scope_check mail_check api_check storage_check verrous_check purge_check)
 SUMMARY=()
 FAILED=0
 

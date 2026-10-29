@@ -278,6 +278,22 @@ class PasswordResetToken(SQLModel, table=True):
     utilise_le: Optional[NaiveDatetime] = None
 
 
+class PurgeDocument(SQLModel, table=True):
+    """PDF d'un salarie purge : suivi jusqu'a sa suppression definitive (aucune donnee du salarie en base, seulement la reference technique).
+
+    statut : a_deplacer (deplacement vers la quarantaine a reessayer), quarantaine (dossier A_PURGER du partage, supprime a l'echeance),
+    ged_a_supprimer (SharePoint / DocuWare : a supprimer par l'equipe de la GED, puis a confirmer)."""
+    __tablename__ = "purge_documents"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    reference: str                                    # reference d'origine (moteur:cle)
+    reference_quarantaine: Optional[str] = None
+    moteur: str
+    statut: str = Field(index=True)
+    empreinte: Optional[str] = None                   # SHA-256 du PDF (preuve de l'existence sans donnee personnelle)
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)
+    echeance: date
+
+
 class ApiToken(SQLModel, table=True):
     """Jeton d'acces de l'API d'integration (/v1) : stocke uniquement sous forme d'empreinte SHA-256."""
     __tablename__ = "api_tokens"

@@ -3,6 +3,21 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/) ; versions numérotées `MAJEUR.MINEUR.CORRECTIF`. La feuille de route
 détaillée est dans [SPEC.md](SPEC.md) (§13).
 
+## [Non publié]
+
+### Ajouté
+- **Purge RGPD en deux temps** : durée de conservation (12 mois par défaut) et délai de grace (30 jours par défaut) **réglables** ; bouton réservé
+  à l'informatique ; PDF du partage (SMB, WebDAV, volume local) rangés dans `A_PURGER/` puis supprimés par Kikan après le délai de grace, avec remise en place
+  possible ; pour SharePoint et DocuWare, liste des documents à supprimer par l'équipe de la GED puis confirmation ; rappel par e-mail si la purge
+  n'est pas faite ; journal sans nom ni matricule (nombres et empreintes SHA-256). Migration 0014.
+
+### Corrigé
+- **Double clic et appels simultanés** : la remise (actifs), la signature (affectation) et la restitution (salarié) sont verrouillées ; le second
+  appel reçoit 409 ou 400 au lieu de créer un doublon. Idée issue d'une relecture externe (PR #12).
+
+### Modifié
+- La durée de conservation proposée par défaut passe de 36 à 12 mois (une valeur déjà enregistrée est conservée).
+
 ## [0.2.0] - 2026-10-29
 
 Identité, intégrations et automatisation.

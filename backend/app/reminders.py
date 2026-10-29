@@ -32,7 +32,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import text
 from sqlmodel import Session, select
 
-from . import appsettings, mailer
+from . import appsettings, mailer, purge
 from .audit import audit
 from .db import engine
 from .mailer import MailConfig, MailError
@@ -123,7 +123,16 @@ def _fmt(d: date) -> str:
 
 def collect(session: Session, cfg: MailConfig, today: date) -> dict[str, list[dict]]:
     """Elements a signaler, par type : {cle, entite_id, ligne}."""
-    out: dict[str, list[dict]] = {"renouv": [], "depart": [], "nonrestit": [], "besoins": []}
+    out: dict[str, list[dict]] = {"renouv": [], "depart": [], "nonrestit": [], "besoins": [], "purge": []}
+    if cfg.purge:  # purge RGPD en retard ou non terminee (informatique) : nombres seulement, jamais de nom
+        st = purge.etat(session, today)
+        late = [("candidats", st["candidats"], "salarie(s) sorti(s) depuis plus longtemps que la duree de conservation : purge a lancer (page RGPD)"),
+                ("quarantaine", st["quarantaine_echus"], "document(s) en quarantaine dont le delai de grace est ecoule : suppression definitive a lancer (page RGPD)"),
+                ("ged", st["ged_echus"], "document(s) a faire supprimer par l'equipe de la GED (SharePoint, DocuWare), puis a confirmer dans Kikan (page RGPD)"),
+                ("deplacement", st["a_deplacer"], "document(s) n'ont pas pu etre ranges en quarantaine (partage indisponible) : a reessayer (page RGPD)")]
+        for cle, n, texte in late:
+            if n:
+                out["purge"].append({"cle": "purge:" + cle, "entite_id": None, "ligne": "- %d %s" % (n, texte)})
     if cfg.besoins:
         horizon = today + timedelta(days=cfg.besoins_jours)
         rows = session.exec(select(Besoin, User).join(User, User.id == Besoin.user_id)
@@ -169,6 +178,7 @@ TITRES = {
     "depart": "Departs a venir avec du materiel a recuperer",
     "nonrestit": "Materiel non restitue apres la date de sortie",
     "besoins": "Besoins de materiel pour des arrivees proches",
+    "purge": "Purge RGPD a traiter",
 }
 
 
@@ -182,17 +192,18 @@ def digests(session: Session, cfg: MailConfig, now: datetime) -> list[Digest]:
         if key not in sent or r.envoye_le > sent[key]:
             sent[key] = r.envoye_le
     period = {"renouv": timedelta(days=RELANCE_RENOUV_J), "depart": timedelta(days=RELANCE_DEPART_J),
-              "nonrestit": timedelta(weeks=max(1, cfg.nonrestit_sem)), "besoins": timedelta(days=RELANCE_DEPART_J)}
+              "nonrestit": timedelta(weeks=max(1, cfg.nonrestit_sem)), "besoins": timedelta(days=RELANCE_DEPART_J),
+              "purge": timedelta(weeks=max(1, cfg.purge_sem))}
     link = mailer.public_url()
     result = []
     for rcp in recipients(session, cfg):
         sections, marks, counts = [], [], {}
-        for kind in ("besoins", "renouv", "depart", "nonrestit"):
-            if kind in ("renouv", "besoins") and not rcp.admin:
+        for kind in ("besoins", "renouv", "depart", "nonrestit", "purge"):
+            if kind in ("renouv", "besoins", "purge") and not rcp.admin:
                 continue
             lines = []
             for it in items[kind]:
-                if kind != "renouv" and not rcp.scope.allows(it["entite_id"]):
+                if kind not in ("renouv", "purge") and not rcp.scope.allows(it["entite_id"]):
                     continue
                 last = sent.get((kind, it["cle"], rcp.email))
                 if last is not None and now - last < period[kind]:

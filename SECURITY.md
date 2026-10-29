@@ -81,7 +81,11 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
   renforcée, exporter régulièrement le journal vers un système externe.
 - **Pas d'analyse d'images** de conteneurs, ni de limitation de débit au-delà de la connexion.
 - **La signature manuscrite est une donnée personnelle** : elle figure dans le PDF scellé, donc dans le stockage choisi (volume,
-  partage SMB ou WebDAV). Protéger l'accès à ce stockage et appliquer la durée de rétention RGPD.
+  partage SMB ou WebDAV). Protéger l'accès à ce stockage et appliquer la durée de rétention RGPD (purge : [docs/RGPD.md](docs/RGPD.md)).
+- **Les sauvegardes conservent les données purgées jusqu'à leur expiration** (30 jours, puis une par mois pendant un an) : c'est une limite
+  assumée et à documenter auprès du DPO. Après une restauration, relancer la purge pour retirer de nouveau les salariés arrivés à échéance.
+- **Double clic et appels simultanés** : remise, signature et restitution verrouillent les lignes concernées (`SELECT ... FOR UPDATE`) ; le second appel
+  reçoit 409 ou 400 et ne crée ni doublon ni second PDF (`tests/verrous_check.py`).
 - **Service de conversion Word** : LibreOffice traite des fichiers déposés par l'informatique. Il est isolé (aucun réseau externe,
   aucun secret, système de fichiers en lecture seule) ; une faille de LibreOffice resterait donc confinée à ce conteneur.
   Maintenir l'image à jour (`docker compose build --pull converter`) et la retirer si les chartes Word ne sont pas utilisées.
@@ -164,6 +168,10 @@ docker exec -i -e TEST_EXPECT_BACKEND=smb -e TEST_ADMIN_USER=admin -e TEST_ADMIN
 # Garde-fous : mauvais mot de passe, partage inexistant (délai), HTTP refusé, certificat inconnu...
 docker exec -i kikan-api python - < tests/storage_guards.py
 docker compose -f tests/storage-test-servers.yml down -v
+
+# Verrous contre la double signature / double affectation / double restitution, et purge RGPD (quarantaine, GED, rappels)
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/verrous_check.py
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/purge_check.py
 
 # Schéma de la base : aucune dérive entre le modèle et les migrations
 docker compose exec api alembic check

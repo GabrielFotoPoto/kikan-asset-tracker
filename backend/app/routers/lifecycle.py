@@ -146,6 +146,8 @@ def restituer(
     scope: Scope = Depends(scope_dep),
 ):
     user = visible_user(session, scope, data.user_id)
+    # Verrou sur le salarie : deux restitutions simultanees se suivent, la seconde ne voit plus que le materiel restant.
+    session.exec(select(User).where(User.id == data.user_id).with_for_update()).first()
 
     held = _holdings(session, data.user_id)
     if data.asset_ids is not None:

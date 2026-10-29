@@ -432,12 +432,54 @@ def read_document(reference: str) -> bytes:
     return get_backend(backend).read(key)
 
 
-def delete_document(reference: str) -> None:
+def delete_document(reference: str) -> bool:
+    """Supprime un document ; False si la suppression a echoue (a reessayer plus tard)."""
     try:
         backend, key = parse_reference(reference)
         get_backend(backend).delete(key)
+        return True
     except StorageError as exc:
         log.warning("Suppression du document impossible : %s", exc)
+        return False
+
+
+QUARANTAINE = "A_PURGER"
+
+
+def _deplacer(reference: str, cle_cible) -> tuple[str, str]:
+    """Copie le document sous une autre cle du meme moteur, relit et compare l'empreinte, puis supprime l'original.
+
+    Retourne (reference de la copie, empreinte SHA-256). Les moteurs SharePoint et DocuWare sont exclus : leur suppression releve de la GED."""
+    backend, key = parse_reference(reference)
+    if backend in DOCUMENT_ONLY:
+        raise StorageError("Document de la GED : deplacement impossible")
+    engine = get_backend(backend)
+    data = engine.read(key)
+    cible = cle_cible(key)
+    engine.write(cible, data)
+    digest = sha256_hex(data)
+    if sha256_hex(engine.read(cible)) != digest:
+        engine.delete(cible)
+        raise StorageError("Verification du deplacement echouee (empreinte differente)")
+    engine.delete(key)
+    return make_reference(backend, cible), digest
+
+
+def mettre_en_quarantaine(reference: str) -> tuple[str, str]:
+    """Deplace un PDF vers le dossier A_PURGER du meme moteur (reversible jusqu'a la suppression definitive)."""
+    return _deplacer(reference, lambda key: f"{QUARANTAINE}/{key}")
+
+
+def sortir_de_quarantaine(reference_quarantaine: str) -> tuple[str, str]:
+    """Remet un PDF a son emplacement d'origine (retire le prefixe A_PURGER/)."""
+    prefix = QUARANTAINE + "/"
+
+    def origine(key: str) -> str:
+        if not key.startswith(prefix):
+            raise StorageError("Ce document n'est pas en quarantaine")
+        return key[len(prefix):]
+
+    return _deplacer(reference_quarantaine, origine)
 
 
 def _test_pdf(token: str) -> bytes:

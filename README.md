@@ -30,7 +30,8 @@ et A.5.18 (droits d'accès).
 - **Reporting** « qui détient quoi » à l'instant T, export **CSV** et **PDF**.
 - **Statistiques** de parc (modèles les plus distribués, répartition, taux d'équipement,
   renouvellements à venir, âge moyen).
-- **Rétention RGPD** paramétrable, avec prévisualisation des suppressions avant validation.
+- **Rétention RGPD** paramétrable (durée de conservation et délai de grace), avec prévisualisation, quarantaine des PDF du partage avant
+  suppression définitive et liste des documents à supprimer dans la GED : voir [docs/RGPD.md](docs/RGPD.md).
 - **Authentification et rôles** : RH, informatique, lecture seule.
 
 ## Pile technique
@@ -380,7 +381,7 @@ Fonctionnement, pensé pour ne jamais perdre une preuve :
 ![DocuWare : armoire, champs d'index associés et test de dépôt](docs/captures/stockage-docuware.png)
 
 *Captures réalisées avec de faux services de démonstration.*
-- La purge RGPD supprime aussi les fichiers sur le partage, une fois la base validée.
+- La purge RGPD range les PDF du partage dans le dossier `A_PURGER`, puis les supprime à l'issue du délai de grace (voir [docs/RGPD.md](docs/RGPD.md)).
 
 Pour un WebDAV avec un certificat d'autorité interne, déposer le certificat (PEM) dans `./ca/` et définir
 `KIKAN_WEBDAV_CA_BUNDLE=/ca/mon-autorite.pem`. L'HTTP simple est refusé par défaut, et la vérification du

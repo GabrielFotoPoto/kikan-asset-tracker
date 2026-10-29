@@ -44,5 +44,7 @@ DELETE FROM settings WHERE key LIKE 'pdf\_%';
 DELETE FROM settings WHERE key LIKE 'glpi\_%';
 DELETE FROM settings WHERE key LIKE 'mail\_%' OR key LIKE 'rappel\_%' OR key LIKE 'rapport\_%';
 DELETE FROM reminder_sent WHERE destinataire LIKE '%@exemple.test';
+DELETE FROM purge_documents;
+DELETE FROM settings WHERE key IN ('retention_apres_sortie_mois', 'purge_delai_grace_jours');
 DELETE FROM settings WHERE key = 'remise_inclure_acces';
 COMMIT;

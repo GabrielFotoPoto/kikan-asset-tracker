@@ -105,9 +105,13 @@ def create_assignment(data: AssignmentCreate, session: Session = Depends(get_ses
     if not data.asset_ids:
         raise HTTPException(400, "Au moins un actif est requis")
 
+    # Verrou sur les actifs (ordre des identifiants : pas d'interblocage) : deux remises simultanees du meme materiel ne passent pas
+    # toutes les deux, la seconde attend puis voit l'actif deja affecte.
+    ids = sorted(set(data.asset_ids))
+    locked = {a.id: a for a in session.exec(select(Asset).where(Asset.id.in_(ids)).order_by(Asset.id).with_for_update()).all()}
     assets = []
     for aid in data.asset_ids:
-        asset = session.get(Asset, aid)
+        asset = locked.get(aid)
         if not asset:
             raise HTTPException(404, f"Actif {aid} introuvable")
         if asset.statut == AssetStatus.affecte:
@@ -131,8 +135,7 @@ def create_assignment(data: AssignmentCreate, session: Session = Depends(get_ses
         statut="en_cours",
     )
     session.add(assignment)
-    session.commit()
-    session.refresh(assignment)
+    session.flush()  # pas de commit ici : les verrous des actifs sont gardes jusqu'au commit final
 
     for asset in assets:
         asset.statut = AssetStatus.affecte
@@ -217,7 +220,8 @@ def sign_assignment(
     session: Session = Depends(get_session),
     account: Account = Depends(get_current_account),
 ):
-    assignment = session.get(Assignment, assignment_id)
+    # Verrou sur l'affectation : une seconde validation simultanee attend la fin de la premiere, puis recoit 409.
+    assignment = session.exec(select(Assignment).where(Assignment.id == assignment_id).with_for_update()).first()
     if not assignment:
         raise HTTPException(404, "Affectation introuvable")
     if _already_signed(session, assignment_id):
