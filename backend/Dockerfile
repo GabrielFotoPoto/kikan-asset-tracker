@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
 
 # Utilisateur non privilegie ; /certs et /archive sont les volumes d'ecriture.
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin kikan \
