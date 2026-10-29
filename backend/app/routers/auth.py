@@ -15,10 +15,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import hashlib
 import re
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -31,14 +33,15 @@ from ..auth import (
     generate_temp_password,
     get_current_account,
     hash_password,
+    LoginLimiter,
     login_limiter,
     require_roles,
     verify_password,
 )
-from ..db import get_session
-from ..models import Account, AccountScope, Entite, Role
+from ..db import engine, get_session
+from ..models import Account, AccountScope, Entite, PasswordResetToken, Role
 from ..scope import compute_scope
-from .. import sso_policy
+from .. import mailer, sso_policy
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -198,6 +201,111 @@ def login(data: LoginRequest, request: Request, session: Session = Depends(get_s
     token = create_access_token(account.username, account.role.value, account.token_epoch)
     return TokenResponse(access_token=token, username=account.username, role=account.role.value,
                          must_change_password=account.must_change_password)
+
+
+# --- Mot de passe oublie (libre-service) ---
+# Lien a usage unique envoye a l'adresse du compte ; reponse identique que le compte existe ou non (pas d'enumeration) ;
+# envoi en tache de fond (le temps de reponse ne trahit rien) ; tentatives limitees par adresse IP et par identifiant.
+
+RESET_TTL_MIN = 30
+reset_limiter = LoginLimiter(max_per_account=3, max_per_ip=15, window=900)
+_RESET_REPONSE = {"detail": "Si un compte correspond et que l'envoi d'e-mails est configure, un lien de reinitialisation "
+                            "vient d'etre envoye a son adresse (valable 30 minutes)."}
+
+
+def _empreinte(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+class ForgotRequest(BaseModel):
+    identifiant: str = Field(min_length=1, max_length=200)
+
+
+class ResetRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    new_password: str
+
+
+def _reset_disponible(session: Session) -> bool:
+    cfg = mailer.load_config(session)
+    return cfg.actif and cfg.pret and bool(mailer.public_url())
+
+
+@router.get("/reset/config")
+def reset_config(session: Session = Depends(get_session)):
+    """Le lien « Mot de passe oublie ? » n'est propose que si l'envoi d'e-mails et l'adresse publique sont configures."""
+    return {"disponible": _reset_disponible(session)}
+
+
+def _send_reset_mail(to: str, link: str) -> None:
+    try:
+        with Session(engine) as session:
+            cfg = mailer.load_config(session)
+        mailer.send(cfg, [to], "[Kikan] Reinitialisation de votre mot de passe",
+                    "Bonjour,\n\nUne reinitialisation du mot de passe de votre compte Kikan a ete demandee.\n\n"
+                    f"Pour choisir un nouveau mot de passe (lien valable {RESET_TTL_MIN} minutes, usage unique) :\n{link}\n\n"
+                    "Si vous n'etes pas a l'origine de cette demande, ignorez ce message : votre mot de passe reste inchange.\n")
+    except Exception as exc:  # noqa: BLE001  (jamais d'echec visible : la reponse est deja partie)
+        audit("systeme", "reset_mail_echec", detail=type(exc).__name__)
+
+
+@router.post("/forgot", status_code=202)
+def forgot_password(data: ForgotRequest, request: Request, background: BackgroundTasks,
+                    session: Session = Depends(get_session)):
+    ip = client_ip(request)
+    ident = data.identifiant.strip().lower()
+    wait = reset_limiter.retry_after(ip, ident)
+    if wait:
+        raise HTTPException(429, "Trop de demandes, reessayez plus tard", headers={"Retry-After": str(wait)})
+    reset_limiter.fail(ip, ident)  # chaque demande compte, qu'elle aboutisse ou non
+    now = datetime.utcnow()
+    for old in session.exec(select(PasswordResetToken).where(PasswordResetToken.expire_le < now)).all():
+        session.delete(old)  # menage des liens expires
+    account = session.exec(select(Account).where(func.lower(Account.username) == ident)).first()
+    if not account:  # a defaut, l'adresse e-mail, a condition qu'elle soit unique
+        found = session.exec(select(Account).where(func.lower(Account.email) == ident)).all()
+        account = found[0] if len(found) == 1 else None
+    address = (account.email or "").strip() if account else ""
+    if (account and account.actif and account.source_auth == "local" and mailer.valid_address(address)
+            and sso_policy.local_login_allowed(session, account) and _reset_disponible(session)):
+        for old in session.exec(select(PasswordResetToken).where(PasswordResetToken.account_id == account.id)).all():
+            session.delete(old)  # un seul lien valide a la fois
+        token = secrets.token_urlsafe(32)
+        session.add(PasswordResetToken(account_id=account.id, token_hash=_empreinte(token),
+                                       expire_le=now + timedelta(minutes=RESET_TTL_MIN)))
+        session.commit()
+        audit(account.username, "reset_demande", ip=ip, status=202)
+        background.add_task(_send_reset_mail, address, f"{mailer.public_url()}/reinitialisation?token={token}")
+    else:
+        session.commit()
+        audit(data.identifiant.strip()[:100], "reset_demande_ignoree", ip=ip, status=202)
+    return _RESET_REPONSE
+
+
+@router.post("/reset")
+def reset_password_with_token(data: ResetRequest, request: Request, session: Session = Depends(get_session)):
+    ip = client_ip(request)
+    wait = reset_limiter.retry_after(ip, "lien")
+    if wait:
+        raise HTTPException(429, "Trop de tentatives, reessayez plus tard", headers={"Retry-After": str(wait)})
+    now = datetime.utcnow()
+    row = session.exec(select(PasswordResetToken).where(PasswordResetToken.token_hash == _empreinte(data.token))).first()
+    account = session.get(Account, row.account_id) if row else None
+    if (not row or row.utilise_le or row.expire_le < now or not account or not account.actif
+            or not sso_policy.local_login_allowed(session, account)):
+        reset_limiter.fail(ip, "lien")
+        audit("anonyme", "reset_lien_refuse", ip=ip, status=400)
+        raise HTTPException(400, "Lien invalide ou expire : refaites une demande de reinitialisation")
+    check_password_policy(data.new_password)  # un mot de passe refuse laisse le lien utilisable
+    account.hashed_password = hash_password(data.new_password)
+    account.must_change_password = False
+    account.token_epoch += 1  # toutes les sessions ouvertes de ce compte sont revoquees
+    session.add(account)
+    for other in session.exec(select(PasswordResetToken).where(PasswordResetToken.account_id == account.id)).all():
+        session.delete(other)  # le lien utilise, comme les autres, disparait
+    session.commit()
+    audit(account.username, "mot_de_passe_reinitialise_par_lien", ip=ip, status=200)
+    return {"detail": "Mot de passe modifie : vous pouvez vous connecter."}
 
 
 def account_out(session: Session, account: Account) -> AccountOut:

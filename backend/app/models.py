@@ -267,6 +267,17 @@ class AccountScope(SQLModel, table=True):
     entite_id: int = Field(foreign_key="entite.id", primary_key=True)
 
 
+class PasswordResetToken(SQLModel, table=True):
+    """Lien de reinitialisation du mot de passe : usage unique, valable 30 minutes ; seule l'empreinte SHA-256 est stockee."""
+    __tablename__ = "password_reset_tokens"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    account_id: int = Field(foreign_key="accounts.id", index=True)
+    token_hash: str = Field(index=True, unique=True)
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)
+    expire_le: NaiveDatetime
+    utilise_le: Optional[NaiveDatetime] = None
+
+
 class ApiToken(SQLModel, table=True):
     """Jeton d'acces de l'API d'integration (/v1) : stocke uniquement sous forme d'empreinte SHA-256."""
     __tablename__ = "api_tokens"

@@ -67,6 +67,17 @@ docker compose logs api | grep "COMPTE INITIAL"
 Connectez-vous, puis changez-le depuis **Mon compte** et créez des comptes nominatifs. Vous pouvez aussi fixer
 vous-même `KIKAN_ADMIN_USER` et `KIKAN_ADMIN_PASSWORD` dans `.env` avant le premier démarrage.
 
+### Mot de passe perdu ou oublié
+
+- **Libre-service** : l'écran de connexion propose « Mot de passe oublié ? » dès que le serveur e-mail est actif
+  (Paramétrage > E-mails) et que `KIKAN_PUBLIC_URL` est renseignée. L'utilisateur reçoit, à l'adresse de son compte, un lien
+  valable 30 minutes et à usage unique ; le nouveau mot de passe révoque ses sessions ouvertes. Le message affiché est le même
+  que le compte existe ou non, et les demandes sont limitées. Les comptes Microsoft 365 n'ont pas de mot de passe local.
+- **Par un administrateur** : page Comptes > « Réinitialiser le mot de passe » (mot de passe provisoire affiché une fois).
+- **Plus aucun administrateur ne peut se connecter** : depuis le serveur,
+  `docker compose exec api python -m app.reset_admin <identifiant> [--activer]` génère un mot de passe provisoire
+  (changement imposé à la première connexion ; `--activer` réactive un compte désactivé).
+
 > **Sécurité** : `KIKAN_SECRET_KEY` (clé de signature des sessions, 32 caractères minimum) et `POSTGRES_PASSWORD`
 > sont à définir dans `.env`, qui ne doit jamais être commité. Avec `KIKAN_ENV=production`, l'application refuse
 > de démarrer sans clé solide. Voir [SECURITY.md](SECURITY.md) pour la liste de contrôle de mise en production,

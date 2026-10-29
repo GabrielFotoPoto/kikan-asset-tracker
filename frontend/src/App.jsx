@@ -33,6 +33,7 @@ import Assignments from "./pages/Assignments.jsx";
 import Besoins from "./pages/Besoins.jsx";
 import Policies from "./pages/Policies.jsx";
 import Import from "./pages/Import.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 import Parametres from "./pages/Parametres.jsx";
 import Departures from "./pages/Departures.jsx";
 import Reports from "./pages/Reports.jsx";
@@ -73,7 +74,11 @@ export default function App() {
   const logout = () => { setToken(null); setUser(null); };
 
   if (checking) return null;
-  if (!user) return window.location.pathname === "/sso" ? <SsoReturn onLogin={setUser} /> : <Login onLogin={setUser} />;
+  if (!user) {
+    if (window.location.pathname === "/sso") return <SsoReturn onLogin={setUser} />;
+    if (window.location.pathname === "/reinitialisation") return <ResetPassword />;
+    return <Login onLogin={setUser} />;
+  }
   if (user.mustChange) {
     return <ForcePassword user={user} onDone={() => setUser({ ...user, mustChange: false })} onLogout={logout} />;
   }

@@ -41,10 +41,15 @@ export default function Login({ onLogin }) {
   const [busy, setBusy] = useState(false);
   const [sso, setSso] = useState({ actif: false, mode_local: "autorise" });
   const [showLocal, setShowLocal] = useState(true);
+  const [resetDispo, setResetDispo] = useState(false);
+  const [oubli, setOubli] = useState(false);
+  const [ident, setIdent] = useState("");
+  const [info, setInfo] = useState(null);
 
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("sso_erreur");
     if (code) setErr(SSO_ERRORS[code] || "La connexion Microsoft 365 a echoue.");
+    api.get("/auth/reset/config").then((c) => setResetDispo(!!c.disponible)).catch(() => {});
     api.get("/auth/sso/config")
       .then((c) => { setSso(c); setShowLocal(!c.actif || c.mode_local === "autorise"); })
       .catch(() => {});
@@ -65,6 +70,15 @@ export default function Login({ onLogin }) {
     }
   };
 
+  const demander = async (e) => {
+    e.preventDefault();
+    setErr(null); setInfo(null); setBusy(true);
+    try {
+      const r = await api.post("/auth/forgot", { identifiant: ident });
+      setInfo(r.detail);
+    } catch (ex) { setErr(errorText(ex)); } finally { setBusy(false); }
+  };
+
   return (
     <div className="login-wrap">
       <div className="card login">
@@ -78,7 +92,17 @@ export default function Login({ onLogin }) {
           </button>
         )}
 
-        {showLocal ? (
+        {oubli ? (
+          <form onSubmit={demander} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p className="muted" style={{ margin: "4px 0" }}>Saisissez votre identifiant ou votre adresse e-mail : un lien de reinitialisation vous sera envoye.</p>
+            {info && <p className="ok-msg">{info}</p>}
+            <label>Identifiant ou e-mail
+              <input value={ident} onChange={(e) => setIdent(e.target.value)} autoFocus required />
+            </label>
+            <button type="submit" disabled={busy || !!info}>{busy ? "Envoi..." : "Envoyer le lien"}</button>
+            <a href="#" onClick={(e) => { e.preventDefault(); setOubli(false); setErr(null); setInfo(null); }}>Retour a la connexion</a>
+          </form>
+        ) : showLocal ? (
           <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {sso.actif && <p className="muted" style={{ margin: "4px 0" }}>Compte de secours (mot de passe)</p>}
             <label>Identifiant
@@ -90,6 +114,9 @@ export default function Login({ onLogin }) {
             <button type="submit" disabled={busy} className={sso.actif ? "ghost" : ""} style={{ marginTop: 6 }}>
               {busy ? "Connexion..." : "Se connecter"}
             </button>
+            {resetDispo && (
+              <a href="#" style={{ fontSize: "0.9em" }} onClick={(e) => { e.preventDefault(); setOubli(true); setErr(null); }}>Mot de passe oublie ?</a>
+            )}
           </form>
         ) : (
           <p className="muted" style={{ textAlign: "center" }}>
