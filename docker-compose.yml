@@ -156,7 +156,7 @@ services:
   # puis, dans Parametrage > E-mails : serveur "mailpit", port 1025, securite "aucune". Messages lisibles sur
   # http://127.0.0.1:8025 (local uniquement). Aucun message ne sort de la machine.
   mailpit:
-    image: axllent/mailpit:v1.21
+    image: axllent/mailpit:v1.32
     container_name: kikan-mailpit
     profiles: ["mail-test"]
     restart: "no"
