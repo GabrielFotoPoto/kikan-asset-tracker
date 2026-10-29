@@ -1,0 +1,10 @@
+# Kikan - mot de passe oublie : adresse publique d'essai pour tests/reset_check.py (instance de DEVELOPPEMENT).
+#
+# Usage :
+#   docker compose -f docker-compose.yml -f tests/reset-test.override.yml up -d api
+#   docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD=... kikan-api python - < tests/reset_check.py
+#   docker compose up -d api      # retour a la configuration normale
+services:
+  api:
+    environment:
+      KIKAN_PUBLIC_URL: https://kikan.test

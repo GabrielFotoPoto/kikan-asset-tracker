@@ -99,6 +99,10 @@ else
   up_api -f docker-compose.yml -f tests/sso-test.override.yml
   suite sso_check
 
+  echo "== Mot de passe oublie (adresse publique d'essai) =="
+  up_api -f docker-compose.yml -f tests/reset-test.override.yml
+  suite reset_check
+
   echo "== Retour a la configuration normale =="
   up_api -f docker-compose.yml
   cleanup_data
