@@ -9,6 +9,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - **Annulation d'un import** (A3b) : chaque import réel de la page Import est un lot ; le bouton *Annuler cet import* supprime ce qu'il a créé,
   tout ou rien, et seulement si rien n'en dépend (salarié avec matériel, accès ou besoins, actif remis, entité utilisée, remise signée ou
   restituée, lien GLPI) ; le refus indique ce qui bloque. Migration 0015.
+- **Contrôle de sécurité du code** : `scripts/securite_scan.sh` (Bandit, Semgrep, gitleaks, hadolint, actionlint, zizmor, audits de dépendances)
+  et skill Claude Code `/kikan-securite` (scans puis relecture avec la liste de contrôle de Kikan). Faux positifs connus justifiés dans le code
+  (`# nosec`, `# nosemgrep`), `.gitleaks.toml` et `.hadolint.yaml`.
 - **Purge RGPD en deux temps** : durée de conservation (12 mois par défaut) et délai de grace (30 jours par défaut) **réglables** ; bouton réservé
   à l'informatique ; PDF du partage (SMB, WebDAV, volume local) rangés dans `A_PURGER/` puis supprimés par Kikan après le délai de grace, avec remise en place
   possible ; pour SharePoint et DocuWare, liste des documents à supprimer par l'équipe de la GED puis confirmation ; rappel par e-mail si la purge

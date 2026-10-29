@@ -516,7 +516,8 @@ def cmd_verify(args) -> int:
         if not row:
             problems.append("version de migration absente")
         for table in ("accounts", "users", "assets", "assignments", "signatures"):
-            cur.execute(f"select count(*) from {table}")
+            # Faux positif B608 : le nom de table vient du tuple ci-dessus, jamais d'une saisie.
+            cur.execute(f"select count(*) from {table}")  # nosec B608
             report[table] = cur.fetchone()[0]
         cur.execute("select id, ged_reference, empreinte_doc from signatures where ged_reference is not null")
         local = external = bad = 0

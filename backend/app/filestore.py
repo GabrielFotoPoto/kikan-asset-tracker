@@ -282,7 +282,8 @@ class WebDavBackend:
             headers["Content-Type"] = "application/octet-stream"
         req = urllib.request.Request(url, data=data, method=method, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT, context=self._ctx) as resp:
+            # Faux positif B310 : l'adresse vient de KIKAN_WEBDAV_URL, dont le schema (http ou https seulement) est verifie a la creation.
+            with urllib.request.urlopen(req, timeout=TIMEOUT, context=self._ctx) as resp:  # nosec B310
                 if resp.status not in ok:
                     raise StorageError(f"Partage WebDAV : reponse inattendue ({resp.status})")
                 return resp.read()
