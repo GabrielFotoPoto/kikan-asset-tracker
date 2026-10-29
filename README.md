@@ -4,8 +4,8 @@
 
 **Kikan** (機器管理, *kiki-kanri*, « gestion des équipements ») est une application de
 **suivi des actifs** (PC, smartphones...) par utilisateur et par entité, avec **remise et
-restitution de matériel signées et scellées** (sans papier), import de l'existant, reporting
-et gestion des accès applicatifs.
+restitution de matériel signées et scellées** (sans papier), import de l'existant, reporting,
+gestion et **revue des accès applicatifs**, rappels et purge RGPD.
 
 Elle soutient plusieurs contrôles de l'ISO/IEC 27001:2022 :
 A.5.9 (inventaire des actifs), A.5.10 (usage acceptable), A.5.11 (restitution des actifs)
@@ -14,25 +14,36 @@ et A.5.18 (droits d'accès).
 > Remarque : un logiciel n'est pas « certifié ISO 27001 ». Kikan *facilite* la conformité du
 > SMSI d'une organisation, il ne la remplace pas.
 
-## Fonctionnalités (v0.1)
+## Fonctionnalités
 
-- **Cycle de vie du salarié** : formulaire d'entrée (RH), départ avec génération automatique de
-  la liste du matériel à récupérer, passage automatique en « sorti » une fois tout rendu.
-- **Remise signée** : génération d'un accusé PDF (matériel + charte informatique annexée), **signature manuscrite
-  de l'employé sur tablette** (doigt, stylet ou souris), puis **scellement PAdES** (certificat auto-signé de
-  l'organisation, horodatage RFC 3161 optionnel). Document infalsifiable et vérifiable.
-- **Restitution signée** (A.5.11), avec la même signature manuscrite, conduite par l'informatique ou les RH.
-- **Multi-entités / filiales** : rattachement des salariés, données filtrables par entité.
-- **Accès applicatifs** (A.5.18) : catalogue d'applications, attribution par salarié avec note
-  de niveau (ex. administrateur, « mêmes droits que... »).
-- **Import CSV** de l'existant (entités, applications, utilisateurs, matériel, affectations,
-  accès), avec prévisualisation et rapport d'erreurs par ligne.
-- **Reporting** « qui détient quoi » à l'instant T, export **CSV** et **PDF**.
-- **Statistiques** de parc (modèles les plus distribués, répartition, taux d'équipement,
-  renouvellements à venir, âge moyen).
-- **Rétention RGPD** paramétrable (durée de conservation et délai de grace), avec prévisualisation, quarantaine des PDF du partage avant
-  suppression définitive et liste des documents à supprimer dans la GED : voir [docs/RGPD.md](docs/RGPD.md).
-- **Authentification et rôles** : RH, informatique, lecture seule.
+La version publiée est la **0.2.0** ; les fonctions marquées *(prochaine version)* sont déjà dans `main` et seront publiées avec la 0.3.0.
+
+**Cycle de vie du matériel et des salariés**
+- **Cycle de vie du salarié** : formulaire d'entrée (RH) avec les **besoins de matériel** à cocher, départ avec liste automatique du matériel à récupérer et rappels, passage en « sorti » une fois tout rendu.
+- **Besoins de matériel** : demandés par les RH, préparés par l'informatique, **soldés automatiquement par la remise** ; rappels avant les arrivées.
+- **Remise signée** : accusé PDF (matériel + charte informatique annexée), **signature manuscrite sur tablette**, puis **scellement PAdES** (certificat de l'organisation, horodatage RFC 3161 optionnel). Document infalsifiable et vérifiable ; nom de fichier lisible et sans hasard (`AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf`).
+- **Restitution signée** (A.5.11), avec la même signature, conduite par l'informatique ou les RH.
+- **Accès applicatifs** (A.5.18) : catalogue d'applications, attribution par salarié avec précision de niveau.
+- **Revue périodique des droits d'accès** *(prochaine version)* : anomalies (accès d'un salarié sorti, application désactivée), rapport « qui a accès à quoi », campagnes de validation par les RH, clôture avec **rapport PDF scellé**, suivi des retraits : voir [docs/REVUE-ACCES.md](docs/REVUE-ACCES.md).
+
+**Organisation et comptes**
+- **Multi-entités / filiales** : salariés, matériel et applications rattachés à une entité ; comptes RH et lecture **cloisonnés par entité** (sous-entités comprises), comptes informatique globaux.
+- **Authentification** : rôles informatique, RH et lecture ; connexion **Microsoft 365** (option) avec comptes de secours ; **mot de passe oublié** par e-mail ; limitation des tentatives ; session en **cookie HttpOnly** *(prochaine version)*.
+
+**Reprise, échanges et intégrations**
+- **Import CSV et Excel** de l'existant (entités, applications, salariés, matériel, affectations, accès), simulation, rapport par ligne, import « tout ou rien » et **annulation d'un import** *(prochaine version)*.
+- **Connecteur GLPI** (import sur sélection, export des salariés et du matériel avec numéros de série) et **API d'import par jetons**.
+- **Stockage des PDF scellés** : volume local, partage **SMB**, **WebDAV**, **SharePoint Online** ou **DocuWare**, avec vérification d'empreinte.
+
+**Pilotage et conformité**
+- **Reporting** « qui détient quoi » à l'instant T, export **CSV, Excel et PDF** ; **statistiques** de parc (modèles, répartition, renouvellements à venir).
+- **Rappels et rapport mensuel par e-mail** (renouvellements, départs, matériel non restitué, besoins, purge, revue des accès), selon le périmètre de chacun.
+- **Rétention RGPD** *(évolution à paraître)* : durée de conservation et délai de grace **réglables**, purge par l'informatique, quarantaine des PDF du partage avant suppression et liste pour la GED : voir [docs/RGPD.md](docs/RGPD.md).
+- **Journal d'audit** de toutes les écritures et des refus d'accès, sans donnée personnelle superflue.
+- **Sauvegarde chiffrée** nocturne (base, PDF scellés, clés, certificat) et restauration testée : voir [docs/SAUVEGARDE.md](docs/SAUVEGARDE.md).
+
+**Pour démarrer et évaluer**
+- **Jeu de données de démonstration** *(prochaine version)* (`scripts/demo.sh`), **guides** d'[installation](docs/INSTALLATION.md) et d'[utilisation](docs/GUIDE-UTILISATEUR.md), scan de sécurité du code (`scripts/securite_scan.sh`) et intégration continue.
 
 ## Documentation
 
@@ -121,8 +132,8 @@ L'import des entités est un lot que l'on retrouve sur la page Import.
 | **rh** | Cycle de vie des salariés (entrées, départs), restitutions, accès applicatifs, besoins de matériel. Lecture du reste. |
 | **lecture** | Consultation et export uniquement. |
 
-> Cible v0.2 : authentification **SSO Microsoft 365 (Entra ID)** avec comptes nominatifs,
-> réservée aux groupes `Kikan-IT` (informatique) et `Kikan-RH` (rh).
+> La connexion **Microsoft 365 (Entra ID)**, facultative, attribue le rôle à partir des **rôles d'application** Entra `Kikan.IT` (informatique) et `Kikan.RH` (rh) ;
+> voir la section « Connexion Microsoft 365 » et [docs/SSO.md](docs/SSO.md). Le rôle *lecture* se crée dans la page Comptes.
 
 ## Signature manuscrite
 
@@ -484,35 +495,49 @@ Vérifier qu'aucune dérive n'existe entre le modèle et la base : `docker compo
 ## Structure du projet
 
 ```
-backend/            API FastAPI
+backend/              API FastAPI
   app/
-    models.py       modele de donnees (SQLModel)
-    db.py           connexion et application des migrations au demarrage
-    auth.py         authentification JWT, mots de passe, limitation des tentatives
-    audit.py        journal d'audit
-    signing.py      scellement PAdES
-    pdfgen.py       generation des PDF
-    importer.py     lecture CSV (encodage, separateur)
-    xlsx_io.py      lecture et ecriture de classeurs Excel (.xlsx), modeles et export
-    sso.py          connexion Microsoft 365 (OpenID Connect, verification du jeton)
-    sso_policy.py   reglages du SSO et regles de connexion locale
-    rules.py        regles de modification et de suppression protegee
-    catalogs.py     listes souples (types d'actifs, services)
-    asset_catalog.py catalogue marques/modeles : recherche assistee, graphie canonique
-    acces_remise.py acces applicatifs dans l'accuse de remise
-    pdf_template.py modele de PDF (logo, mentions, pied de page)
-    charte.py       chartes deposees : validation, normalisation PDF, portees, annexe
-    docx_convert.py appel du service de conversion Word
-    routers/        endpoints (entites, users, assets, assignments,
-                    lifecycle, import, reports, rgpd, stats, acces, auth, audit)
-backend/migrations/ migrations Alembic du schema
-converter/          service isole de conversion Word vers PDF (LibreOffice, sans Internet)
-frontend/           application React (Vite + Nginx, HTTPS)
-import-modeles/     modeles CSV pour la reprise de l'existant
-tests/              tests de securite, non-regression, audit des dependances
-SPEC.md             cahier des charges detaille
-SECURITY.md         modele de securite et liste de controle de production
-docker-compose.yml
+    main.py           application, journal d'audit, planificateur des rappels
+    models.py         modele de donnees (SQLModel)
+    db.py             connexion et application des migrations au demarrage
+    auth.py           authentification (cookie de session ou jeton), mots de passe, limitation des tentatives
+    scope.py          cloisonnement par entite (portee des comptes)
+    audit.py          journal d'audit
+    rules.py          regles de modification et de suppression protegee
+    signing.py        scellement PAdES
+    pdfgen.py         generation des PDF
+    pdf_template.py   modele de PDF (logo, mentions, pied de page)
+    docname.py        nom des PDF scelles (AAAA_MM_JJ_NOM_PRENOM_ACR_NNN)
+    signature_image.py  controle et traitement de la signature manuscrite
+    charte.py         chartes deposees : validation, normalisation PDF, portees, annexe
+    docx_convert.py   appel du service de conversion Word
+    filestore.py      stockage des PDF scelles : local, SMB, WebDAV (+ storage_sharepoint.py, storage_docuware.py)
+    purge.py          purge RGPD : quarantaine, suppression, liste pour la GED
+    revue_acces.py    revue periodique des droits d'acces
+    import_undo.py    lots d'import et annulation
+    importer.py       lecture CSV (encodage, separateur) ; xlsx_io.py : classeurs Excel
+    catalogs.py       listes souples (types d'actifs, services) ; asset_catalog.py : marques et modeles
+    acces_remise.py   acces applicatifs dans l'accuse de remise
+    mailer.py         envoi des e-mails ; reminders.py : rappels et rapport mensuel
+    sso.py            connexion Microsoft 365 ; sso_policy.py : reglages et regles de connexion locale
+    integration.py    moteur d'import/export des integrations ; apitoken.py : jetons de l'API ; glpi.py : connecteur GLPI
+    reset_admin.py    commande de secours (mot de passe provisoire)
+    routers/          endpoints (entites, users, assets, assignments, lifecycle, besoins, revues, import, reports,
+                      rgpd, stats, applications, user_apps, parametres, policies, auth, sso, audit_log, mail_admin,
+                      storage_admin, backup_admin, integrations, glpi_admin, api_v1)
+backend/migrations/   migrations Alembic du schema
+converter/            service isole de conversion Word vers PDF (LibreOffice, sans Internet)
+frontend/             application React (Vite + Nginx, HTTPS)
+backup/               outil de sauvegarde et de restauration chiffrees (age, SMB)
+scripts/              restore.sh / restore.ps1, demo.sh (jeu de demonstration), securite_scan.sh (scan de securite)
+import-modeles/       modeles CSV pour la reprise de l'existant
+docs/                 guides et documentation par sujet ; docs/captures : illustrations
+tests/                suites de test (securite, fonctionnel, scenarios), run_all.sh, hygiene_check.py
+.github/              integration continue, CodeQL, publication des images, Dependabot, CODEOWNERS
+.claude/skills/       skill de projet /kikan-securite
+SPEC.md               cahier des charges detaille
+SECURITY.md           modele de securite et liste de controle de production
+docker-compose.yml    pile complete ; docker-compose.ghcr.yml : images publiees
 ```
 
 ## Feuille de route
@@ -526,7 +551,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1, **fait**, à valider sur votre tenant), comptes cloisonnés par
   entité (B2, **fait**), rappels par e-mail (B3, **fait**), rapport mensuel automatique (B4, **fait**), connecteur GLPI et API d'import (B5, **fait**), dépôt via l'API
   SharePoint Online et DocuWare (B6, **fait**), besoins matériels saisis par les RH (B7, **fait**), import et export Excel (B8, **fait**).
-- **v0.3 - pilotage** : statistiques exportables (C1), revue périodique des droits d'accès (C2), prévision des
+- **v0.3 - pilotage** : revue périodique des droits d'accès (C2, **fait**), statistiques exportables (C1), prévision des
   renouvellements (C3), étiquettes et QR codes (C4), pièces jointes (C5).
 - **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).
 - **Sécurité et exploitation, en continu** : MFA locale (E1), certificat de scellement reconnu et clé dans un coffre
@@ -541,7 +566,7 @@ Ce projet a été développé avec l'assistance d'une **intelligence artificiell
 
 - **Tests** : `bash tests/run_all.sh` rejoue toutes les suites dans une **pile de test séparée** (projet `kiktest`, jamais votre instance) ; `python tests/hygiene_check.py` vérifie les
   règles du dépôt. **GitHub Actions** les rejoue à chaque envoi et à chaque demande de fusion, avec l'audit des dépendances, la
-  sauvegarde de bout en bout et la construction des images ; **Dependabot** propose les mises à jour chaque semaine.
+  sauvegarde de bout en bout, la construction des images, **CodeQL**, la revue des dépendances et l'analyse de sécurité des workflows ; **Dependabot** propose les mises à jour chaque semaine.
 - **Versions et images Docker prêtes à l'emploi** : une étiquette `vX.Y.Z` publie quatre images sur le GitHub Container Registry
   (`kikan-api`, `kikan-web`, `kikan-converter`, `kikan-backup`) et crée la version GitHub ; installation sans compilation avec
   `docker-compose.ghcr.yml`. Procédure, réglages GitHub recommandés : [docs/PUBLIER.md](docs/PUBLIER.md). Historique : [CHANGELOG.md](CHANGELOG.md).

@@ -25,7 +25,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 | Domaine | Mesure |
 |---|---|
 | Authentification | Jetons JWT (HS256) à durée limitée (4 h par défaut), mots de passe hachés avec bcrypt, 401 systématique sans jeton valide. |
-| Secrets | Aucune clé ou mot de passe par défaut : `KIKAN_SECRET_KEY` absente = clé aléatoire (sessions perdues au redémarrage) ; en `KIKAN_ENV=production`, l'application **refuse de démarrer** sans clé de 32 caractères minimum. Le premier compte reçoit un mot de passe aléatoire affiché une seule fois dans les journaux. `POSTGRES_PASSWORD` est obligatoire. |
+| Secrets | Aucune clé ou mot de passe par défaut : `KIKAN_SECRET_KEY` absente = clé aléatoire (sessions perdues au redémarrage) ; en `KIKAN_ENV=production`, l'application **refuse de démarrer** sans clé de 32 caractères minimum. Le premier compte reçoit un mot de passe aléatoire affiché une seule fois dans les journaux, **à changer dès la première connexion** (changement imposé). `POSTGRES_PASSWORD` est obligatoire. |
 | Mots de passe | 12 caractères minimum, 72 octets maximum (limite de bcrypt). Changement par l'utilisateur et réinitialisation par l'informatique : le mot de passe provisoire est généré par le serveur (16 caractères, environ 90 bits), affiché une seule fois, jamais journalisé, et son remplacement est imposé avant tout autre accès (refus côté serveur). Un nouveau mot de passe doit différer de l'ancien. Le dernier compte informatique actif ne peut pas être désactivé ni rétrogradé. |
 | Cloisonnement par entité | Comptes RH et lecture globaux ou limités à des entités (sous-entités incluses), comptes informatique toujours globaux. Filtrage côté serveur dans un module unique (`scope.py`) sur toutes les lectures et écritures ; un élément hors périmètre est « introuvable » (404), sans révéler son existence ; un nouveau compte n'a aucun périmètre par défaut ; le périmètre est relu en base à chaque requête (effet immédiat). Un test d'inventaire des routes échoue si une route de lecture de données n'est pas filtrée |
 | Chaîne de développement et d'approvisionnement | Intégration continue sur chaque envoi et chaque demande de fusion (tests, audit pip et npm, hygiène : aucun secret ni fichier sensible versionné) ; **toutes les actions GitHub sont figées sur une empreinte de commit** (contrôlé par `tests/hygiene_check.py`, mises à jour proposées par Dependabot avec un délai de précaution de 7 jours) ; les checkouts ne conservent pas le jeton du dépôt ; workflows aux permissions minimales (lecture par défaut, écriture de paquets seulement à la publication) ; analyse de sécurité des workflows (`actionlint`, `zizmor`) ; analyse statique du code (CodeQL, Python et JavaScript) ; revue des dépendances (une demande de fusion qui introduit une dépendance vulnérable de gravité haute est refusée) ; secrets de CI aléatoires et jetables ; `CODEOWNERS` sur les chemins sensibles |
@@ -38,7 +38,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 | Autorisations | Rôles `informatique`, `rh`, `lecture` appliqués côté serveur sur chaque routeur (jamais seulement dans l'interface). |
 | Connexion Microsoft 365 | Facultative, activable seulement après un test de connexion réussi de l'administrateur et en présence d'un compte local de secours. OpenID Connect, code d'autorisation avec PKCE ; un seul tenant (émetteur et `tid` fixés) ; jeton RS256 uniquement, signature par les clés du tenant, public, expiration, `nonce` vérifiés ; `state` à usage unique lié au navigateur par un cookie (HttpOnly, SameSite, Secure) ; adresse de retour fixée par la configuration ; aucune redirection suivie lors des appels sortants ; découverte et clés refusées si elles sortent de l'autorité configurée. Rôle issu des rôles d'application Entra et resynchronisé à chaque connexion ; MFA exigible ; session remise par un ticket à usage unique de 60 secondes (jamais de jeton dans l'adresse). Secret du client uniquement dans l'environnement. Les refus d'accès (rôle, MFA, compte) ne comptent pas dans la limitation de tentatives ; les échecs de protocole oui. |
 | Sessions | Le jeton de session du navigateur est dans un **cookie `HttpOnly`, `SameSite=Strict`, `Secure` en HTTPS** (limité à `/api`) : le JavaScript ne le voit jamais, une faille XSS ne peut donc pas le voler. Toute requête qui modifie et s'appuie sur ce cookie doit porter l'en-tête `X-Kikan-Request: 1` (protection CSRF en plus de `SameSite`). Un jeton passé en `Authorization: Bearer` reste accepté pour les scripts. Chaque compte porte une version de session portée par le jeton : changement de mot de passe, réinitialisation, changement de rôle et désactivation révoquent immédiatement les sessions ouvertes (sans attendre l'expiration). Identifiants normalisés (minuscules, caractères restreints) et uniques sans tenir compte de la casse, y compris pour le verrouillage des tentatives. |
-| Journal d'audit | Toute écriture, tout refus d'accès (401/403) et toute connexion (réussie, échouée, bloquée) sont journalisés (compte, action, statut, IP). Aucun corps de requête n'est enregistré (pas de mot de passe ni de donnée personnelle). Consultable par l'informatique, sans endpoint de modification ni de suppression. |
+| Journal d'audit | Toute écriture, tout refus d'accès (401/403) et toute connexion (réussie, échouée, bloquée) sont journalisés (compte, action, statut, IP). Les refus 401/403 sont plafonnés à 60 par minute et par adresse IP (un client anonyme ne peut pas remplir la table) ; les écritures authentifiées sont toujours journalisées. Aucun corps de requête n'est enregistré (pas de mot de passe ni de donnée personnelle). Consultable par l'informatique, sans endpoint de modification ni de suppression. |
 | Transport | HTTPS obligatoire (TLS 1.2/1.3) : le port HTTP redirige vers HTTPS, HSTS activé. Certificat auto-signé généré au premier démarrage, remplaçable par celui de l'organisation. |
 | En-têtes | `Content-Security-Policy` stricte, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `Cache-Control: no-store` sur l'API, version des serveurs masquée. |
 | Entrées | Requêtes SQL paramétrées (ORM). Texte utilisateur échappé dans les PDF. Cellules des exports CSV neutralisées contre l'injection de formules (`=`, `+`, `-`, `@`). Imports plafonnés (5 Mo, 20 000 lignes). |
@@ -53,7 +53,10 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 | Classeurs Excel | Un classeur est un fichier non fiable : archive vérifiée avant lecture (nombre d'entrées, taille décompressée, macros, liens externes refusés), XML lu avec defusedxml (bombes d'entités), lecture en mode lecture seule et valeurs uniquement (les formules ne sont jamais évaluées), anciens formats et classeurs chiffrés refusés. À l'export, toute cellule texte est écrite comme du texte : un contenu commençant par `=`, `+`, `-` ou `@` ne s'exécute jamais à l'ouverture. |
 | Paramétrage | Page et routes réservées à l'informatique. Le logo du modèle de PDF est une image non fiable : PNG ou JPEG reconnus par leur contenu, taille et dimensions vérifiées avant décodage (bombes de décompression refusées), ré-encodage en PNG sans métadonnées. Textes du modèle échappés dans le PDF. Le modèle utilisé est figé dans chaque document signé (empreinte enregistrée). Fusions et changements tracés (noms de champs et empreintes, jamais de contenu). Les réglages qui conditionnent la valeur probante (signature manuscrite obligatoire, certificat, stockage) ne sont pas modifiables depuis l'interface. |
 | Accès dans l'accusé de remise | Option réservée à l'informatique. La liste des accès est calculée par le serveur au moment de la signature (jamais fournie par le client) et figée dans le PDF scellé ; l'écran de signature en transmet l'empreinte et le serveur refuse de signer si elle a changé (le salarié signe ce qu'il a vu). Nombre d'accès et empreinte enregistrés avec la signature ; textes échappés dans le PDF. |
-| Production | `KIKAN_ENV=production` masque la documentation interactive (`/docs`). |
+| Revue des droits d'accès | Lecture dans le périmètre du compte (404 hors périmètre) ; décisions réservées aux comptes RH (dans leur périmètre) et informatique ; lancement, clôture et rapport réservés à l'informatique. Clôture seulement si tout est décidé ; rapport PDF **scellé** et vérifié par empreinte à chaque lecture, ne désignant les personnes que par leur matricule ; journal sans nom ni commentaire ; rappels par e-mail en nombres seulement. |
+| Purge RGPD | Déclenchée par un bouton réservé à l'informatique, jamais automatiquement ; durée de conservation et délai de grace réglables ; PDF du partage placés en quarantaine puis supprimés après le délai, avec remise en place possible ; SharePoint et DocuWare : Kikan ne supprime rien, il liste ; journal sans nom ni matricule (nombres et empreintes SHA-256). |
+| Annulation d'import | Réservée à l'informatique ; tout ou rien ; refusée si un élément créé par l'import est déjà utilisé (salarié avec matériel, actif remis, remise signée...), avec la liste de ce qui bloque ; journalisée. |
+| Production | `KIKAN_ENV=production` masque la documentation interactive (`/docs`) et impose le cookie de session `Secure`. |
 | Dépendances | Versions figées et auditées avec `pip-audit` et `npm audit` (aucune vulnérabilité connue à la date de la dernière vérification). |
 
 ## Déploiement en production : liste de contrôle
@@ -69,6 +72,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 4. Ne jamais publier le port de l'API (8080) ni celui de la base hors de la machine.
 5. Mettre en place la **sauvegarde chiffrée** et la tester en restaurant (voir [docs/SAUVEGARDE.md](docs/SAUVEGARDE.md)).
 6. Un pare-feu doit limiter l'accès aux seules machines de l'informatique et des RH.
+7. Renseigner `KIKAN_PUBLIC_URL` (adresse HTTPS) pour les liens des e-mails et « Mot de passe oublié ? ». Le détail pas à pas est dans le [guide d'installation](docs/INSTALLATION.md).
 
 ## Risques acceptés et limites connues
 
@@ -87,7 +91,7 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
   recommandé pour un usage à forte valeur probante.
 - **Journal d'audit non chaîné** : un administrateur de la base PostgreSQL peut le modifier. Pour une preuve
   renforcée, exporter régulièrement le journal vers un système externe.
-- **Pas d'analyse d'images** de conteneurs, ni de limitation de débit au-delà de la connexion.
+- **Analyse des images de conteneurs à titre informatif** : Trivy tourne dans la CI mais ne bloque pas la publication ; les images de base sont figées par empreinte et mises à jour par Dependabot. La limitation de débit porte sur la connexion, le mot de passe oublié et l'API d'import, pas sur le reste de l'API.
 - **La signature manuscrite est une donnée personnelle** : elle figure dans le PDF scellé, donc dans le stockage choisi (volume,
   partage SMB ou WebDAV). Protéger l'accès à ce stockage et appliquer la durée de rétention RGPD (purge : [docs/RGPD.md](docs/RGPD.md)).
 - **Les sauvegardes conservent les données purgées jusqu'à leur expiration** (30 jours, puis une par mois pendant un an) : c'est une limite
@@ -102,7 +106,12 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
 
 ## Vérifier la sécurité
 
-Les tests suivants s'exécutent sur une instance de **développement** (ils créent des données marquées `ZZ…`).
+**Le plus simple** : `bash tests/run_all.sh` rejoue toutes les suites ci-dessous (`--avec-sauvegarde` ajoute la sauvegarde de bout en bout). Il crée sa **propre pile de test**
+(projet Docker `kiktest`, conteneurs `kiktest-*`, port 8081, base à part) : les tests créent des données marquées `ZZ…` et effacent des réglages (e-mails, GLPI...), donc ils ne
+doivent **jamais** viser votre instance. La CI GitHub fait de même à chaque envoi.
+
+Les commandes suivantes détaillent chaque suite à la main ; elles s'exécutent dans le conteneur de l'API : remplacez `kikan-api` par **`kiktest-api`** (pile de test),
+jamais par le conteneur de votre instance.
 
 ```bash
 # Tests offensifs : jetons falsifiés, contournement de rôles, injections, force brute, CORS, audit...
@@ -185,16 +194,21 @@ docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api p
 # Revue des droits d'acces (anomalies, perimetre par entite, decisions, cloture scellee, retraits, rappels)
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/revue_check.py
 
+# Mot de passe oublié : lien à usage unique, expiration, limitation, comptes SSO (prérequis : tests/reset-test.override.yml)
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/reset_check.py
+# Session en cookie HttpOnly : attributs, CSRF, déconnexion, jeton Bearer toujours accepté
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/session_cookie_check.py
+
 # Schéma de la base : aucune dérive entre le modèle et les migrations
 docker compose exec api alembic check
 
-# Nettoyage des données de test
-docker exec -i kikan-db psql -U kikan -d kikan < tests/cleanup_test_data.sql
+# Nettoyage des données de test : UNIQUEMENT sur la pile de test (le script efface aussi des réglages)
+docker exec -i kiktest-db psql -U kikan -d kikan < tests/cleanup_test_data.sql
 ```
 
 ### Installation neuve vérifiée
 
-Les tests de sécurité (70) et de non-régression (28) ont été rejoués avec succès sur une **installation neuve**
+Lors de la v0.1, les tests de sécurité et de non-régression ont été rejoués avec succès sur une **installation neuve**
 en `KIKAN_ENV=production`, faite à partir d'un clone du dépôt en suivant le README : migrations appliquées depuis une
 base vide, mot de passe initial aléatoire affiché une seule fois (y compris après un redémarrage), HTTPS et certificat
 générés, `/docs` masqué, conteneurs non-root en lecture seule, refus de démarrer sans `POSTGRES_PASSWORD`.
