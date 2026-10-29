@@ -1,0 +1,21 @@
+# Revue des dependances : une demande de fusion qui AJOUTE ou met a jour une dependance vulnerable (gravite haute ou critique) est refusee.
+name: Revue des dependances
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Dependances de la demande de fusion
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
+        with:
+          fail-on-severity: high

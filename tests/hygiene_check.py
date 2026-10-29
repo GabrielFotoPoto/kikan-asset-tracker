@@ -71,6 +71,18 @@ show("aucun tiret long (utiliser '-')", not dashes, dashes[:5])
 non_ascii = [p for p in files if p.startswith("tests/") and p.endswith(".py") and texts.get(p) and not texts[p].isascii()]
 show("les tests (tests/*.py) sont en ASCII", not non_ascii, non_ascii)
 
+print("== Chaine d'approvisionnement ==")
+UNPINNED = []
+for p, t in texts.items():
+    if p.startswith(".github/workflows/") and t:
+        for n, line in enumerate(t.splitlines(), 1):
+            m = re.match(r"^\s*(?:- )?uses:\s*(\S+)", line)
+            if m and not m.group(1).startswith("./") and not re.search(r"@[0-9a-f]{40}$", m.group(1)):
+                UNPINNED.append(f"{p}:{n} {m.group(1)}")
+show("toute action GitHub est figee sur une empreinte de commit (40 hexadecimaux)", not UNPINNED, UNPINNED[:5])
+NO_CREDS = [p for p, t in texts.items() if p.startswith(".github/workflows/") and t and t.count("actions/checkout@") != t.count("persist-credentials: false")]
+show("chaque checkout ne conserve pas le jeton du depot (persist-credentials: false)", not NO_CREDS, NO_CREDS)
+
 print("== Licence ==")
 HEADER = "This program is free software"
 need = [p for p in files if re.match(r"^(backend/app|backend/migrations|frontend/src|tests|backup|scripts)/", p)

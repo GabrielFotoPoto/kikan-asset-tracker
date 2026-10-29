@@ -21,7 +21,11 @@ s'appeler `kikan`, ou la variable être définie de la même façon.
 `bash tests/run_all.sh security_check crud_check` (certaines suites), `python tests/hygiene_check.py` (hygiène seule). Uniquement sur une
 pile de **développement** : les tests créent puis nettoient des données `ZZ...`.
 
-## Réglages GitHub recommandés (une fois)
+## Réglages GitHub (appliqués le 2026-10-29, à contrôler de temps en temps)
+
+Dans le dépôt : protection de `main` (demande de fusion et contrôles de la CI obligatoires, envois forcés et suppression interdits), analyse des secrets avec blocage à l'envoi, alertes Dependabot et mises à jour de sécurité, signalement privé des vulnérabilités, approbation obligatoire des workflows des contributeurs extérieurs, actions exigées sur empreinte de commit, étiquettes `v*` protégées.
+
+## Réglages GitHub recommandés (référence)
 
 *Settings du dépôt* :
 
