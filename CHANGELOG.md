@@ -13,9 +13,11 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - **Les tests ne touchent plus à votre instance** : `tests/run_all.sh` crée sa propre pile (projet Docker `kiktest`, conteneurs, volumes, réseau et
   port 8081 propres, secrets repris de `.env` sans le reste). Avant, le nettoyage des tests effaçait les réglages d'e-mails et de GLPI de la base de
   développement. Noms de conteneurs et port de l'API réglables (`KIKAN_PREFIX`, `KIKAN_API_PORT`).
+- La durée de conservation RGPD proposée par défaut passe de 36 à 12 mois (une valeur déjà enregistrée est conservée).
 - Le serveur web retrouve l'API après sa recréation (résolution DNS à chaque requête) : plus de « 502 Bad Gateway » jusqu'à son redémarrage.
 
 ### Ajouté
+- `KIKAN_TSA_URL` (horodatage RFC 3161 des PDF scellés) se règle désormais dans `.env` ; variables `KIKAN_SMB_PORT` et `KIKAN_BACKUP_SMB_ENCRYPT` documentées dans `.env.example`.
 - **Guides** : [guide d'installation](docs/INSTALLATION.md) (images publiées ou sources, configuration, HTTPS, sauvegarde, mise à jour, dépannage) et
   [guide d'utilisation](docs/GUIDE-UTILISATEUR.md) (par rôle et par tâche, avec captures). Le jeu de démonstration gagne des cas pour la revue des accès
   (accès de salariés sortis, application arrêtée) et une remise en attente de signature.
@@ -40,8 +42,16 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - **Double clic et appels simultanés** : la remise (actifs), la signature (affectation) et la restitution (salarié) sont verrouillées ; le second
   appel reçoit 409 ou 400 au lieu de créer un doublon. Idée issue d'une relecture externe (PR #12).
 
-### Modifié
-- La durée de conservation proposée par défaut passe de 36 à 12 mois (une valeur déjà enregistrée est conservée).
+### Sécurité
+- Chaîne d'approvisionnement : actions GitHub figées sur une empreinte de commit (et contrôle automatique), jetons du dépôt non conservés par les
+  checkouts, délai de précaution Dependabot, analyse CodeQL, revue des dépendances, analyse de sécurité des workflows (`actionlint`, `zizmor`),
+  `CODEOWNERS`.
+- Connexion : l'identifiant est normalisé une fois (espaces, majuscules) pour le limiteur de tentatives, le journal et la recherche du compte : `"Admin "` ne contourne plus la limite de 5 essais.
+- Le mot de passe initial **généré** (affiché dans les journaux) impose un changement à la première connexion.
+- Journal d'audit : les refus 401/403 sont plafonnés à 60 par minute et par adresse IP ; les écritures authentifiées sont toujours journalisées.
+- Images de base (python, postgres, node, nginx) figées par empreinte, mises à jour par Dependabot ; `PATCH` autorisé côté CORS ; exemple de configuration `set_real_ip_from` derrière un reverse-proxy.
+- Signalement privé des vulnérabilités activé sur le dépôt (annoncé par `SECURITY.md`).
+- Contributions externes relues et reprises : limiteur de connexion et images figées (#36), session en cookie HttpOnly (#37).
 
 ## [0.2.0] - 2026-10-29
 
@@ -81,9 +91,6 @@ Identité, intégrations et automatisation.
   restitution se lit avec `?type=restitution`. Défaut découvert en rejouant l'enchaînement complet des suites (`tests/run_all.sh`).
 
 ### Sécurité
-- Chaîne d'approvisionnement : actions GitHub figées sur une empreinte de commit (et contrôle automatique), jetons du dépôt non conservés par les
-  checkouts, délai de précaution Dependabot, analyse CodeQL, revue des dépendances, analyse de sécurité des workflows (`actionlint`, `zizmor`),
-  `CODEOWNERS`.
 - Cloisonnement par entité vérifié sur chaque route ; un oubli est détecté par un test d'inventaire des routes.
 - Le routeur RGPD (qui listait les salariés à purger) est réservé à l'informatique.
 - Mot de passe oublié : lien à usage unique dont seule l'empreinte est stockée, réponse identique que le compte existe ou non, envoi en tâche de fond, demandes limitées par adresse IP et par identifiant.

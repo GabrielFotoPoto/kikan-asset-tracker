@@ -132,8 +132,8 @@ L'import des entités est un lot que l'on retrouve sur la page Import.
 | **rh** | Cycle de vie des salariés (entrées, départs), restitutions, accès applicatifs, besoins de matériel. Lecture du reste. |
 | **lecture** | Consultation et export uniquement. |
 
-> Cible v0.2 : authentification **SSO Microsoft 365 (Entra ID)** avec comptes nominatifs,
-> réservée aux groupes `Kikan-IT` (informatique) et `Kikan-RH` (rh).
+> La connexion **Microsoft 365 (Entra ID)**, facultative, attribue le rôle à partir des **rôles d'application** Entra `Kikan.IT` (informatique) et `Kikan.RH` (rh) ;
+> voir la section « Connexion Microsoft 365 » et [docs/SSO.md](docs/SSO.md). Le rôle *lecture* se crée dans la page Comptes.
 
 ## Signature manuscrite
 
@@ -495,35 +495,49 @@ Vérifier qu'aucune dérive n'existe entre le modèle et la base : `docker compo
 ## Structure du projet
 
 ```
-backend/            API FastAPI
+backend/              API FastAPI
   app/
-    models.py       modele de donnees (SQLModel)
-    db.py           connexion et application des migrations au demarrage
-    auth.py         authentification JWT, mots de passe, limitation des tentatives
-    audit.py        journal d'audit
-    signing.py      scellement PAdES
-    pdfgen.py       generation des PDF
-    importer.py     lecture CSV (encodage, separateur)
-    xlsx_io.py      lecture et ecriture de classeurs Excel (.xlsx), modeles et export
-    sso.py          connexion Microsoft 365 (OpenID Connect, verification du jeton)
-    sso_policy.py   reglages du SSO et regles de connexion locale
-    rules.py        regles de modification et de suppression protegee
-    catalogs.py     listes souples (types d'actifs, services)
-    asset_catalog.py catalogue marques/modeles : recherche assistee, graphie canonique
-    acces_remise.py acces applicatifs dans l'accuse de remise
-    pdf_template.py modele de PDF (logo, mentions, pied de page)
-    charte.py       chartes deposees : validation, normalisation PDF, portees, annexe
-    docx_convert.py appel du service de conversion Word
-    routers/        endpoints (entites, users, assets, assignments,
-                    lifecycle, import, reports, rgpd, stats, acces, auth, audit)
-backend/migrations/ migrations Alembic du schema
-converter/          service isole de conversion Word vers PDF (LibreOffice, sans Internet)
-frontend/           application React (Vite + Nginx, HTTPS)
-import-modeles/     modeles CSV pour la reprise de l'existant
-tests/              tests de securite, non-regression, audit des dependances
-SPEC.md             cahier des charges detaille
-SECURITY.md         modele de securite et liste de controle de production
-docker-compose.yml
+    main.py           application, journal d'audit, planificateur des rappels
+    models.py         modele de donnees (SQLModel)
+    db.py             connexion et application des migrations au demarrage
+    auth.py           authentification (cookie de session ou jeton), mots de passe, limitation des tentatives
+    scope.py          cloisonnement par entite (portee des comptes)
+    audit.py          journal d'audit
+    rules.py          regles de modification et de suppression protegee
+    signing.py        scellement PAdES
+    pdfgen.py         generation des PDF
+    pdf_template.py   modele de PDF (logo, mentions, pied de page)
+    docname.py        nom des PDF scelles (AAAA_MM_JJ_NOM_PRENOM_ACR_NNN)
+    signature_image.py  controle et traitement de la signature manuscrite
+    charte.py         chartes deposees : validation, normalisation PDF, portees, annexe
+    docx_convert.py   appel du service de conversion Word
+    filestore.py      stockage des PDF scelles : local, SMB, WebDAV (+ storage_sharepoint.py, storage_docuware.py)
+    purge.py          purge RGPD : quarantaine, suppression, liste pour la GED
+    revue_acces.py    revue periodique des droits d'acces
+    import_undo.py    lots d'import et annulation
+    importer.py       lecture CSV (encodage, separateur) ; xlsx_io.py : classeurs Excel
+    catalogs.py       listes souples (types d'actifs, services) ; asset_catalog.py : marques et modeles
+    acces_remise.py   acces applicatifs dans l'accuse de remise
+    mailer.py         envoi des e-mails ; reminders.py : rappels et rapport mensuel
+    sso.py            connexion Microsoft 365 ; sso_policy.py : reglages et regles de connexion locale
+    integration.py    moteur d'import/export des integrations ; apitoken.py : jetons de l'API ; glpi.py : connecteur GLPI
+    reset_admin.py    commande de secours (mot de passe provisoire)
+    routers/          endpoints (entites, users, assets, assignments, lifecycle, besoins, revues, import, reports,
+                      rgpd, stats, applications, user_apps, parametres, policies, auth, sso, audit_log, mail_admin,
+                      storage_admin, backup_admin, integrations, glpi_admin, api_v1)
+backend/migrations/   migrations Alembic du schema
+converter/            service isole de conversion Word vers PDF (LibreOffice, sans Internet)
+frontend/             application React (Vite + Nginx, HTTPS)
+backup/               outil de sauvegarde et de restauration chiffrees (age, SMB)
+scripts/              restore.sh / restore.ps1, demo.sh (jeu de demonstration), securite_scan.sh (scan de securite)
+import-modeles/       modeles CSV pour la reprise de l'existant
+docs/                 guides et documentation par sujet ; docs/captures : illustrations
+tests/                suites de test (securite, fonctionnel, scenarios), run_all.sh, hygiene_check.py
+.github/              integration continue, CodeQL, publication des images, Dependabot, CODEOWNERS
+.claude/skills/       skill de projet /kikan-securite
+SPEC.md               cahier des charges detaille
+SECURITY.md           modele de securite et liste de controle de production
+docker-compose.yml    pile complete ; docker-compose.ghcr.yml : images publiees
 ```
 
 ## Feuille de route
@@ -552,7 +566,7 @@ Ce projet a été développé avec l'assistance d'une **intelligence artificiell
 
 - **Tests** : `bash tests/run_all.sh` rejoue toutes les suites dans une **pile de test séparée** (projet `kiktest`, jamais votre instance) ; `python tests/hygiene_check.py` vérifie les
   règles du dépôt. **GitHub Actions** les rejoue à chaque envoi et à chaque demande de fusion, avec l'audit des dépendances, la
-  sauvegarde de bout en bout et la construction des images ; **Dependabot** propose les mises à jour chaque semaine.
+  sauvegarde de bout en bout, la construction des images, **CodeQL**, la revue des dépendances et l'analyse de sécurité des workflows ; **Dependabot** propose les mises à jour chaque semaine.
 - **Versions et images Docker prêtes à l'emploi** : une étiquette `vX.Y.Z` publie quatre images sur le GitHub Container Registry
   (`kikan-api`, `kikan-web`, `kikan-converter`, `kikan-backup`) et crée la version GitHub ; installation sans compilation avec
   `docker-compose.ghcr.yml`. Procédure, réglages GitHub recommandés : [docs/PUBLIER.md](docs/PUBLIER.md). Historique : [CHANGELOG.md](CHANGELOG.md).
