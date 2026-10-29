@@ -284,6 +284,20 @@ def charger():
                     nb += 1
     log(f"Acces applicatifs : {nb}")
 
+    # 8 bis. Cas pour la revue des acces : deux acces encore actifs de salaries sortis, une application arretee
+    for i, nom in ((50, "ERP Cereo"), (51, "VPN")):
+        need(f"acces d'un sorti {i}", call("POST", f"/users/{made[i]['id']}/applications",
+                                          {"application_id": apps[nom][0][0], "acces": True, "note": "Profil standard"}, token))
+    for app_id, code in apps["Outil qualite"]:
+        need("application arretee", call("PUT", f"/applications/{app_id}", {"nom": "Outil qualite", "description": "Non-conformites et audits",
+                                                                             "entite_id": eid[code], "actif": False}, token))
+    log("Revue des acces : 2 acces de salaries sortis et 1 application arretee a controler")
+
+    # 8 ter. Une remise creee mais pas encore signee (a signer sur la tablette)
+    pc_attente = asset(400, "PC portable")
+    need("remise en attente", call("POST", "/assignments", {"user_id": made[39]["id"], "asset_ids": [pc_attente["id"]]}, token))
+    log("Remise en attente de signature : 1 (page Remises, bouton Signer)")
+
     # 9. Besoins de materiel (arrivees a venir + un besoin solde par une remise)
     cats = need("categories", call("GET", "/besoins/categories", token=token))
     pc_cat = next((c for c in cats if c.startswith("PC portable")), cats[0])
@@ -301,7 +315,7 @@ def charger():
     del b1
 
     log("")
-    log("Jeu de demonstration charge : 52 salaries, 6 entites, 6 applications, 76 materiels, des remises et restitutions signees (PDF scelles).")
+    log("Jeu de demonstration charge : 52 salaries, 6 entites, 6 applications, 77 materiels, des remises et restitutions signees (PDF scelles).")
     log("Rappel : les salaries en depart et non restitues alimentent les rappels e-mail ; 3 sortis depuis plus d'un an apparaissent dans la page RGPD.")
 
 
