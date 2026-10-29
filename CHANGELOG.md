@@ -41,6 +41,9 @@ Identité, intégrations et automatisation.
   restitution se lit avec `?type=restitution`. Défaut découvert en rejouant l'enchaînement complet des suites (`tests/run_all.sh`).
 
 ### Sécurité
+- Chaîne d'approvisionnement : actions GitHub figées sur une empreinte de commit (et contrôle automatique), jetons du dépôt non conservés par les
+  checkouts, délai de précaution Dependabot, analyse CodeQL, revue des dépendances, analyse de sécurité des workflows (`actionlint`, `zizmor`),
+  `CODEOWNERS`.
 - Cloisonnement par entité vérifié sur chaque route ; un oubli est détecté par un test d'inventaire des routes.
 - Le routeur RGPD (qui listait les salariés à purger) est réservé à l'informatique.
 - Mot de passe oublié : lien à usage unique dont seule l'empreinte est stockée, réponse identique que le compte existe ou non, envoi en tâche de fond, demandes limitées par adresse IP et par identifiant.

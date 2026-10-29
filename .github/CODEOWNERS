@@ -1,0 +1,17 @@
+# Proprietaires du code : relecture demandee automatiquement, et exigible par la protection de branche des qu'il y a plusieurs mainteneurs.
+# Les chemins ci-dessous sont ceux dont une modification touche a la securite, aux preuves signees, aux donnees personnelles ou a la
+# chaine de publication.
+*                                   @GabrielFotoPoto
+/.github/                           @GabrielFotoPoto
+/SECURITY.md                        @GabrielFotoPoto
+/docker-compose*.yml                @GabrielFotoPoto
+/backend/app/auth.py                @GabrielFotoPoto
+/backend/app/scope.py               @GabrielFotoPoto
+/backend/app/apitoken.py            @GabrielFotoPoto
+/backend/app/signing.py             @GabrielFotoPoto
+/backend/app/filestore.py           @GabrielFotoPoto
+/backend/app/routers/auth.py        @GabrielFotoPoto
+/backend/app/routers/rgpd.py        @GabrielFotoPoto
+/backend/migrations/                @GabrielFotoPoto
+/backup/                            @GabrielFotoPoto
+/scripts/                           @GabrielFotoPoto
