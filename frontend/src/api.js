@@ -18,24 +18,37 @@
  */
 
 const BASE = "/api";
-const TOKEN_KEY = "kikan_token";
 
-export function getToken() {
-  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+// La session est un cookie HttpOnly pose par l'API : le JavaScript ne voit jamais le jeton (une faille XSS ne peut pas le voler).
+// Seul un indicateur NON secret est gardé, pour ne pas interroger /auth/me (et provoquer un 401 journalise) a chaque
+// visite d'un utilisateur deconnecte. Le serveur reste seul juge de la validite de la session.
+const SESSION_HINT = "kikan_session";
+try { localStorage.removeItem("kikan_token"); } catch { /* ignore */ }  // ancien stockage du jeton : purge
+
+export function hasSession() {
+  try { return localStorage.getItem(SESSION_HINT) === "1"; } catch { return false; }
 }
-export function setToken(t) {
-  try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+export function setSession(on) {
+  try { on ? localStorage.setItem(SESSION_HINT, "1") : localStorage.removeItem(SESSION_HINT); } catch { /* ignore */ }
+}
+
+// En-tete obligatoire sur toute requete qui modifie quand la session passe par le cookie (protection CSRF : un site tiers
+// ne peut pas l'ajouter sans autorisation CORS, que l'API n'accorde pas).
+const CSRF = { "X-Kikan-Request": "1" };
+
+// Ferme la session : le serveur efface le cookie.
+export async function endSession() {
+  setSession(false);
+  try { await fetch(BASE + "/auth/logout", { method: "POST", headers: CSRF }); } catch { /* ignore */ }
 }
 
 async function req(path, opts = {}) {
-  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = { "Content-Type": "application/json", ...CSRF, ...(opts.headers || {}) };
 
   const res = await fetch(BASE + path, { ...opts, headers });
 
   if (res.status === 401) {
-    setToken(null);
+    setSession(false);
     window.dispatchEvent(new Event("kikan-unauth"));
     throw new Error("Session expiree, reconnectez-vous.");
   }
@@ -49,12 +62,10 @@ async function req(path, opts = {}) {
 }
 
 export async function downloadFile(path, filename) {
-  const headers = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = { ...CSRF };
   const res = await fetch(BASE + path, { headers });
   if (res.status === 401) {
-    setToken(null);
+    setSession(false);
     window.dispatchEvent(new Event("kikan-unauth"));
     throw new Error("Session expiree, reconnectez-vous.");
   }
@@ -74,12 +85,10 @@ export async function downloadFile(path, filename) {
 
 // Depot de fichier (multipart) : le navigateur fixe lui-meme le type de contenu et la separation.
 export async function postForm(path, form) {
-  const headers = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = { ...CSRF };
   const res = await fetch(BASE + path, { method: "POST", headers, body: form });
   if (res.status === 401) {
-    setToken(null);
+    setSession(false);
     window.dispatchEvent(new Event("kikan-unauth"));
     throw new Error("Session expiree, reconnectez-vous.");
   }
@@ -87,11 +96,9 @@ export async function postForm(path, form) {
   return res.json();
 }
 
-// Image protegee par jeton, renvoyee sous forme d'URL data: (la CSP n'autorise pas blob:).
+// Image protegee par la session, renvoyee sous forme d'URL data: (la CSP n'autorise pas blob:).
 export async function fetchDataUrl(path) {
-  const headers = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = { ...CSRF };
   const res = await fetch(BASE + path, { headers });
   if (!res.ok) throw new Error((await res.text()) || `Erreur ${res.status}`);
   const blob = await res.blob();
