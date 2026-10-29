@@ -13,5 +13,5 @@ services:
       KIKAN_SSO_CLIENT_SECRET: test-secret-for-mock-idp
       KIKAN_SSO_AUTHORITY: http://127.0.0.1:9910
     ports:
-      - "127.0.0.1:8080:8000"
+      - "127.0.0.1:${KIKAN_API_PORT:-8080}:8000"
       - "127.0.0.1:9910:9910"

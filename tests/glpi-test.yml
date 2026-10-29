@@ -49,3 +49,4 @@ volumes:
 networks:
   kikan_default:
     external: true
+    name: ${KIKAN_PREFIX:-kikan}_default

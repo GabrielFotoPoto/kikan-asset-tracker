@@ -34,7 +34,7 @@ services:
     networks: [kikan]
 networks:
   kikan:
-    name: kikan_default
+    name: ${KIKAN_PREFIX:-kikan}_default
     external: true
 volumes:
   kikan_test_ca:

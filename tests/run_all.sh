@@ -17,6 +17,16 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 export MSYS_NO_PATHCONV=1
 
+# Pile de TEST separee de votre instance : autre projet Docker (conteneurs, reseau et volumes propres), autre port, et un fichier
+# d'environnement reduit aux secrets. Les tests creent puis effacent des donnees et des reglages : ils ne touchent jamais a votre base
+# ni a votre .env (adresse publique, e-mails...). KIKAN_TEST_PREFIX et KIKAN_TEST_API_PORT permettent de changer le nom et le port.
+PFX="${KIKAN_TEST_PREFIX:-kiktest}"
+export COMPOSE_PROJECT_NAME="$PFX" KIKAN_PREFIX="$PFX" KIKAN_API_PORT="${KIKAN_TEST_API_PORT:-8081}"
+TESTENV=".env.test.tmp"
+grep -E '^(POSTGRES_PASSWORD|KIKAN_ADMIN_USER|KIKAN_ADMIN_PASSWORD|KIKAN_SECRET_KEY)=' .env > "$TESTENV" 2>/dev/null
+trap 'rm -f "$TESTENV"' EXIT
+dc() { docker compose --env-file "$TESTENV" "$@"; }
+
 ENV_ADMIN_PW=$(grep '^KIKAN_ADMIN_PASSWORD=' .env | cut -d= -f2-)
 [ -n "$ENV_ADMIN_PW" ] || { echo "KIKAN_ADMIN_PASSWORD absent de .env" >&2; exit 1; }
 WITH_BACKUP=0
@@ -32,7 +42,7 @@ FAILED=0
 
 wait_api() {
   for _ in $(seq 1 60); do
-    curl -sf http://localhost:8080/health >/dev/null 2>&1 && return 0
+    curl -sf "http://localhost:$KIKAN_API_PORT/health" >/dev/null 2>&1 && return 0
     sleep 2
   done
   echo "L'API ne repond pas" >&2
@@ -41,19 +51,19 @@ wait_api() {
 
 # up_api <fichiers compose -f ...> ; env GLPI_TEST_TOKEN facultatif
 up_api() {
-  docker compose "$@" up -d --force-recreate api >/dev/null 2>&1 || true
+  dc "$@" up -d --force-recreate api >/dev/null 2>&1 || true
   wait_api
 }
 
 cleanup_data() {
-  docker exec -i kikan-db psql -U kikan -d kikan < tests/cleanup_test_data.sql >/dev/null 2>&1 || true
+  docker exec -i "$PFX-db" psql -U kikan -d kikan < tests/cleanup_test_data.sql >/dev/null 2>&1 || true
 }
 
 # suite <nom> : execute tests/<nom>.py dans l'API, enregistre PASS/FAIL
 suite() {
   local name="$1" label="${2:-$1}" out pass fail
   cleanup_data
-  out=$(docker exec -i -e TEST_ADMIN_USER=admin -e "TEST_ADMIN_PASSWORD=$ENV_ADMIN_PW" kikan-api python - < "tests/$name.py" 2>&1)
+  out=$(docker exec -i -e TEST_ADMIN_USER=admin -e "TEST_ADMIN_PASSWORD=$ENV_ADMIN_PW" "$PFX-api" python - < "tests/$name.py" 2>&1)
   local rc=$?
   pass=$(printf '%s\n' "$out" | grep -c '^PASS')
   fail=$(printf '%s\n' "$out" | grep -c '^FAIL')
@@ -69,8 +79,8 @@ suite() {
 }
 
 echo "== Demarrage de la pile =="
-docker compose up -d --build db converter api >/dev/null 2>&1 || { echo "Demarrage de la pile impossible" >&2; docker compose logs --tail 40 2>&1; exit 1; }
-wait_api || { docker compose logs --tail 60 api; exit 1; }
+dc up -d --build db converter api >/dev/null 2>&1 || { echo "Demarrage de la pile impossible" >&2; dc logs --tail 40 2>&1; exit 1; }
+wait_api || { dc logs --tail 60 api; exit 1; }
 
 if [ ${#ONLY[@]} -gt 0 ]; then
   for s in "${ONLY[@]}"; do suite "$s"; done

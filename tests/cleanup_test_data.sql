@@ -3,8 +3,9 @@
 -- Developpe avec l'assistance d'une IA (Claude, Anthropic).
 --
 -- Supprime les donnees creees par tests/security_check.py et tests/functional_smoke.py
--- (marquees ZZ...). A lancer sur une instance de DEVELOPPEMENT uniquement :
---   docker exec -i kikan-db psql -U kikan -d kikan -v ON_ERROR_STOP=1 < tests/cleanup_test_data.sql
+-- (marquees ZZ...). A lancer sur la PILE DE TEST uniquement (tests/run_all.sh la cree : projet kiktest), JAMAIS sur votre instance :
+-- ce script efface aussi des reglages (e-mails, GLPI, SSO...), les liens et actifs GLPI, les lots d'import et les suivis de purge.
+--   docker exec -i kiktest-db psql -U kikan -d kikan -v ON_ERROR_STOP=1 < tests/cleanup_test_data.sql
 --
 -- Les PDF scelles orphelins restent dans le volume /archive (a supprimer a la main si besoin).
 -- Le journal d'audit n'est volontairement PAS vide (il est append-only).

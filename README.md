@@ -508,7 +508,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
 Ce projet a été développé avec l'assistance d'une **intelligence artificielle**
 (Claude, d'Anthropic), sous la direction et la relecture de l'auteur.
 
-- **Tests** : `bash tests/run_all.sh` rejoue toutes les suites (sur une pile de développement) ; `python tests/hygiene_check.py` vérifie les
+- **Tests** : `bash tests/run_all.sh` rejoue toutes les suites dans une **pile de test séparée** (projet `kiktest`, jamais votre instance) ; `python tests/hygiene_check.py` vérifie les
   règles du dépôt. **GitHub Actions** les rejoue à chaque envoi et à chaque demande de fusion, avec l'audit des dépendances, la
   sauvegarde de bout en bout et la construction des images ; **Dependabot** propose les mises à jour chaque semaine.
 - **Versions et images Docker prêtes à l'emploi** : une étiquette `vX.Y.Z` publie quatre images sur le GitHub Container Registry
