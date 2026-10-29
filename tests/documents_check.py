@@ -420,7 +420,8 @@ print("== Integrite ==")
 u2, a2, asg2 = new_remise("2")
 s, sg2 = j("POST", "/assignments/%d/sign" % asg2["id"], SIGN)
 if MODE == "sharepoint":
-    key = sg2["ged_reference"].split(":", 1)[1]
+    cle2 = sg2["ged_reference"].split(":", 1)[1]
+    key = next(k for k in S.files if isinstance(k, str) and k.endswith(cle2))
     S.files[key] = S.files[key] + b"x"
 else:
     did2 = int(sg2["ged_reference"].split(":")[1].split("/")[0])
