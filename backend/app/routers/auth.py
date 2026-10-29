@@ -20,7 +20,7 @@ import re
 import secrets
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -28,6 +28,7 @@ from sqlmodel import Session, select
 from ..audit import audit
 from ..auth import (
     check_password_policy,
+    clear_session_cookie,
     client_ip,
     create_access_token,
     generate_temp_password,
@@ -36,6 +37,7 @@ from ..auth import (
     LoginLimiter,
     login_limiter,
     require_roles,
+    set_session_cookie,
     verify_password,
 )
 from ..db import engine, get_session
@@ -171,7 +173,7 @@ class ResetResult(BaseModel):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, request: Request, session: Session = Depends(get_session)):
+def login(data: LoginRequest, request: Request, response: Response, session: Session = Depends(get_session)):
     ip = client_ip(request)
     wait = login_limiter.retry_after(ip, data.username)
     if wait:
@@ -199,8 +201,15 @@ def login(data: LoginRequest, request: Request, session: Session = Depends(get_s
     session.commit()
     audit(account.username, "login_ok", ip=ip, status=200)
     token = create_access_token(account.username, account.role.value, account.token_epoch)
+    set_session_cookie(request, response, token)
     return TokenResponse(access_token=token, username=account.username, role=account.role.value,
                          must_change_password=account.must_change_password)
+
+
+@router.post("/logout", status_code=204)
+def logout(response: Response):
+    """Ferme la session du navigateur (efface le cookie). Les jetons deja emis expirent d'eux-memes."""
+    clear_session_cookie(response)
 
 
 # --- Mot de passe oublie (libre-service) ---
@@ -340,6 +349,7 @@ def me(account: Account = Depends(get_current_account), session: Session = Depen
 def change_password(
     data: PasswordChange,
     request: Request,
+    response: Response,
     account: Account = Depends(get_current_account),
     session: Session = Depends(get_session),
 ):
@@ -361,6 +371,7 @@ def change_password(
     session.commit()
     audit(account.username, "mot_de_passe_change", ip=ip, status=200)
     token = create_access_token(account.username, account.role.value, account.token_epoch)
+    set_session_cookie(request, response, token)
     return TokenResponse(access_token=token, username=account.username, role=account.role.value)
 
 
