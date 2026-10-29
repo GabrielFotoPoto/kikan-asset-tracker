@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import Autocomplete from "../components/Autocomplete.jsx";
@@ -97,7 +98,10 @@ export default function Assets() {
 
   return (
     <div>
-      <h2>Materiel</h2>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+        <h2>Materiel</h2>
+        {user.role === "informatique" && <Link to="/import" style={{ fontSize: "0.9em" }}>Importer un fichier</Link>}
+      </div>
       {err && <p className="err">{err}</p>}
       {msg && <p className="ok-msg">{msg}</p>}
       {writable && (

@@ -29,6 +29,7 @@ services:
       KIKAN_ADMIN_USER: ${KIKAN_ADMIN_USER:-admin}
       KIKAN_ADMIN_PASSWORD: ${KIKAN_ADMIN_PASSWORD:-}
       KIKAN_TOKEN_TTL_MIN: ${KIKAN_TOKEN_TTL_MIN:-240}
+      KIKAN_TIMEZONE: ${KIKAN_TIMEZONE:-Europe/Paris}
       KIKAN_SIGNATURE_MANUSCRITE_OBLIGATOIRE: ${KIKAN_SIGNATURE_MANUSCRITE_OBLIGATOIRE:-true}
       KIKAN_MAX_CHARTE_MB: ${KIKAN_MAX_CHARTE_MB:-10}
       # Connexion Microsoft 365 (Entra ID), facultative : activee ensuite dans Parametrage, onglet Authentification.

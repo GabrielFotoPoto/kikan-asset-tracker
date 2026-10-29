@@ -42,7 +42,7 @@ from ..models import (
     User,
 )
 from ..pdf_template import load_template
-from ..docname import nom_document
+from ..docname import heure_locale, nom_document
 from ..pdfgen import build_receipt
 from ..signature_image import (
     HANDWRITTEN_REQUIRED,
@@ -183,7 +183,7 @@ def restituer(
 
     # Rangement par annee (AAAA/...) sur le stockage actif (volume, partage SMB ou WebDAV).
     reference = store_document(nom_document(session, user, now), sealed,
-                               meta_for("Restitution", now.year, None, entite, user, now))
+                               meta_for("Restitution", heure_locale(now).year, None, entite, user, now))
 
     # Marque les actifs rendus.
     for asset in assets:
