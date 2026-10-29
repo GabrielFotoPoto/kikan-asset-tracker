@@ -48,7 +48,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
           labels: |
             org.opencontainers.image.title=Kikan ${{ matrix.image }}
             org.opencontainers.image.licenses=GPL-3.0-or-later
@@ -75,6 +75,7 @@ jobs:
       - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
             Images Docker publiees (GitHub Container Registry) : `ghcr.io/${{ github.repository_owner }}/kikan-api`, `-web`, `-converter`, `-backup`.
 
