@@ -16,7 +16,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - Le serveur web retrouve l'API après sa recréation (résolution DNS à chaque requête) : plus de « 502 Bad Gateway » jusqu'à son redémarrage.
 
 ### Ajouté
-- **Jeu de données de démonstration** (`scripts/demo.sh charger | etat | effacer`) : groupe fictif, 52 salariés, 76 matériels, remises signées avec de vrais PDF
+- **Guides** : [guide d'installation](docs/INSTALLATION.md) (images publiées ou sources, configuration, HTTPS, sauvegarde, mise à jour, dépannage) et
+  [guide d'utilisation](docs/GUIDE-UTILISATEUR.md) (par rôle et par tâche, avec captures). Le jeu de démonstration gagne des cas pour la revue des accès
+  (accès de salariés sortis, application arrêtée) et une remise en attente de signature.
+- **Jeu de données de démonstration** (`scripts/demo.sh charger | etat | effacer`) : groupe fictif, 52 salariés, 77 matériels, remises signées avec de vrais PDF
   scellés, restitutions, besoins, départs, matériel non restitué ou à renouveler, salariés à purger. Refuse de se charger sur des données réelles ;
   l'effacement ne retire que ce qu'il a créé.
 - **Revue périodique des droits d'accès** (C2, ISO 27001 A.5.18) : page Revue des accès (anomalies, rapport « qui a accès à quoi » en Excel et CSV,
