@@ -1,5 +1,5 @@
 # Image de sauvegarde et de restauration de Kikan : pg_dump et pg_restore 16 (comme la base), age (chiffrement), SMB (smbprotocol).
-FROM postgres:16
+FROM postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-venv age ca-certificates \
