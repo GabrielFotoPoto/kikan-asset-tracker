@@ -40,6 +40,7 @@ from ..models import (
     User,
 )
 from ..pdf_template import load_template
+from ..docname import nom_document
 from ..pdfgen import build_receipt
 from ..signature_image import (
     HANDWRITTEN_REQUIRED,
@@ -256,7 +257,7 @@ def sign_assignment(
     empreinte = hashlib.sha256(sealed).hexdigest()
 
     # Rangement par annee (AAAA/...) sur le stockage actif (volume, partage SMB ou WebDAV).
-    reference = store_document(f"{now.year}/remise_{assignment_id}_{now:%Y%m%d%H%M%S}.pdf", sealed,
+    reference = store_document(nom_document(session, user, now), sealed,
                                meta_for("Remise", now.year, assignment_id, entite, user, now))
 
     signature = Signature(

@@ -33,7 +33,7 @@ aux champs de VOTRE armoire :
 | `annee` | année du document | non |
 | `numero` | numéro de la remise | non |
 | `entite` | nom de l'entité du salarié | non |
-| `cle` | clé de rangement Kikan (`2026/remise_12_...pdf`) | non |
+| `cle` | clé de rangement Kikan sans nom ni prénom (`2026/2026_11_02_GCH_003.pdf`) | non |
 | `date` | date de signature | non |
 | `matricule` | matricule du salarié | **oui** |
 | `salarie` | prénom et nom du salarié | **oui** |

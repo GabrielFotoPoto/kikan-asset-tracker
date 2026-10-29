@@ -26,7 +26,12 @@ import ConfirmButton from "../components/ConfirmButton.jsx";
 
 // Le depart (en_depart, sorti) se declare depuis la page Sorties, avec restitution du materiel.
 const STATUTS = ["prevu", "actif"];
-const empty = { matricule: "", nom: "", prenom: "", entite_id: "", service: "", email: "", statut: "actif", date_arrivee: "", date_sortie: "" };
+const empty = { matricule: "", acronyme: "", nom: "", prenom: "", entite_id: "", service: "", email: "", statut: "actif", date_arrivee: "", date_sortie: "" };
+
+// Acronyme propose (comme le serveur) : initiale du prenom + 2 premieres lettres du nom, sans accent.
+const lettres = (v) => (v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z]/g, "");
+const acronymePropose = (prenom, nom) => (lettres(prenom).slice(0, 1) + lettres(nom).slice(0, 2)).padEnd(3, "X").slice(0, 3);
+const cle = (v) => (v || "").trim().toLowerCase();
 
 export default function Users() {
   const { user } = useAuth();
@@ -55,7 +60,7 @@ export default function Users() {
   const startEdit = (u) => {
     setEditing(u);
     setForm({
-      matricule: u.matricule || "", nom: u.nom, prenom: u.prenom, entite_id: u.entite_id ?? "",
+      matricule: u.matricule || "", acronyme: u.acronyme || "", nom: u.nom, prenom: u.prenom, entite_id: u.entite_id ?? "",
       service: u.service || "", email: u.email || "", statut: u.statut,
       date_arrivee: u.date_arrivee || "", date_sortie: u.date_sortie || "",
     });
@@ -74,6 +79,7 @@ export default function Users() {
       date_arrivee: form.date_arrivee || null,
       date_sortie: form.date_sortie || null,
       matricule: form.matricule || null,
+      acronyme: form.acronyme || null,
       service: form.service || null,
       email: form.email || null,
     };
@@ -83,6 +89,8 @@ export default function Users() {
         cancel();
         setMsg(`Fiche de ${form.prenom} ${form.nom} modifiee.`);
       } else {
+        const homonyme = items.find((u) => cle(u.nom) === cle(form.nom) && cle(u.prenom) === cle(form.prenom));
+        if (homonyme && !window.confirm(`Un salarie ${homonyme.prenom} ${homonyme.nom} existe deja (${entiteNom(homonyme.entite_id)}). Creer quand meme ? (homonyme : pensez a differencier l'acronyme)`)) return;
         const created = await api.post("/users", payload);
         const failed = [];
         for (const type of besoins) {
@@ -117,6 +125,10 @@ export default function Users() {
         <h3>{editing ? `Modifier : ${editing.prenom} ${editing.nom}` : "Ajouter (formulaire d'entree)"}</h3>
         <form className="grid" onSubmit={submit}>
           <label>Matricule<input value={form.matricule} onChange={(e) => setForm({ ...form, matricule: e.target.value })} /></label>
+          <label>Acronyme (3 lettres)
+            <input value={form.acronyme} maxLength={3} placeholder={acronymePropose(form.prenom, form.nom)}
+                   onChange={(e) => setForm({ ...form, acronyme: e.target.value.toUpperCase() })} />
+          </label>
           <label>Nom<input value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} required /></label>
           <label>Prenom<input value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} required /></label>
           <label>E-mail<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>

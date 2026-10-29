@@ -19,7 +19,7 @@ from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Optional
 
-from pydantic import NaiveDatetime
+from pydantic import NaiveDatetime, field_validator
 from sqlalchemy import Index, func, literal_column, text
 from sqlmodel import JSON, Column, Field, SQLModel
 
@@ -76,11 +76,19 @@ class UserBase(SQLModel):
     statut: EmployeeStatus = EmployeeStatus.actif
     date_arrivee: Optional[date] = None
     date_sortie: Optional[date] = None
+    acronyme: Optional[str] = None    # 3 lettres (nom des PDF scelles) ; propose a partir du prenom et du nom, modifiable
+
+    @field_validator("acronyme", mode="before")
+    @classmethod
+    def _acronyme(cls, v):
+        from .docname import normaliser_acronyme
+        return normaliser_acronyme(v)
 
 
 class User(UserBase, table=True):
     __tablename__ = "users"
     id: Optional[int] = Field(default=None, primary_key=True)
+    compteur_documents: int = 0       # numero du dernier document scelle de ce salarie (jamais reutilise)
     cree_le: NaiveDatetime = Field(default_factory=utcnow)
     maj_le: NaiveDatetime = Field(default_factory=utcnow)
 
