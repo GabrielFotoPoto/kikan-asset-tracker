@@ -49,7 +49,7 @@ export default function Besoins() {
     const q = new URLSearchParams();
     if (filtre) q.set("statut", filtre);
     if (forUser) q.set("user_id", forUser);
-    const [b, u, t] = await Promise.all([api.get("/besoins?" + q), api.get("/users"), api.get("/assets/catalogue/types")]);
+    const [b, u, t] = await Promise.all([api.get("/besoins?" + q), api.get("/users"), api.get("/besoins/categories")]);
     setItems(b); setUsers(u); setTypes(t);
   };
   useEffect(() => { load().catch((e) => setErr(errorText(e))); }, [filtre, forUser]);

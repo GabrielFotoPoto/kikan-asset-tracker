@@ -24,6 +24,7 @@ import Glpi from "./Glpi.jsx";
 
 const TABS = [
   ["types", "Types d'actifs"],
+  ["categories-besoin", "Categories de besoin"],
   ["services", "Services"],
   ["marques", "Marques et modeles"],
   ["mail", "E-mails"],
@@ -765,6 +766,10 @@ export default function Parametres() {
       {tab === "types" && (
         <ListEditor kind="types" label="Type" setErr={setErr} setMsg={setMsg}
           help="Types proposes dans le formulaire materiel. La liste s'enrichit aussi a la saisie et a l'import ; renommer un type met a jour tout le materiel concerne." />
+      )}
+      {tab === "categories-besoin" && (
+        <ListEditor kind="categories-besoin" label="Categorie" setErr={setErr} setMsg={setMsg}
+          help="Cases a cocher du formulaire d'entree et de la page Besoins. Une categorie decrit un usage (ex. PC portable avec pave numerique, Smartphone Apple), jamais une marque ni un modele : l'informatique choisit le materiel precis a la remise. Desactiver une categorie la retire des choix sans toucher aux besoins existants." />
       )}
       {tab === "services" && (
         <ListEditor kind="services" label="Service" setErr={setErr} setMsg={setMsg}

@@ -32,7 +32,7 @@ from sqlmodel import Session, select
 from ..audit import audit
 from ..auth import get_current_account, writer_guard
 from ..db import get_session
-from ..models import Account, AssetType, Besoin, Role, User
+from ..models import Account, Besoin, BesoinCategorie, Role, User
 from ..scope import Scope, scope_dep, visible_user
 
 router = APIRouter(
@@ -92,10 +92,10 @@ class StatutIn(BaseModel):
 
 
 def known_type(session: Session, nom: str) -> str:
-    """Nom canonique d'un type existant (liste Parametrage) : les RH ne creent pas de types."""
-    found = session.exec(select(AssetType).where(func.lower(AssetType.nom) == nom.lower(), AssetType.actif == True)).first()  # noqa: E712
+    """Nom canonique d'une categorie de besoin active (liste Parametrage) : les RH ne creent pas de categories."""
+    found = session.exec(select(BesoinCategorie).where(func.lower(BesoinCategorie.nom) == nom.lower(), BesoinCategorie.actif == True)).first()  # noqa: E712
     if not found:
-        raise HTTPException(400, "Type de materiel inconnu : choisissez un type de la liste")
+        raise HTTPException(400, "Categorie de besoin inconnue : choisissez une categorie de la liste")
     return found.nom
 
 
@@ -118,6 +118,13 @@ def _visible(session: Session, scope: Scope, besoin_id: int) -> Besoin:
     if not b or not user or not scope.allows(user.entite_id):
         raise HTTPException(404, "Besoin introuvable")
     return b
+
+
+@router.get("/categories", response_model=list[str])
+def categories(session: Session = Depends(get_session)):
+    """Categories de besoin actives, pour les cases a cocher et les menus (RH et informatique)."""
+    rows = session.exec(select(BesoinCategorie.nom).where(BesoinCategorie.actif == True)).all()  # noqa: E712
+    return sorted(rows, key=str.lower)
 
 
 @router.get("")

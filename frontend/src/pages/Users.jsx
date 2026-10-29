@@ -45,7 +45,7 @@ export default function Users() {
 
   const load = () => api.get("/users" + (q ? `?q=${encodeURIComponent(q)}` : "")).then(setItems).catch((e) => setErr(errorText(e)));
   useEffect(() => { api.get("/entites").then(setEntites); }, []);
-  useEffect(() => { api.get("/assets/catalogue/types").then(setTypes).catch(() => {}); }, []);
+  useEffect(() => { api.get("/besoins/categories").then(setTypes).catch(() => {}); }, []);
   useEffect(() => { api.get("/users/catalogue/services").then(setServices).catch(() => {}); }, [items]);
   useEffect(() => { load(); }, [q]);
 

@@ -205,6 +205,18 @@ class AssetType(SQLModel, table=True):
     actif: bool = True
 
 
+class BesoinCategorie(SQLModel, table=True):
+    """Categorie de besoin (liste de parametrage, geree par l'informatique) : ce que les RH cochent a l'arrivee d'un salarie.
+
+    Une categorie decrit un usage (ex. "PC portable avec pave numerique", "Smartphone Apple"), jamais une marque ni un modele :
+    l'informatique choisit le materiel precis, selon le stock, au moment de la remise."""
+    __tablename__ = "besoin_categories"
+    __table_args__ = (Index("uq_besoin_categories_nom_lower", func.lower(literal_column("nom")), unique=True),)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    nom: str = Field(index=True)
+    actif: bool = True
+
+
 class Service(SQLModel, table=True):
     """Service ou departement (liste globale de parametrage)."""
     __tablename__ = "services"
