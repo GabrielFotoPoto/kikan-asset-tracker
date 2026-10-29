@@ -6,6 +6,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Modifié
+- **Session du navigateur dans un cookie `HttpOnly`** au lieu de `localStorage` : un script injecté (XSS) ne peut plus lire le jeton. Cookie
+  `SameSite=Strict` (et `Secure` en HTTPS), limité à `/api`, plus en-tête `X-Kikan-Request` exigé sur les requêtes qui modifient (CSRF). Nouvelle
+  route `POST /auth/logout` qui efface le cookie. Le jeton `Authorization: Bearer` reste accepté pour les scripts, et `/auth/login` le renvoie
+  toujours dans sa réponse. Les utilisateurs devront se reconnecter une fois après la mise à jour. Nouvelle suite `tests/session_cookie_check.py`.
 - **Les tests ne touchent plus à votre instance** : `tests/run_all.sh` crée sa propre pile (projet Docker `kiktest`, conteneurs, volumes, réseau et
   port 8081 propres, secrets repris de `.env` sans le reste). Avant, le nettoyage des tests effaçait les réglages d'e-mails et de GLPI de la base de
   développement. Noms de conteneurs et port de l'API réglables (`KIKAN_PREFIX`, `KIKAN_API_PORT`).

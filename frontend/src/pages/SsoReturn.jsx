@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { api, errorText, setToken } from "../api.js";
+import { api, errorText, setSession } from "../api.js";
 
 // Retour de Microsoft 365 : le ticket a usage unique (dans l'adresse) est echange contre la session.
 export default function SsoReturn({ onLogin }) {
@@ -33,7 +33,7 @@ export default function SsoReturn({ onLogin }) {
     if (!ticket) { setErr("Connexion Microsoft 365 incomplete."); return; }
     api.post("/auth/sso/exchange", { ticket })
       .then((res) => {
-        setToken(res.access_token);
+        setSession(true);
         window.history.replaceState(null, "", "/");
         onLogin({ username: res.username, role: res.role, mustChange: false });
       })

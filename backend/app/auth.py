@@ -25,7 +25,7 @@ import time
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -41,6 +41,15 @@ IS_PROD = ENV == "production"
 ALGO = "HS256"
 TOKEN_TTL_MIN = int(os.environ.get("KIKAN_TOKEN_TTL_MIN", "240"))
 MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+# Session du navigateur : jeton dans un cookie HttpOnly (illisible par le JavaScript, donc non volable par XSS).
+# Le cookie est envoye automatiquement, d'ou deux protections contre le CSRF : SameSite=Strict et un en-tete
+# personnalise obligatoire sur toute requete qui modifie (un site tiers ne peut pas l'ajouter sans autorisation CORS).
+# Un jeton passe en "Authorization: Bearer" (scripts, tests) reste accepte et n'exige pas cet en-tete.
+SESSION_COOKIE = "kikan_session"
+SESSION_COOKIE_PATH = "/api"  # le front joint l'API par /api (Nginx) ; le cookie ne part pas vers les fichiers statiques
+CSRF_HEADER = "x-kikan-request"
 MIN_PASSWORD_LEN = 12
 MAX_PASSWORD_BYTES = 72  # limite de bcrypt
 
@@ -170,9 +179,21 @@ def create_access_token(username: str, role: str, epoch: int = 0) -> str:
     return jwt.encode(payload, SECRET, algorithm=ALGO)
 
 
+def set_session_cookie(request: Request, response: Response, token: str) -> None:
+    secure = IS_PROD or request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+    response.set_cookie(SESSION_COOKIE, token, max_age=_ttl_minutes() * 60, httponly=True, secure=secure,
+                        samesite="strict", path=SESSION_COOKIE_PATH)
+
+
+def clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(SESSION_COOKIE, path=SESSION_COOKIE_PATH, httponly=True, samesite="strict")
+
+
 def actor_from_request(request: Request) -> str:
     """Identifiant de l'appelant (sans acces base) pour le journal d'audit."""
     header = request.headers.get("authorization", "")
+    if not header and request.cookies.get(SESSION_COOKIE):
+        header = "bearer " + request.cookies[SESSION_COOKIE]
     if header.lower().startswith("bearer kik_"):
         return "api"  # jeton d'integration : le nom du jeton est ajoute au journal par l'API elle-meme
     if header.lower().startswith("bearer "):
@@ -202,10 +223,17 @@ def get_current_account(
     cred: HTTPAuthorizationCredentials | None = Depends(_bearer),
     session: Session = Depends(get_session),
 ) -> Account:
-    if cred is None:
+    token = cred.credentials if cred is not None else None
+    from_cookie = False
+    if token is None:
+        token = request.cookies.get(SESSION_COOKIE)
+        from_cookie = token is not None
+    if token is None:
         raise HTTPException(401, "Authentification requise", headers={"WWW-Authenticate": "Bearer"})
+    if from_cookie and request.method not in SAFE_METHODS and request.headers.get(CSRF_HEADER) != "1":
+        raise HTTPException(403, "En-tete anti-CSRF manquant")
     try:
-        payload = jwt.decode(cred.credentials, SECRET, algorithms=[ALGO])
+        payload = jwt.decode(token, SECRET, algorithms=[ALGO])
     except jwt.PyJWTError:
         raise HTTPException(401, "Token invalide ou expire", headers={"WWW-Authenticate": "Bearer"})
     account = session.exec(

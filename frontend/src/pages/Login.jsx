@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { api, errorText, setToken } from "../api.js";
+import { api, errorText, setSession } from "../api.js";
 
 // Motifs de refus renvoyes par la connexion Microsoft 365 (?sso_erreur=...).
 const SSO_ERRORS = {
@@ -61,7 +61,7 @@ export default function Login({ onLogin }) {
     setBusy(true);
     try {
       const res = await api.post("/auth/login", { username, password });
-      setToken(res.access_token);
+      setSession(true);
       onLogin({ username: res.username, role: res.role, mustChange: res.must_change_password });
     } catch (ex) {
       setErr(errorText(ex));

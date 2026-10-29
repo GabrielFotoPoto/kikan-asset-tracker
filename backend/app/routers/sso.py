@@ -31,7 +31,7 @@ from sqlmodel import Session, select
 
 from .. import appsettings, sso, sso_policy
 from ..audit import audit
-from ..auth import client_ip, create_access_token, hash_password, login_limiter, require_roles
+from ..auth import client_ip, create_access_token, hash_password, login_limiter, require_roles, set_session_cookie
 from ..db import get_session
 from ..models import Account, AccountScope, Role
 from .auth import USERNAME_RE, TokenResponse
@@ -181,7 +181,7 @@ class Ticket(BaseModel):
 
 
 @router.post("/exchange", response_model=TokenResponse)
-def exchange(data: Ticket, request: Request, session: Session = Depends(get_session)):
+def exchange(data: Ticket, request: Request, response: Response, session: Session = Depends(get_session)):
     """Echange le ticket a usage unique (60 s) contre la session Kikan."""
     ip = client_ip(request)
     if login_limiter.retry_after(ip, "sso-ticket"):
@@ -191,8 +191,10 @@ def exchange(data: Ticket, request: Request, session: Session = Depends(get_sess
     if not account or not account.actif:
         login_limiter.fail(ip, "sso-ticket")
         raise HTTPException(401, "Ticket invalide ou expire")
-    return TokenResponse(access_token=create_access_token(account.username, account.role.value, account.token_epoch),
-                         username=account.username, role=account.role.value, must_change_password=False)
+    token = create_access_token(account.username, account.role.value, account.token_epoch)
+    set_session_cookie(request, response, token)
+    return TokenResponse(access_token=token, username=account.username, role=account.role.value,
+                         must_change_password=False)
 
 
 # --- Administration (informatique) ---
