@@ -16,6 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import hashlib
+import re
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -310,5 +311,8 @@ def get_document(assignment_id: int, type: str = Query("remise", pattern="^(remi
     if sig.empreinte_doc and sha256_hex(data) != sig.empreinte_doc:
         audit("systeme", "document_altere", target=sig.ged_reference, status=500)
         raise HTTPException(500, "Integrite du document non verifiee (empreinte differente)")
+    # Nom propose au telechargement : celui du fichier range (AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf), sinon l'ancien nom.
+    stored = sig.ged_reference.rsplit("/", 1)[-1]
+    filename = stored if re.fullmatch(r"[A-Za-z0-9_.\-]+\.pdf", stored) else f"{type}_{assignment_id}.pdf"
     return Response(content=data, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="{type}_{assignment_id}.pdf"'})
+                    headers={"Content-Disposition": f'inline; filename="{filename}"'})

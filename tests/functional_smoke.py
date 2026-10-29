@@ -138,6 +138,10 @@ NOM_RE = _re.compile(r"^(local|smb|webdav):(\d{4})/(\d{4})_(\d{2})_(\d{2})_FONCT
 m1 = NOM_RE.match(sig["ged_reference"])
 show("nom du PDF : AAAA_MM_JJ_NOM_PRENOM_ACR_NNN, dossier de l'annee", bool(m1) and m1.group(2) == m1.group(3), sig["ged_reference"])
 show("premier document du salarie : numero 001", bool(m1) and m1.group(6) == "001", sig["ged_reference"])
+req = urllib.request.Request(B + f"/assignments/{asg['id']}/document", headers={"Authorization": "Bearer " + T})
+with urllib.request.urlopen(req) as resp:
+    cd = resp.headers.get("Content-Disposition", "")
+show("le telechargement propose le nom du fichier range", bool(m1) and cd.endswith('filename="%s"' % sig["ged_reference"].rsplit("/", 1)[-1]), cd)
 s, a1b = j("GET", f"/assets/{a1['id']}")
 show("l'actif est passe en 'affecte'", a1b.get("statut") == "affecte")
 
