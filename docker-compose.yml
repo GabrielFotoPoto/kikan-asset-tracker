@@ -91,7 +91,7 @@ services:
       KIKAN_DOCUWARE_FIELDS: ${KIKAN_DOCUWARE_FIELDS:-}
       KIKAN_DOCUWARE_CA_BUNDLE: ${KIKAN_DOCUWARE_CA_BUNDLE:-}
       KIKAN_DOCUWARE_PROXY: ${KIKAN_DOCUWARE_PROXY:-}
-      # KIKAN_TSA_URL: https://freetsa.org/tsr   # optionnel : horodatage PAdES-B-T
+      KIKAN_TSA_URL: ${KIKAN_TSA_URL:-}   # optionnel : horodatage RFC 3161 des PDF scelles (PAdES-B-T)
     # Acces direct a l'API reserve a la machine locale (dev, tests).
     ports:
       - "127.0.0.1:${KIKAN_API_PORT:-8080}:8000"
