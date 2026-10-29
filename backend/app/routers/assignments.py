@@ -295,6 +295,10 @@ def get_document(assignment_id: int, type: str = Query("remise", pattern="^(remi
     sigs = session.exec(select(Signature).where(Signature.assignment_id == assignment_id).order_by(Signature.id)).all()
 
     def kind(sig):
+        # Le type est dans le faisceau de preuves ; l'ancien nom de fichier (restitution_...) ne sert que de repli.
+        known = (sig.audit_json or {}).get("type")
+        if known in ("remise", "restitution"):
+            return known
         name = (sig.ged_reference or "").rsplit("/", 1)[-1]
         return "restitution" if name.startswith("restitution_") else "remise"
 
