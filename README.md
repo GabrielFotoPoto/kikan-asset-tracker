@@ -16,7 +16,7 @@ et A.5.18 (droits d'accès).
 
 ## Fonctionnalités
 
-La version publiée est la **0.2.0** ; les fonctions marquées *(prochaine version)* sont déjà dans `main` et seront publiées avec la 0.3.0.
+La version publiée est la **0.3.0** (historique dans le [CHANGELOG](CHANGELOG.md)).
 
 **Cycle de vie du matériel et des salariés**
 - **Cycle de vie du salarié** : formulaire d'entrée (RH) avec les **besoins de matériel** à cocher, départ avec liste automatique du matériel à récupérer et rappels, passage en « sorti » une fois tout rendu.
@@ -24,26 +24,26 @@ La version publiée est la **0.2.0** ; les fonctions marquées *(prochaine versi
 - **Remise signée** : accusé PDF (matériel + charte informatique annexée), **signature manuscrite sur tablette**, puis **scellement PAdES** (certificat de l'organisation, horodatage RFC 3161 optionnel). Document infalsifiable et vérifiable ; nom de fichier lisible et sans hasard (`AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf`).
 - **Restitution signée** (A.5.11), avec la même signature, conduite par l'informatique ou les RH.
 - **Accès applicatifs** (A.5.18) : catalogue d'applications, attribution par salarié avec précision de niveau.
-- **Revue périodique des droits d'accès** *(prochaine version)* : anomalies (accès d'un salarié sorti, application désactivée), rapport « qui a accès à quoi », campagnes de validation par les RH, clôture avec **rapport PDF scellé**, suivi des retraits : voir [docs/REVUE-ACCES.md](docs/REVUE-ACCES.md).
+- **Revue périodique des droits d'accès** : anomalies (accès d'un salarié sorti, application désactivée), rapport « qui a accès à quoi », campagnes de validation par les RH, clôture avec **rapport PDF scellé**, suivi des retraits : voir [docs/REVUE-ACCES.md](docs/REVUE-ACCES.md).
 
 **Organisation et comptes**
 - **Multi-entités / filiales** : salariés, matériel et applications rattachés à une entité ; comptes RH et lecture **cloisonnés par entité** (sous-entités comprises), comptes informatique globaux.
-- **Authentification** : rôles informatique, RH et lecture ; connexion **Microsoft 365** (option) avec comptes de secours ; **mot de passe oublié** par e-mail ; limitation des tentatives ; session en **cookie HttpOnly** *(prochaine version)*.
+- **Authentification** : rôles informatique, RH et lecture ; connexion **Microsoft 365** (option) avec comptes de secours ; **mot de passe oublié** par e-mail ; limitation des tentatives ; session en **cookie HttpOnly**.
 
 **Reprise, échanges et intégrations**
-- **Import CSV et Excel** de l'existant (entités, applications, salariés, matériel, affectations, accès), simulation, rapport par ligne, import « tout ou rien » et **annulation d'un import** *(prochaine version)*.
+- **Import CSV et Excel** de l'existant (entités, applications, salariés, matériel, affectations, accès), simulation, rapport par ligne, import « tout ou rien » et **annulation d'un import**.
 - **Connecteur GLPI** (import sur sélection, export des salariés et du matériel avec numéros de série) et **API d'import par jetons**.
 - **Stockage des PDF scellés** : volume local, partage **SMB**, **WebDAV**, **SharePoint Online** ou **DocuWare**, avec vérification d'empreinte.
 
 **Pilotage et conformité**
 - **Reporting** « qui détient quoi » à l'instant T, export **CSV, Excel et PDF** ; **statistiques** de parc (modèles, répartition, renouvellements à venir).
 - **Rappels et rapport mensuel par e-mail** (renouvellements, départs, matériel non restitué, besoins, purge, revue des accès), selon le périmètre de chacun.
-- **Rétention RGPD** *(évolution à paraître)* : durée de conservation et délai de grace **réglables**, purge par l'informatique, quarantaine des PDF du partage avant suppression et liste pour la GED : voir [docs/RGPD.md](docs/RGPD.md).
+- **Rétention RGPD** : durée de conservation et délai de grace **réglables**, purge par l'informatique, quarantaine des PDF du partage avant suppression et liste pour la GED : voir [docs/RGPD.md](docs/RGPD.md).
 - **Journal d'audit** de toutes les écritures et des refus d'accès, sans donnée personnelle superflue.
 - **Sauvegarde chiffrée** nocturne (base, PDF scellés, clés, certificat) et restauration testée : voir [docs/SAUVEGARDE.md](docs/SAUVEGARDE.md).
 
 **Pour démarrer et évaluer**
-- **Jeu de données de démonstration** *(prochaine version)* (`scripts/demo.sh`), **guides** d'[installation](docs/INSTALLATION.md) et d'[utilisation](docs/GUIDE-UTILISATEUR.md), scan de sécurité du code (`scripts/securite_scan.sh`) et intégration continue.
+- **Jeu de données de démonstration** (`scripts/demo.sh`), **guides** d'[installation](docs/INSTALLATION.md) et d'[utilisation](docs/GUIDE-UTILISATEUR.md), scan de sécurité du code (`scripts/securite_scan.sh`) et intégration continue.
 
 ## Documentation
 
