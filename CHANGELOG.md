@@ -19,6 +19,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - **Jeu de données de démonstration** (`scripts/demo.sh charger | etat | effacer`) : groupe fictif, 52 salariés, 76 matériels, remises signées avec de vrais PDF
   scellés, restitutions, besoins, départs, matériel non restitué ou à renouveler, salariés à purger. Refuse de se charger sur des données réelles ;
   l'effacement ne retire que ce qu'il a créé.
+- **Revue périodique des droits d'accès** (C2, ISO 27001 A.5.18) : page Revue des accès (anomalies, rapport « qui a accès à quoi » en Excel et CSV,
+  campagnes à la demande décidées par les RH dans leur périmètre et l'informatique), clôture avec rapport PDF scellé, accès retirés passés à non,
+  suivi des retraits dans les applications, rappels par e-mail, anomalies sur le tableau de bord. Migration 0016.
 - **Annulation d'un import** (A3b) : chaque import réel de la page Import est un lot ; le bouton *Annuler cet import* supprime ce qu'il a créé,
   tout ou rien, et seulement si rien n'en dépend (salarié avec matériel, accès ou besoins, actif remis, entité utilisée, remise signée ou
   restituée, lien GLPI) ; le refus indique ce qui bloque. Migration 0015.
