@@ -135,7 +135,7 @@ except Exception as exc:  # noqa: BLE001
     show("lecture de la signature PAdES", False, str(exc)[:80])
 s, lst = j("GET", f"/assignments?user_id={u['id']}")
 mine = next((x for x in lst if x["id"] == asg["id"]), {})
-show("la liste des affectations donne l'heure de signature", s == 200 and mine.get("date_signature"), mine)
+show("la liste des affectations donne l'heure de signature", s == 200 and mine.get("date_signature"), str(mine))
 
 # Date du nom de fichier : heure de Paris, changements d'heure compris (heures UTC naives du stockage).
 sys.path.insert(0, "/app")
@@ -148,7 +148,7 @@ cas = [((2026, 1, 15, 23, 30), (2026, 1, 16, 0, 30)),     # hiver : UTC+1, la da
        ((2026, 10, 25, 0, 30), (2026, 10, 25, 2, 30)),    # avant le retour a l'heure d'hiver
        ((2026, 10, 25, 1, 30), (2026, 10, 25, 2, 30))]    # apres : 01:30 UTC = 02:30 a Paris
 show("heure de Paris avec changements d'heure", all(heure_locale(_dt(*a)) == _dt(*b) for a, b in cas),
-     [(a, heure_locale(_dt(*a)).isoformat()) for a, b in cas if heure_locale(_dt(*a)) != _dt(*b)])
+     str([(a, heure_locale(_dt(*a)).isoformat()) for a, b in cas if heure_locale(_dt(*a)) != _dt(*b)]))
 
 import re as _re
 NOM_RE = _re.compile(r"^(local|smb|webdav):(\d{4})/(\d{4})_(\d{2})_(\d{2})_FONCTIONNEL_TEST_TFO_(\d{3})\.pdf$")
