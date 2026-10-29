@@ -172,6 +172,8 @@ docker compose -f tests/storage-test-servers.yml down -v
 # Verrous contre la double signature / double affectation / double restitution, et purge RGPD (quarantaine, GED, rappels)
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/verrous_check.py
 docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/purge_check.py
+# Annulation d'un import (lots, garde-fous, ordre inverse)
+docker exec -i -e TEST_ADMIN_USER=admin -e TEST_ADMIN_PASSWORD='...' kikan-api python - < tests/import_annulation_check.py
 
 # Schéma de la base : aucune dérive entre le modèle et les migrations
 docker compose exec api alembic check

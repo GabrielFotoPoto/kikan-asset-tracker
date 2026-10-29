@@ -339,6 +339,14 @@ ignoré, ce qui permet de rejouer un fichier sans doublon. Format : UTF-8 ou Win
 `;` ou `,` (détectés), dates `AAAA-MM-JJ`, booléens `oui/non`. Ordre conseillé : entités, applications, utilisateurs,
 matériel, affectations, accès. Plafonds : `KIKAN_MAX_IMPORT_MB` (5 Mo), `KIKAN_MAX_IMPORT_ROWS` (20 000 lignes).
 Chaque simulation et chaque import sont tracés dans le journal d'audit (type, compteurs, empreinte, sans contenu).
+**Annuler un import** : chaque import réel est enregistré comme un lot (carte *Imports réalisés*, bouton *Annuler cet import*). L'annulation supprime
+ce que l'import a créé, **tout ou rien**, et seulement si rien n'en dépend : salarié avec du matériel, des accès ou des besoins, actif remis, entité
+utilisée par d'autres fiches, remise déjà signée ou restituée, élément lié à GLPI. Le refus indique ce qui bloque. Les actifs d'un import d'affectations
+reprennent leur statut d'avant. Les imports de l'API et de GLPI ne sont pas concernés.
+
+![Page Import : imports réalisés et bouton d'annulation](docs/captures/import-annulation.png)
+
+*Capture réalisée avec des données de démonstration.*
 **Excel (.xlsx)** : la page Import accepte aussi un classeur, avec le même parcours (simulation, tout ou rien,
 empreinte). Première feuille visible, en-têtes en ligne 1, lignes vides ignorées (les numéros de ligne du rapport restent ceux
 du classeur), dates Excel et nombres convertis (un matricule 1001 reste « 1001 »). Les formules ne sont jamais évaluées : on lit
@@ -481,7 +489,7 @@ docker-compose.yml
 Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1 est livrée.
 
 - **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
-  chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), modification et suppression dans l'interface (A4, **fait**), interface de
+  chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), annulation d'un import (A3b, **fait**), modification et suppression dans l'interface (A4, **fait**), interface de
   paramétrage (A5, **fait**), gestion des comptes (A6, **fait**), accès applicatifs dans le document de remise (A7, **fait**), autocomplétion des
   modèles (A8, **fait**).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1, **fait**, à valider sur votre tenant), comptes cloisonnés par
