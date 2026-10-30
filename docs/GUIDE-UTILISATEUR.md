@@ -124,6 +124,7 @@ propres à une entité. Une application sans accès peut être supprimée ; sino
 |---|---|
 | **Rapports** | la photo des **détentions à l'instant T** (qui détient quoi), filtrable par entité et service, exportable en **CSV, Excel ou PDF** |
 | **Statistiques** | répartition du parc par entité, service, modèle ; **renouvellements à venir** ; filtres par **entité** et par **période** (mouvements remis, restitués, achetés) ; export **CSV, Excel et PDF** |
+| **Prévisions** | **échéances de renouvellement** et **budget estimé** par mois, année, type et entité, sur la période de votre choix (12 mois par défaut) ; export **CSV, Excel et PDF** (section 6.2) |
 | **Revue des accès** | anomalies d'accès, rapport « qui a accès à quoi » et **campagnes de revue** (section 6.1) |
 | **À propos** (lien en bas du menu, tous les comptes) | version de Kikan et date de publication, licence, auteur, composants et licences tierces |
 | **Journal d'audit** (informatique) | qui a fait quoi et quand : connexions, écritures, refus. Jamais de mot de passe ni de contenu personnel inutile |
@@ -143,6 +144,19 @@ Exigence de revue périodique de l'ISO 27001 (A.5.18). Voir le détail dans [REV
 4. **Clôturer** (informatique) une fois tout décidé : les accès « à retirer » passent à « non » dans Kikan, un **rapport PDF scellé** est enregistré, et les retraits deviennent des tâches.
 5. **Retraits à confirmer** : Kikan est un registre ; une fois le droit retiré dans l'application concernée, l'informatique le confirme.
 
+### 6.2 Prévisions de renouvellement et budget
+
+La page **Prévisions** répond à « combien faudra-t-il prévoir, et quand ? ».
+
+1. **Choisir** l'entité (ses sous-entités sont comprises) et la période des échéances. Sans choix : du mois en cours aux 12 mois suivants.
+2. **Lire** le budget estimé, le nombre de matériels à renouveler, puis le détail par **mois**, **année**, **type** et **entité**.
+3. **Exporter** en CSV, Excel (les montants restent des nombres, additionnables) ou PDF.
+
+Le budget est la somme des **coûts de remplacement** des matériels dont l'échéance de renouvellement tombe dans la période (matériel réformé exclu). Ces coûts
+sont saisis par l'informatique dans **Paramétrage, Coûts de remplacement** : un montant par type, et si besoin une exception pour un modèle précis (marque et modèle).
+Un matériel **sans coût** n'est pas dans le total : la page indique combien ils sont, pour que le budget ne paraisse pas plus bas qu'il ne l'est. Les **échéances déjà
+dépassées** avant la période (matériel non renouvelé) sont signalées à part. Aucune donnée de salarié n'apparaît dans cette page.
+
 ## 7. Administration (informatique)
 
 | Page | Pour quoi faire |
@@ -150,7 +164,7 @@ Exigence de revue périodique de l'ISO 27001 (A.5.18). Voir le détail dans [REV
 | **Entités** | le groupe et ses filiales (parent, activation). Une entité utilisée se désactive, elle ne se supprime pas |
 | **Chartes** | déposer la charte (Word, PDF ou Markdown), globale ou par entité. Une nouvelle version **archive** l'ancienne ; les documents déjà signés ne changent pas |
 | **Import** | reprise de l'existant par **CSV ou Excel**, dans l'ordre : entités, applications, salariés, matériel, affectations, accès. Toujours **simulation d'abord**, puis import réel « tout ou rien ». Un import réalisé peut être **annulé** tant que rien de ce qu'il a créé n'est utilisé |
-| **Paramétrage** | types et services, catégories de besoin, fusion des marques et modèles, **modèle de PDF** (logo, mentions), **E-mails** (SMTP, rappels, rapport mensuel), **intégrations** (jetons d'API, GLPI), connexion Microsoft 365 |
+| **Paramétrage** | types et services, catégories de besoin, **coûts de remplacement** (budget des prévisions), fusion des marques et modèles, **modèle de PDF** (logo, mentions), **E-mails** (SMTP, rappels, rapport mensuel), **intégrations** (jetons d'API, GLPI), connexion Microsoft 365 |
 | **Comptes** | créer des comptes nominatifs, choisir le rôle et le **périmètre** (RH, lecture), réinitialiser un mot de passe, désactiver |
 | **Stockage** | où sont rangés les PDF scellés ; test de connexion ; copie vers un nouveau moteur |
 | **Sauvegarde** | état de la dernière sauvegarde chiffrée ; l'alerte du tableau de bord |
@@ -190,7 +204,8 @@ Chaque personne ne reçoit que ce qui concerne son périmètre.
 | déclarer un départ | Sorties, Déclarer un départ | RH, informatique |
 | récupérer le matériel d'un partant | Sorties, Restituer et signer | RH, informatique |
 | savoir qui détient quoi aujourd'hui | Rapports | tous |
-| connaître les matériels à renouveler | Statistiques (12 mois) ou rappels e-mail | informatique |
+| connaître les matériels à renouveler | Statistiques, Prévisions ou rappels e-mail | informatique |
+| chiffrer le budget de renouvellement | Prévisions (coûts à renseigner dans Paramétrage, Coûts de remplacement) | tous (coûts : informatique) |
 | donner ou retirer un accès applicatif | Accès applicatifs | RH, informatique |
 | repérer les accès à retirer | Revue des accès, onglet Anomalies | tous |
 | reprendre mon parc existant | Import (simulation puis import réel) | informatique |
