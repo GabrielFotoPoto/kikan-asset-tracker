@@ -6,13 +6,15 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Mise à jour depuis 0.3.3
-- La migration 0019 (échange de matériel) s'applique seule au démarrage de l'API : type d'affectation, **date de retour par actif**, retours d'échange. Les affectations déjà clôturées reçoivent la date de leur clôture comme date de retour.
+- Les migrations 0019 (échange de matériel : type d'affectation, **date de retour par actif**, retours d'échange) et 0020 (historique des reports d'échéance) s'appliquent seules au démarrage de l'API. Les affectations déjà clôturées reçoivent la date de leur clôture comme date de retour.
 
 ### Ajouté
 - **Renouvellement du matériel d'un salarié en poste (échange)**, réservé à l'informatique : remise du nouveau matériel et restitution de l'ancien **en une seule opération, avec un seul document signé et scellé** (« Accusé d'échange de matériel », un seul numéro). Page `/renouveler` (boutons **Renouveler** sur la page Matériel et sur la page Utilisateurs), signature en une fois sur la tablette (rien ne change avant la signature), **devenir de l'ancien matériel choisi** (rendu, retour en stock, à réformer), **charte annexée au choix** (décochée par défaut), besoins ouverts soldés, motif facultatif, renouvellement **partiel** possible. `POST /assignments/echange`, `GET /assignments/echange/recap`, `GET /assignments/detenteur/{id}`, document `?type=echange`. Nouvelle suite `tests/echange_check.py`.
 - La liste des remises affiche le type **échange** et le matériel restitué.
+- **Page « Renouvellements »** (informatique) : matériel en stock ou affecté dont l'échéance est dépassée ou proche (horizon : dépassée seulement, 1, 3, 6 ou 12 mois ; filtre d'entité), avec **détenteur**, situation et dernier report ; boutons **Renouveler** et **Reporter**. **Report ou avancement de l'échéance** (ou « aucun renouvellement prévu ») avec **motif facultatif** et historique (`GET /renouvellements`, `POST /renouvellements/{id}/reporter`). Tuile « Échéances de renouvellement dépassées » du tableau de bord. Nouvelle suite `tests/renouvellements_check.py`.
 
 ### Modifié
+- Un matériel **rendu ou réformé n'est plus à renouveler** : il sort des prévisions, des rappels e-mail et des statistiques d'échéances (un matériel remplacé n'était jusqu'ici plus compté qu'une fois réformé).
 - Une restitution est enregistrée **par actif** (date de retour) : les statistiques de mouvements comptent désormais chaque restitution à sa date, y compris pour les restitutions partielles et les échanges ; une affectation ne se clôture que lorsque tout son matériel est parti.
 - La resynchronisation du stockage reconnaît le type de document (remise, restitution, échange) d'après ses preuves, et non plus d'après le nom du fichier.
 

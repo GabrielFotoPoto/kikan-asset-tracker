@@ -20,6 +20,7 @@ DELETE FROM assignment_assets WHERE assignment_id IN (SELECT id FROM ta);
 DELETE FROM assignments WHERE id IN (SELECT id FROM ta);
 DELETE FROM user_applications WHERE user_id IN (SELECT id FROM tu);
 DELETE FROM users WHERE id IN (SELECT id FROM tu);
+DELETE FROM echeance_reports WHERE asset_id IN (SELECT id FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%');
 DELETE FROM echange_retours WHERE asset_id IN (SELECT id FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%');
 DELETE FROM assignment_assets WHERE asset_id IN (SELECT id FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%');
 DELETE FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%';

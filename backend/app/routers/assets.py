@@ -24,7 +24,7 @@ from ..auth import get_current_account, writer_guard
 from ..asset_catalog import AssetCatalog
 from ..catalogs import canonical_type
 from ..db import get_session
-from ..models import Account, Asset, AssetBase, AssetStatus, AssetType, AssignmentAsset, Entite
+from ..models import Account, Asset, AssetBase, AssetStatus, AssetType, AssignmentAsset, EcheanceReport, Entite
 from ..scope import Scope, scope_dep
 from ..rules import audit_change, changed_fields, count, refuse_delete, taken
 
@@ -159,5 +159,8 @@ def delete_asset(asset_id: int, session: Session = Depends(get_session)):
         {"affectation(s)": count(session, AssignmentAsset, AssignmentAsset.asset_id == obj.id)},
         "Un actif deja remis se conserve : passez-le au statut reforme.",
     )
+    for report in session.exec(select(EcheanceReport).where(EcheanceReport.asset_id == obj.id)).all():
+        session.delete(report)   # l'historique des reports d'echeance d'un actif jamais remis part avec lui
+    session.flush()
     session.delete(obj)
     session.commit()

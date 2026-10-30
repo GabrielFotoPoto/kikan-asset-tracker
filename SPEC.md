@@ -120,6 +120,7 @@ Ce qui fait la valeur de preuve :
 > (assignment_id, asset_id, **date_retour**). Un même actif a un historique d'affectations. La **date de retour est portée par chaque actif** :
 > une affectation ne se clôture que lorsque tout son matériel est parti (restitution partielle ou échange partiel).
 > `echange_retours` (assignment_id, asset_id, destination) rattache à l'échange l'ancien matériel restitué et son devenir (`rendu`, `stock`, `reforme`).
+> `echeance_reports` (asset_id, ancienne, nouvelle, motif, par, le) conserve l'**historique des reports** d'échéance de renouvellement (le motif y reste, jamais dans le journal d'audit).
 
 ### 4.4 `signatures` (preuves de signature)
 | champ | type | note |
@@ -281,6 +282,11 @@ sur la tablette.
   entièrement restituées sont clôturées, les autres restent ouvertes (échange partiel).
 - **Preuves** : type `echange` dans le faisceau de preuves (matériel remis et restitué, devenirs, affectations clôturées, témoin, IP, empreintes du modèle de PDF, de la charte et des accès).
 - Statistiques de mouvements : une restitution est comptée **par actif**, à sa date de retour (restitution classique et échange).
+- **Page « Renouvellements »** (informatique, `/renouvellements`) : matériel **en stock ou affecté** dont l'échéance est dépassée ou tombe dans l'horizon choisi (dépassée seulement,
+  1, 3, 6 ou 12 mois ; filtre d'entité), avec détenteur, situation (*en retard*, *ce mois-ci*, *à venir*) et dernier report ; actions **Renouveler** (échange) et **Reporter**.
+- **Report d'échéance** : nouvelle date (aujourd'hui ou plus tard : report **ou avancement**), ou *aucun renouvellement prévu* ; **motif facultatif** ; historique conservé ; trace dans le journal
+  par les dates seulement. Impossible pour un matériel rendu ou réformé.
+- Un matériel **rendu ou réformé n'est plus à renouveler** : il sort des prévisions, des rappels, des statistiques d'échéances et de la page Renouvellements.
 
 ### 6.3 Départ d'un employé (RH → informatique)
 1. Les **RH** recherchent/sélectionnent le salarié et fixent sa **date de sortie**
@@ -502,7 +508,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | C3 | **Prévision des renouvellements** avec budget estimé. **Fait (2026-10-30)** : coût de remplacement par type (exception par modèle) saisi par l'informatique dans le Paramétrage (migration 0017) ; page Prévisions par mois, année, type et entité sur une période au choix (12 mois par défaut), échéances dépassées signalées, matériel sans coût compté à part ; filtre d'entité dans la portée du compte ; export CSV, Excel et PDF ; aucune donnée de salarié | Prop. |
 | C4 | **Étiquettes et QR codes** sur le matériel, recherche par scan | Prop. |
 | C5 | **Pièces jointes** au matériel (facture, garantie) | Prop. |
-| C6 | **Renouvellement du matériel d'un salarié en poste (échange)** : remise du nouveau matériel et restitution de l'ancien en un seul document signé (§6.2bis). **Lot 1 fait (2026-10-30)** : opération d'échange (API, document, signature tablette), devenir de l'ancien matériel, charte au choix, date de retour par actif (migration 0019), boutons *Renouveler* ; **lot 2 à faire** : page « Renouvellements » (en retard, à venir), report d'échéance avec motif facultatif, prévisions et rappels sans le matériel rendu | Prop. |
+| C6 | **Renouvellement du matériel d'un salarié en poste (échange)** : remise du nouveau matériel et restitution de l'ancien en un seul document signé (§6.2bis). **Fait (2026-10-30), lots 1 et 2** : opération d'échange (API, document, signature tablette), devenir de l'ancien matériel choisi, charte au choix, date de retour par actif (migration 0019), boutons *Renouveler* ; page **Renouvellements** (en retard, à venir, détenteur), **report d'échéance** avec motif facultatif et historique (migration 0020), tuile du tableau de bord, prévisions, rappels et statistiques sans le matériel rendu ou réformé | Prop. |
 
 ### v0.4 - montée en échelle
 

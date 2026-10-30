@@ -52,6 +52,7 @@ from .routers import (
     parametres,
     policies,
     previsions,
+    renouvellements,
     reports,
     sso,
     revues,
@@ -165,6 +166,7 @@ app.include_router(user_apps.router)
 app.include_router(stats.router)
 app.include_router(branding.router)
 app.include_router(previsions.router)
+app.include_router(renouvellements.router)
 app.include_router(apropos.router)
 app.include_router(audit_log.router)
 app.include_router(storage_admin.router)

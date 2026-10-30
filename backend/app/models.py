@@ -166,6 +166,18 @@ class AssignmentAsset(SQLModel, table=True):
     date_retour: Optional[NaiveDatetime] = None   # restitution de cet actif (l'affectation, elle, ne se cloture que lorsque tout est rendu)
 
 
+class EcheanceReport(SQLModel, table=True):
+    """Historique des reports (ou avancements) d'echeance de renouvellement d'un materiel : l'informatique decide quand renouveler."""
+    __tablename__ = "echeance_reports"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    asset_id: int = Field(foreign_key="assets.id", index=True)
+    ancienne: Optional[date] = None
+    nouvelle: Optional[date] = None   # vide : plus de renouvellement prevu
+    motif: Optional[str] = None
+    par: Optional[str] = None
+    le: NaiveDatetime = Field(default_factory=utcnow)
+
+
 class EchangeRetour(SQLModel, table=True):
     """Materiel ancien restitue lors d'un echange (renouvellement) : rattache a l'affectation de l'echange, avec son devenir."""
     __tablename__ = "echange_retours"

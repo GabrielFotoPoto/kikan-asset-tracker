@@ -105,7 +105,8 @@ def calculer(session: Session, scope: Scope, entite_id: int | None = None,
             "id": a.id, "identifiant_interne": a.identifiant_interne,
             "type": a.type, "marque": a.marque, "modele": a.modele,
             "echeance": str(a.echeance_renouvellement),
-        } for a in assets if a.echeance_renouvellement and debut <= a.echeance_renouvellement <= fin]
+        } for a in assets if a.echeance_renouvellement and debut <= a.echeance_renouvellement <= fin
+            and a.statut in (AssetStatus.stock, AssetStatus.affecte)]   # le materiel rendu ou reforme n'est plus a renouveler
         return sorted(items, key=lambda r: r["echeance"])
 
     renouv = echeances(today, today + timedelta(days=365))
