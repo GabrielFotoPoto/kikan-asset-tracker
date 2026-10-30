@@ -43,6 +43,7 @@ from .models import (
 )
 from .pdf_template import footer_callback, header_flowables, load_template, mentions_flowables
 from .scope import GLOBAL, Scope, expand_scope
+from .theme import BLEU_MARQUE
 from .signing import seal_pdf
 
 DECISIONS = ("a_traiter", "maintenu", "a_retirer")
@@ -193,7 +194,7 @@ def _rapport_pdf(session: Session, revue: RevueAcces, lignes: list[RevueLigne], 
                      l.decide_par or "-", f"{l.decide_le:%d/%m/%Y}" if l.decide_le else "-", Paragraph((l.commentaire or "-")[:120], petit)])
     table = Table(data, repeatRows=1, colWidths=[24 * mm, 38 * mm, 32 * mm, 36 * mm, 22 * mm, 24 * mm, 20 * mm, 70 * mm])
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b4c7e")), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(BLEU_MARQUE)), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.4, colors.grey), ("FONTSIZE", (0, 0), (-1, -1), 7), ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef2f7")]),
     ]))

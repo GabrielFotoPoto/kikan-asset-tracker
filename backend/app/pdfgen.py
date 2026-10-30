@@ -36,6 +36,7 @@ from reportlab.platypus import (
 )
 
 from .pdf_template import footer_callback, header_flowables, mentions_flowables
+from .theme import BLEU_MARQUE
 
 
 def build_receipt(
@@ -82,7 +83,7 @@ def build_receipt(
         ])
     table = Table(data, repeatRows=1)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b4c7e")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(BLEU_MARQUE)),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
@@ -100,7 +101,7 @@ def build_receipt(
             rows = [rows[0]] + [[Paragraph(escape(c), cell) for c in r] for r in rows[1:]]
             acc_table = Table(rows, repeatRows=1, colWidths=[70 * mm, 95 * mm], hAlign="LEFT")
             acc_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b4c7e")),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(BLEU_MARQUE)),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
                 ("FONTSIZE", (0, 0), (-1, 0), 9),
