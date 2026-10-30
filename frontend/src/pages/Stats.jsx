@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { api } from "../api.js";
+import { api, downloadFile } from "../api.js";
 
 function Bars({ items, label, value }) {
   const max = Math.max(1, ...items.map((i) => i[value]));
@@ -44,20 +44,91 @@ function Bars({ items, label, value }) {
 export default function Stats() {
   const [s, setS] = useState(null);
   const [err, setErr] = useState(null);
-  useEffect(() => { api.get("/stats").then(setS).catch((e) => setErr(e.message)); }, []);
+  const [entites, setEntites] = useState([]);
+  const [entiteId, setEntiteId] = useState("");
+  const [du, setDu] = useState("");
+  const [au, setAu] = useState("");
 
-  if (err) return <div><h2>Statistiques</h2><p className="err">{err}</p></div>;
-  if (!s) return <div><h2>Statistiques</h2><p className="muted">Chargement...</p></div>;
+  const query = (fmt) => {
+    const p = new URLSearchParams({ format: fmt });
+    if (entiteId) p.set("entite_id", entiteId);
+    if (du) p.set("du", du);
+    if (au) p.set("au", au);
+    return `/stats?${p}`;
+  };
+  useEffect(() => { api.get("/entites").then(setEntites).catch(() => {}); }, []);
+  useEffect(() => {
+    setErr(null);
+    api.get(query("json")).then(setS).catch((e) => setErr(e.message));
+  }, [entiteId, du, au]);
+
+  const dl = async (fmt) => {
+    setErr(null);
+    try { await downloadFile(query(fmt), `kikan-statistiques.${fmt}`); } catch (e) { setErr(e.message); }
+  };
+
+  const filtres = (
+    <div className="card">
+      <div className="row">
+        <label>Filiale / entite (sous-entites incluses)
+          <select value={entiteId} onChange={(e) => setEntiteId(e.target.value)}>
+            <option value="">toutes</option>
+            {entites.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+          </select>
+        </label>
+        <label>Periode : du
+          <input type="date" value={du} max={au || undefined} onChange={(e) => setDu(e.target.value)} />
+        </label>
+        <label>au
+          <input type="date" value={au} min={du || undefined} onChange={(e) => setAu(e.target.value)} />
+        </label>
+        {(du || au) && <button onClick={() => { setDu(""); setAu(""); }}>Effacer la periode</button>}
+        <button onClick={() => dl("csv")}>Exporter CSV</button>
+        <button onClick={() => dl("xlsx")}>Exporter Excel</button>
+        <button onClick={() => dl("pdf")}>Exporter PDF</button>
+      </div>
+      <p className="muted">
+        Les repartitions decrivent le parc a ce jour ; la periode porte sur les mouvements (remises, restitutions, achats)
+        et sur la fenetre des renouvellements (sans periode : 12 mois a partir d'aujourd'hui).
+      </p>
+    </div>
+  );
+
+  if (!s) return (
+    <div><h2>Statistiques</h2>{filtres}
+      {err ? <p className="err">{err}</p> : <p className="muted">Chargement...</p>}</div>
+  );
+  const ren = s.renouvellements;
+  const mv = s.mouvements;
 
   return (
     <div>
       <h2>Statistiques du parc</h2>
+      {err && <p className="err">{err}</p>}
+      {filtres}
       <div className="tiles">
         <div className="card tile"><div className="n">{s.actifs_total}</div><div className="l">Actifs au total</div></div>
         <div className="card tile"><div className="n">{s.taux_equipement.pourcentage}%</div><div className="l">Salaries actifs equipes</div></div>
         <div className="card tile"><div className="n">{s.age_moyen_annees ?? "-"}</div><div className="l">Age moyen du parc (ans)</div></div>
-        <div className="card tile"><div className="n">{s.renouvellements_12m.count}</div><div className="l">Renouvellements sous 12 mois</div></div>
+        <div className="card tile"><div className="n">{ren.count}</div><div className="l">Renouvellements du {ren.du} au {ren.au}</div></div>
       </div>
+
+      {mv && (
+        <div className="card">
+          <h3>Mouvements de la periode</h3>
+          <p>{mv.remis} materiel(s) remis - {mv.restitues} restitue(s) - {mv.achetes} achete(s)</p>
+          {mv.par_mois.length > 0 && (
+            <table>
+              <thead><tr><th>Mois</th><th>Remis</th><th>Restitues</th><th>Achetes</th></tr></thead>
+              <tbody>
+                {mv.par_mois.map((m) => (
+                  <tr key={m.mois}><td>{m.mois}</td><td>{m.remis}</td><td>{m.restitues}</td><td>{m.achetes}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       <div className="card">
         <h3>Modeles les plus distribues</h3>
@@ -78,12 +149,12 @@ export default function Stats() {
       </div>
 
       <div className="card">
-        <h3>Renouvellements a venir (12 mois)</h3>
-        {s.renouvellements_12m.count === 0 ? <p className="muted">Aucun.</p> : (
+        <h3>Renouvellements du {ren.du} au {ren.au}</h3>
+        {ren.count === 0 ? <p className="muted">Aucun.</p> : (
           <table>
             <thead><tr><th>Id interne</th><th>Type</th><th>Marque</th><th>Modele</th><th>Echeance</th></tr></thead>
             <tbody>
-              {s.renouvellements_12m.items.map((r) => (
+              {ren.items.map((r) => (
                 <tr key={r.id}>
                   <td>{r.identifiant_interne || "-"}</td><td>{r.type}</td>
                   <td>{r.marque}</td><td>{r.modele}</td><td>{r.echeance}</td>
