@@ -123,7 +123,7 @@ propres à une entité. Une application sans accès peut être supprimée ; sino
 | Page | Pour quoi faire |
 |---|---|
 | **Rapports** | la photo des **détentions à l'instant T** (qui détient quoi), filtrable par entité et service, exportable en **CSV, Excel ou PDF** |
-| **Statistiques** | répartition du parc par entité, service, modèle ; **renouvellements à venir** ; filtres par **entité** et par **période** (mouvements remis, restitués, achetés) ; export **CSV, Excel et PDF** |
+| **Statistiques** | répartition du parc par entité, service, modèle ; **renouvellements à venir** ; filtres par **entité** et par **période** (mouvements remis, restitués, achetés) ; export **CSV, Excel et PDF** (section 6.3) |
 | **Prévisions** | **échéances de renouvellement** et **budget estimé** par mois, année, type et entité, sur la période de votre choix (12 mois par défaut) ; export **CSV, Excel et PDF** (section 6.2) |
 | **Revue des accès** | anomalies d'accès, rapport « qui a accès à quoi » et **campagnes de revue** (section 6.1) |
 | **À propos** (lien en bas du menu, tous les comptes) | version de Kikan et date de publication, licence, auteur, composants et licences tierces |
@@ -148,6 +148,8 @@ Exigence de revue périodique de l'ISO 27001 (A.5.18). Voir le détail dans [REV
 
 La page **Prévisions** répond à « combien faudra-t-il prévoir, et quand ? ».
 
+![Prévisions de renouvellement](captures/previsions.png)
+
 1. **Choisir** l'entité (ses sous-entités sont comprises) et la période des échéances. Sans choix : du mois en cours aux 12 mois suivants.
 2. **Lire** le budget estimé, le nombre de matériels à renouveler, puis le détail par **mois**, **année**, **type** et **entité**.
 3. **Exporter** en CSV, Excel (les montants restent des nombres, additionnables) ou PDF.
@@ -156,6 +158,24 @@ Le budget est la somme des **coûts de remplacement** des matériels dont l'éch
 sont saisis par l'informatique dans **Paramétrage, Coûts de remplacement** : un montant par type, et si besoin une exception pour un modèle précis (marque et modèle).
 Un matériel **sans coût** n'est pas dans le total : la page indique combien ils sont, pour que le budget ne paraisse pas plus bas qu'il ne l'est. Les **échéances déjà
 dépassées** avant la période (matériel non renouvelé) sont signalées à part. Aucune donnée de salarié n'apparaît dans cette page.
+
+![Coûts de remplacement dans le Paramétrage](captures/couts-remplacement.png)
+
+### 6.3 Statistiques : filtrer et exporter
+
+Sur la page **Statistiques**, choisissez une **entité** (ses sous-entités sont comprises) et, si vous le souhaitez, une **période**. Les répartitions (modèles, entités, services,
+âge moyen) décrivent toujours le parc **à ce jour** ; la période sert aux **mouvements** (matériels remis, restitués et achetés, mois par mois) et à la fenêtre des
+renouvellements. Les boutons **Exporter CSV, Excel ou PDF** reprennent ce qui est affiché. Un compte limité à certaines entités ne voit et n'exporte que son périmètre.
+
+![Statistiques filtrées par période](captures/statistiques-filtres.png)
+
+### 6.4 À propos
+
+Le lien **À propos**, en bas du menu, donne la **version** de Kikan et sa date de publication (avec un lien vers les notes de la version), la **licence** (GPL v3), l'auteur, le lien
+du code source et du signalement d'un problème, ainsi que les **composants** utilisés avec leur version et leur licence. Une installation construite en local indique « version de
+développement » : le numéro n'est renseigné que sur les images publiées. Utile pour un signalement ou avant une mise à jour.
+
+![Page À propos](captures/a-propos.png)
 
 ## 7. Administration (informatique)
 

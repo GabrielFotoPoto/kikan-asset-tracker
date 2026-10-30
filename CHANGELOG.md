@@ -5,7 +5,11 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
-### Mise à jour depuis 0.3.x
+## [0.3.1] - 2026-10-30
+
+Statistiques exportables, prévisions de renouvellement avec budget estimé et page « À propos ».
+
+### Mise à jour depuis 0.3.0
 - La migration 0017 (coûts de remplacement) s'applique seule au démarrage de l'API. Sans coût renseigné, la page Prévisions affiche un budget à zéro et le nombre de
   matériels « sans estimation » : renseignez les coûts dans **Paramétrage, Coûts de remplacement**.
 
@@ -13,6 +17,11 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - **Prévisions de renouvellement** (C3) : page Prévisions avec **budget estimé** par mois, année civile, type et entité, sur une période au choix (12 mois par défaut, 60 mois au plus), filtre d'entité, échéances dépassées signalées, matériel sans coût compté à part, export **CSV, Excel et PDF** (`GET /previsions`). Les coûts de remplacement se saisissent par type, avec exception par modèle, dans **Paramétrage, Coûts de remplacement** (`/parametres/couts`, informatique). Aucune donnée de salarié. Nouvelle suite `tests/previsions_check.py`.
 - **Statistiques exportables** (C1) : filtres par entité (sous-entités incluses, dans la portée du compte) et par période, bloc « Mouvements de la période » (matériels remis, restitués et achetés, par mois), fenêtre des renouvellements réglable, export **CSV, Excel et PDF** (`GET /stats?format=csv|xlsx|pdf&entite_id=&du=&au=`). Nouvelle suite `tests/stats_check.py`.
 - **Page « À propos »** (lien en pied de menu, tous les comptes) : version et date de publication, notes de la version, licence GPL-3.0-or-later et auteur, liens vers le dépôt, composants principaux avec leur version installée et leur licence. Une image construite en local s'annonce « version de développement ». Nouvelle route `GET /apropos` ; la date de publication est transmise aux images par le workflow de publication (`KIKAN_RELEASE_DATE`). Nouvelle suite `tests/apropos_check.py`.
+
+### Modifié
+- Le filtre d'entité des statistiques et des prévisions est partagé (`scope.restreindre_entite`) ; `xlsx_io.build_table` accepte des colonnes de montants (nombres, additionnables dans Excel).
+- Page Prévisions : tableaux défilants dans leur carte sur petit écran ; champ « Montant » du Paramétrage plus large.
+- Le guide d'utilisation gagne des captures (statistiques, prévisions, coûts de remplacement, À propos) et deux sections (6.3 et 6.4).
 
 ## [0.3.0] - 2026-10-30
 

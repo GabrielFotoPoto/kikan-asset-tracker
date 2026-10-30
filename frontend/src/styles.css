@@ -144,3 +144,4 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .account .about-link { display: block; margin-top: 12px; font-size: 12px; opacity: 0.75; color: inherit; text-decoration: none; text-align: center; }
 .account .about-link:hover, .account .about-link.active { opacity: 1; text-decoration: underline; }
+.table-scroll { overflow-x: auto; }

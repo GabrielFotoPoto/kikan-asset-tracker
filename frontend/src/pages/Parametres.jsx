@@ -160,7 +160,7 @@ function Couts({ setErr, setMsg }) {
         </select>
         <input value={f.marque} maxLength={100} placeholder="Marque (exception)" onChange={(e) => setF({ ...f, marque: e.target.value })} />
         <input value={f.modele} maxLength={100} placeholder="Modele (exception)" onChange={(e) => setF({ ...f, modele: e.target.value })} />
-        <input type="number" min="0" max="1000000" step="0.01" value={f.montant} placeholder="Montant (EUR)" onChange={(e) => setF({ ...f, montant: e.target.value })} required />
+        <input type="number" min="0" max="1000000" step="0.01" style={{ minWidth: 150 }} value={f.montant} placeholder="Montant (EUR)" onChange={(e) => setF({ ...f, montant: e.target.value })} required />
         <button type="submit">Enregistrer</button>
       </form>
       {sansCout.length > 0 && (
