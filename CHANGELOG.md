@@ -5,6 +5,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **Icône de l'application** personnalisable (Paramétrage, onglet **Apparence**, informatique) : affichée dans le menu, sur la page de connexion et comme icône d'onglet. PNG ou JPEG (300 Ko, 1000 x 400 px au plus), vérifié par son contenu puis réécrit en PNG sans métadonnées ; jamais de SVG. Lecture publique limitée à cette image (`GET /api/branding`, `/api/branding/icone`) pour la page de connexion ; dépôt et suppression réservés à l'informatique et journalisés (empreinte seulement). Le nom « Kikan » reste celui du produit. Nouvelle suite `tests/branding_check.py`.
+- **Logo Kikan** : jeu de favicons par défaut (`frontend/public/` : `favicon.ico`, `favicon.svg`, icônes 192 et 512, `apple-touch-icon`, manifeste web), affiché dans le menu, sur la connexion et la page À propos tant qu'aucune icône n'est déposée ; l'icône personnalisée garde la priorité (onglet compris) et sa suppression rétablit le logo. Logo, README d'accueil soigné et image d'aperçu du dépôt (`docs/logo/kikan-social.png`, à téléverser dans les réglages GitHub) dans `docs/logo/`. Le manifeste web est servi en `application/manifest+json`.
+
 ## [0.3.1] - 2026-10-30
 
 Statistiques exportables, prévisions de renouvellement avec budget estimé et page « À propos ».

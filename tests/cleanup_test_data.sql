@@ -52,4 +52,5 @@ DELETE FROM revue_lignes;
 DELETE FROM revues_acces;
 DELETE FROM settings WHERE key IN ('retention_apres_sortie_mois', 'purge_delai_grace_jours');
 DELETE FROM settings WHERE key = 'remise_inclure_acces';
+DELETE FROM settings WHERE key = 'app_icone';
 COMMIT;

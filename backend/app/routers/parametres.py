@@ -35,6 +35,7 @@ from ..auth import get_current_account, require_roles
 from ..catalogs import MAX_NAME
 from ..db import get_session
 from ..filestore import active_name
+from .branding import ICON_KEY
 from ..models import Account, Asset, AssetType, Besoin, BesoinCategorie, CoutRemplacement, Service, Setting, User, utcnow
 from ..pdfgen import build_receipt
 from ..rules import audit_change, changed_fields, count, refuse_delete
@@ -321,6 +322,27 @@ def upload_logo(data: LogoIn, session: Session = Depends(get_session),
     audit(account.username, "parametrage", target="parametres/pdf",
           detail=f"logo : {meta['largeur']}x{meta['hauteur']} sha256={meta['sha256'][:12]}")
     return meta
+
+
+@router.put("/icone")
+def set_icone(data: LogoIn, session: Session = Depends(get_session), account: Account = Depends(get_current_account)):
+    """Icone de l'application (affichee sans connexion sur la page de connexion) : meme verification que le logo des PDF."""
+    try:
+        png, meta = pdf_template.sanitize_logo(data.image)
+    except pdf_template.LogoError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _set_setting(session, ICON_KEY, base64.b64encode(png).decode())
+    session.commit()
+    audit(account.username, "parametrage", target="parametres/icone",
+          detail=f"icone : {meta['largeur']}x{meta['hauteur']} sha256={meta['sha256'][:12]}")
+    return meta
+
+
+@router.delete("/icone", status_code=204)
+def delete_icone(session: Session = Depends(get_session), account: Account = Depends(get_current_account)):
+    _set_setting(session, ICON_KEY, None)
+    session.commit()
+    audit(account.username, "parametrage", target="parametres/icone", detail="icone supprimee")
 
 
 @router.get("/pdf/logo")
