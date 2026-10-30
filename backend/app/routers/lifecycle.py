@@ -187,11 +187,15 @@ def restituer(
     reference = store_document(nom_document(session, user, now), sealed,
                                meta_for("Restitution", heure_locale(now).year, None, entite, user, now))
 
-    # Marque les actifs rendus.
-    for asset in assets:
+    # Marque les actifs rendus, avec leur date de retour (par actif : l'affectation ne se cloture que si tout est rendu).
+    for asset, aid in held:
         asset.statut = AssetStatus.rendu
         asset.maj_le = now
         session.add(asset)
+        link = session.get(AssignmentAsset, (aid, asset.id))
+        if link is not None:
+            link.date_retour = now
+            session.add(link)
 
     # Cloture les affectations entierement restituees.
     for aid in assignment_ids:

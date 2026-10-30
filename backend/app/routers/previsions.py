@@ -94,7 +94,7 @@ def calculer(session: Session, scope: Scope, entite_id: int | None = None,
     entites = {e.id: e.nom for e in session.exec(select(Entite)).all()}
     index = _couts(session)
     actifs = [a for a in session.exec(scope.where(select(Asset), Asset.entite_id)).all()
-              if a.statut != AssetStatus.reforme and a.echeance_renouvellement]
+              if a.statut in (AssetStatus.stock, AssetStatus.affecte) and a.echeance_renouvellement]   # ni rendu, ni reforme
 
     def bloc() -> dict:
         return {"nombre": 0, "centimes": 0, "sans_estimation": 0}

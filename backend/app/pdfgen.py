@@ -54,6 +54,7 @@ def build_receipt(
     signed_at: datetime | None = None,
     template: dict | None = None,
     acces: list[dict] | None = None,
+    restitues: list[dict] | None = None,   # kind="echange" : materiel ancien restitue en meme temps
 ) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, title=title)
@@ -72,27 +73,37 @@ def build_receipt(
     story.append(Paragraph(f"Date : {(signed_at or datetime.utcnow()):%Y-%m-%d %H:%M} UTC", styles["Normal"]))
     story.append(Spacer(1, 6 * mm))
 
-    data = [["Type", "Marque", "Modele", "N de serie", "Id interne"]]
-    for a in assets:
-        data.append([
-            a.get("type") or "",
-            a.get("marque") or "",
-            a.get("modele") or "",
-            a.get("numero_serie") or "",
-            a.get("identifiant_interne") or "",
-        ])
-    table = Table(data, repeatRows=1)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(BLEU_MARQUE)),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef2f7")]),
-    ]))
-    story.append(table)
-    story.append(Spacer(1, 8 * mm))
+    def tableau_materiel(items: list[dict]) -> Table:
+        data = [["Type", "Marque", "Modele", "N de serie", "Id interne"]]
+        for a in items:
+            data.append([
+                a.get("type") or "",
+                a.get("marque") or "",
+                a.get("modele") or "",
+                a.get("numero_serie") or "",
+                a.get("identifiant_interne") or "",
+            ])
+        table = Table(data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(BLEU_MARQUE)),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef2f7")]),
+        ]))
+        return table
 
-    if acces is not None and kind == "remise":
+    echange = kind == "echange"
+    if echange:
+        story.append(Paragraph("Materiel remis", styles["Heading2"]))
+    story.append(tableau_materiel(assets))
+    story.append(Spacer(1, 8 * mm))
+    if echange:
+        story.append(Paragraph("Materiel restitue", styles["Heading2"]))
+        story.append(tableau_materiel(restitues or []))
+        story.append(Spacer(1, 8 * mm))
+
+    if acces is not None and kind in ("remise", "echange"):
         # Instantane des acces applicatifs accordes au moment de la signature.
         story.append(Paragraph("Acces applicatifs accordes", styles["Heading2"]))
         if acces:
@@ -119,20 +130,22 @@ def build_receipt(
                 story.append(Paragraph(escape(para), styles["Normal"]))
         story.append(Spacer(1, 8 * mm))
 
-    prise_connaissance = " et avoir pris connaissance des acces applicatifs qui m'ont ete accordes" if acces is not None and kind == "remise" else ""
+    prise_connaissance = " et avoir pris connaissance des acces applicatifs qui m'ont ete accordes" if acces is not None and kind in ("remise", "echange") else ""
+    recu = ("avoir recu le materiel remis et avoir restitue l'ancien materiel, tels qu'indiques ci-dessus" if echange
+            else "avoir recu le materiel ci-dessus")
     virgule = "," if prise_connaissance else ""
     if kind == "restitution":
         declaration = "Je reconnais avoir restitue le materiel ci-dessus."
     elif charte_info:
         declaration = (
-            "Je reconnais avoir recu le materiel ci-dessus" + prise_connaissance + virgule + " et accepte la charte informatique "
+            "Je reconnais " + recu + prise_connaissance + virgule + " et accepte la charte informatique "
             f"({charte_info['titre']}, version {charte_info['version']}, empreinte {charte_info['sha256'][:8]}), "
             f"jointe en annexe de ce document ({charte_info['nb_pages']} page(s))."
         )
     elif policy_text:
-        declaration = "Je reconnais avoir recu le materiel ci-dessus" + prise_connaissance + virgule + " et accepte la charte informatique."
+        declaration = "Je reconnais " + recu + prise_connaissance + virgule + " et accepte la charte informatique."
     else:
-        declaration = "Je reconnais avoir recu le materiel ci-dessus" + prise_connaissance + "."
+        declaration = "Je reconnais " + recu + prise_connaissance + "."
 
     # Bloc de signature : insecable (jamais coupe entre deux pages).
     block = [
