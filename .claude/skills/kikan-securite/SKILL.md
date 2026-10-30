@@ -48,7 +48,7 @@ Lire le diff (`git diff main...HEAD`, ou `git diff` si rien n'est commité) et v
 - **Cloisonnement par entité** : les comptes `rh` et `lecture` peuvent être limités à des entités. Chaque lecture ou écriture passe par
   `scope_dep` / `visible_user` / `visible_assignment` ; hors périmètre, la réponse est **404** (pas 403, pour ne pas révéler l'existence).
   Le rôle `informatique` est toujours global.
-- Les routes publiques sont l'exception (`/health`, connexion, mot de passe oublié, configuration SSO) et ne renvoient aucun secret.
+- Les routes publiques sont l'exception (`/health`, connexion, mot de passe oublié, configuration SSO, `/branding`) et ne renvoient aucun secret.
 
 **Données personnelles et journal**
 - `audit(...)` ne reçoit **jamais** de nom, prénom, matricule, e-mail ni texte libre saisi par un utilisateur : seulement des identifiants

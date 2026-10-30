@@ -38,6 +38,7 @@ pour la pile de test.
   personne relit.
 - **Code security** : alertes Dependabot, mises à jour de sécurité Dependabot, *Secret scanning* avec *Push protection* (bloque l'envoi d'un secret) et
   *Private vulnerability reporting* (le signalement privé annoncé par `SECURITY.md`).
+- **Image d'aperçu du dépôt** (*Settings, General, Social preview*) : téléverser `docs/logo/kikan-social.png` (1280 x 640 px). GitHub ne permet pas de la poser par programme ; elle s'affiche dans les partages du lien du dépôt (messageries, réseaux sociaux). Pensez aussi à renseigner la description et les sujets (*topics*) du dépôt.
 - **Actions** : jeton des workflows en **lecture seule** par défaut (chaque workflow demande ce dont il a besoin) ; les workflows d'un contributeur extérieur à sa première
   contribution attendent l'**approbation d'un mainteneur** (bouton « Approuver et exécuter les workflows » en bas de la demande de fusion).
 - Toutes les actions des workflows sont **figées sur une empreinte de commit**, et le dépôt **l'exige** (*Actions, General, Require actions to be pinned to a full-length commit SHA*) :

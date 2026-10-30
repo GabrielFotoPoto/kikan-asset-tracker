@@ -1,6 +1,29 @@
-# Kikan
+<p align="center">
+  <img src="docs/logo/kikan.svg" alt="Logo Kikan" width="140" height="140">
+</p>
 
-[![CI](https://github.com/GabrielFotoPoto/kikan-asset-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielFotoPoto/kikan-asset-tracker/actions/workflows/ci.yml)
+<h1 align="center">Kikan</h1>
+
+<p align="center">
+  <b>機器管理</b> &middot; Suivi des actifs, remise et restitution de matériel <b>signées et scellées</b>
+</p>
+
+<p align="center">
+  <a href="https://github.com/GabrielFotoPoto/kikan-asset-tracker/actions/workflows/ci.yml"><img src="https://github.com/GabrielFotoPoto/kikan-asset-tracker/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/GabrielFotoPoto/kikan-asset-tracker/releases/latest"><img src="https://img.shields.io/github/v/release/GabrielFotoPoto/kikan-asset-tracker?color=1d428a&label=version" alt="Dernière version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-GPL--3.0--or--later-d86018" alt="Licence GPL v3"></a>
+  <img src="https://img.shields.io/badge/d%C3%A9ploiement-Docker%20%C2%B7%20on--premise-1d428a" alt="Déploiement Docker on-premise">
+</p>
+
+<p align="center">
+  <a href="docs/INSTALLATION.md">Installer</a> &middot;
+  <a href="docs/GUIDE-UTILISATEUR.md">Guide d'utilisation</a> &middot;
+  <a href="CHANGELOG.md">Journal des changements</a> &middot;
+  <a href="SPEC.md">Spécification</a> &middot;
+  <a href="SECURITY.md">Sécurité</a>
+</p>
+
+---
 
 **Kikan** (機器管理, *kiki-kanri*, « gestion des équipements ») est une application de
 **suivi des actifs** (PC, smartphones...) par utilisateur et par entité, avec **remise et
@@ -356,6 +379,7 @@ La page **Paramétrage** (informatique) regroupe :
   L'écran de signature affiche la même liste et en transmet l'empreinte : si les accès changent entre l'affichage et la
   signature, celle-ci est refusée (rechargement), de sorte que le salarié signe exactement ce qu'il a vu. Le nombre d'accès et
   l'empreinte de la liste sont enregistrés avec la signature. Sans effet sur la restitution.
+- **Apparence** : **icône de l'application** (PNG ou JPEG, 300 Ko, ré-encodée par le serveur) affichée dans le menu, sur la page de connexion et comme icône d'onglet ; sans icône déposée, le **logo Kikan** s'affiche. Elle est servie sans connexion (page de connexion) : n'y mettez rien de confidentiel.
 - **Modèle de PDF** : nom de l'organisation, **logo** (PNG ou JPEG, 300 Ko, 1000 x 400 px, ré-encodé par le serveur),
   mentions légales et pied de page, appliqués à l'accusé de remise, à l'accusé de restitution et au rapport PDF, avec un
   aperçu. Le modèle en vigueur est **figé dans chaque document signé** et son empreinte est enregistrée avec la
