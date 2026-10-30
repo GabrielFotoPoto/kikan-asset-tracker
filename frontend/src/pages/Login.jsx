@@ -34,7 +34,7 @@ const SSO_ERRORS = {
   trop_de_tentatives: "Trop de tentatives, reessayez dans quelques minutes.",
 };
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, icone }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState(null);
@@ -82,6 +82,7 @@ export default function Login({ onLogin }) {
   return (
     <div className="login-wrap">
       <div className="card login">
+        {icone && <img src={icone} alt="" style={{ width: 64, height: 64, objectFit: "contain", alignSelf: "flex-start" }} />}
         <h1 style={{ color: "var(--brand)", margin: "0 0 4px" }}>Kikan</h1>
         <p className="muted" style={{ marginTop: 0 }}>Suivi des actifs - connexion</p>
         {err && <p className="err">{err}</p>}

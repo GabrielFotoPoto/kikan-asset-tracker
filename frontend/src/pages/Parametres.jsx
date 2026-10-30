@@ -19,6 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { api, downloadFile, errorText, fetchDataUrl } from "../api.js";
+import { brandingChanged, iconUrl } from "../branding.js";
 import ConfirmButton from "../components/ConfirmButton.jsx";
 import Glpi from "./Glpi.jsx";
 
@@ -30,6 +31,7 @@ const TABS = [
   ["marques", "Marques et modeles"],
   ["mail", "E-mails"],
   ["integrations", "Integrations"],
+  ["apparence", "Apparence"],
   ["pdf", "Modele de PDF"],
   ["auth", "Authentification"],
   ["etat", "Etat du scellement"],
@@ -115,6 +117,64 @@ function ListEditor({ kind, label, help, setErr, setMsg }) {
 
 // Cle de rapprochement : "Dell", "DELL" et "dell." sont probablement la meme marque.
 const proche = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// Apparence : icone de l'application (menu, page de connexion, onglet du navigateur).
+function Apparence({ setErr, setMsg }) {
+  const [hash, setHash] = useState(null);
+  const load = () => api.get("/branding").then((b) => setHash(b.icone || null)).catch((e) => setErr(errorText(e)));
+  useEffect(() => { load(); }, []);
+  const url = iconUrl(hash);
+
+  const pick = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setErr(null); setMsg(null);
+    if (file.size > 300000) { setErr("Image trop volumineuse (300 Ko maximum)."); return; }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        await api.put("/parametres/icone", { image: reader.result });
+        setMsg("Icone enregistree.");
+        brandingChanged();
+        load();
+      } catch (ex) { setErr(errorText(ex)); }
+    };
+    reader.readAsDataURL(file);
+  };
+  const remove = async () => {
+    setErr(null); setMsg(null);
+    try { await api.del("/parametres/icone"); setMsg("Icone supprimee."); brandingChanged(); load(); } catch (ex) { setErr(errorText(ex)); }
+  };
+
+  return (
+    <div className="card">
+      <p className="muted" style={{ marginTop: 0 }}>
+        Icone de l'application : affichee a cote du nom dans le menu, au-dessus du formulaire de connexion et dans l'onglet du navigateur.
+        Image PNG ou JPEG, 300 Ko au plus, de preference carree (256 x 256 px conseille) avec un fond transparent. L'icone du menu est posee
+        sur un fond clair ; la page de connexion l'affiche sans connexion, ne mettez donc rien de confidentiel dans l'image.
+      </p>
+      <div className="row" style={{ alignItems: "center", marginBottom: 12 }}>
+        <input type="file" accept="image/png,image/jpeg" onChange={pick} />
+        {url && <ConfirmButton onConfirm={remove}>Supprimer l'icone</ConfirmButton>}
+      </div>
+      {url ? (
+        <div className="row" style={{ alignItems: "center", gap: 24 }}>
+          <div>
+            <div className="muted">Menu</div>
+            <div style={{ background: "var(--brand)", padding: 14, borderRadius: 8, display: "inline-flex", gap: 10, alignItems: "center", color: "#fff" }}>
+              <img className="brand-icon" src={url} alt="Icone actuelle dans le menu" /><b>Kikan</b>
+            </div>
+          </div>
+          <div>
+            <div className="muted">Connexion</div>
+            <img src={url} alt="Icone actuelle sur la page de connexion" style={{ width: 64, height: 64, objectFit: "contain", border: "1px solid #d7dde6", borderRadius: 8, background: "#fff" }} />
+          </div>
+        </div>
+      ) : <p className="muted">Aucune icone definie : l'application s'affiche avec son nom seul.</p>}
+    </div>
+  );
+}
 
 // Couts de remplacement estimes (previsions de renouvellement) : un montant par type, exception possible par modele.
 function Couts({ setErr, setMsg }) {
@@ -849,6 +909,7 @@ export default function Parametres() {
         <ListEditor kind="services" label="Service" setErr={setErr} setMsg={setMsg}
           help="Services proposes dans la fiche salarie (liste commune a toutes les entites). Renommer un service met a jour toutes les fiches concernees." />
       )}
+      {tab === "apparence" && <Apparence setErr={setErr} setMsg={setMsg} />}
       {tab === "couts" && <Couts setErr={setErr} setMsg={setMsg} />}
       {tab === "marques" && <MergeTool setErr={setErr} setMsg={setMsg} />}
       {tab === "pdf" && <PdfTemplate setErr={setErr} setMsg={setMsg} />}

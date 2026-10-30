@@ -172,7 +172,7 @@ Ce qui fait la valeur de preuve :
 
 ### 4.8 Tables de paramétrage
 - `couts_remplacement` : **coût de remplacement estimé** (C3) par type de matériel, avec exception possible pour un modèle précis (marque et modèle) ; montant en **centimes d'euro** (entier), clé unique insensible à la casse (type, marque, modèle) ; modifiable par l'informatique seule.
-- `asset_types` et `services` : listes de paramétrage (actif ou non), enrichies à la saisie et à l'import ; `settings` : modèle de PDF (organisation, mentions, pied de page, logo).
+- `asset_types` et `services` : listes de paramétrage (actif ou non), enrichies à la saisie et à l'import ; `settings` : modèle de PDF (organisation, mentions, pied de page, logo) et **icône de l'application** (`app_icone`, PNG réencodé).
 - `policies` : chartes d'usage **déposées en fichier** (PDF normalisé et fichier d'origine dans le stockage, empreintes SHA-256), portée (globale ou entité), version, statut active ou archivée ; une seule version active par portée.
 - `settings` : paramètres globaux (voir §8).
 - `accounts` : comptes applicatifs avec un **rôle** (voir §5bis). Les employés **ne se
@@ -327,6 +327,7 @@ Personnalisation maximale, sans toucher au code :
   accès dans le document de remise.
 - **Charte informatique** (texte, versions) - annexée au document de remise.
 - Modèle de PDF d'accusé (logo, mentions légales, pied de page).
+- **Apparence** : **icône de l'application** (menu, page de connexion, onglet du navigateur), déposée par l'informatique ; le nom « Kikan » reste celui du produit.
 - Certificat de scellement (auto-signé) et autorité de temps.
 - **Emplacement de dépôt des PDF** (local, lecteur réseau SMB, partage WebDAV), structure par année (`AAAA/`),
   état et test de connexion (page Stockage ; les identifiants restent dans l'environnement).
@@ -415,6 +416,9 @@ Points d'attention :
 Le détail des mesures, des risques acceptés et de la liste de contrôle de production figure dans
 `SECURITY.md`. Principes retenus :
 
+- **Icône publique** : `GET /branding` et `GET /branding/icone` sont lisibles **sans session** (la page de connexion n'en a pas) ; c'est la seule image servie
+  ainsi. Le dépôt est réservé à l'informatique, l'image est vérifiée par son contenu, bornée en taille et en dimensions, puis réécrite en PNG (aucune métadonnée, aucun SVG).
+
 - **Comptes nominatifs** (un par personne) ; authentification et rôles (§5ter). Cible : SSO
   **Microsoft 365 / Entra ID** (OIDC) avec rôles par groupes ; auth locale en secours/dev.
 - **Aucun secret par défaut** : clé de session et mot de passe initial aléatoires ; refus de démarrer
@@ -487,6 +491,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | D2 | **Interface multilingue** (français et anglais) | Prop. |
 | D3 | **API publique documentée** avec jetons d'accès | Prop. |
 | D4 | **Webhooks** vers des outils externes (par exemple n8n) | Prop. |
+| D5 | **Personnalisation de l'apparence** : icône de l'application (menu, page de connexion, favicon). **Fait (2026-10-30)** : dépôt PNG ou JPEG par l'informatique (Paramétrage, Apparence), image vérifiée et réécrite en PNG, lecture publique limitée à cette image, prévisualisation, suppression ; le nom de l'application reste « Kikan » | Prop. |
 
 ### Sécurité et exploitation (en continu)
 
@@ -504,6 +509,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 ## 14. Décisions
 
 **Tranchées :**
+- **Apparence** : seule l'**icône** est personnalisable (pas le nom du produit) ; PNG ou JPEG, même vérification que le logo des PDF ; servie sans session pour la page de connexion (§12).
 - **Budget de renouvellement** (C3) : coût de remplacement **par type** avec exception par modèle (pas de prix d'achat par matériel), saisi par l'informatique ; matériel sans coût compté à part ; devise unique (euro) (§10).
 - Nom : **Kikan** (機器管理).
 - Pile : **React + FastAPI (Python) + PostgreSQL** (§11).

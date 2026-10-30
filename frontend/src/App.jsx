@@ -42,6 +42,7 @@ import Revues from "./pages/Revues.jsx";
 import Acces from "./pages/Acces.jsx";
 import Stats from "./pages/Stats.jsx";
 import APropos from "./pages/APropos.jsx";
+import { useBranding } from "./branding.js";
 import Previsions from "./pages/Previsions.jsx";
 import Audit from "./pages/Audit.jsx";
 import Compte from "./pages/Compte.jsx";
@@ -53,6 +54,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
   const [portee, setPortee] = useState(null);
+  const icone = useBranding();
 
   useEffect(() => {
     const onUnauth = () => setUser(null);
@@ -80,7 +82,7 @@ export default function App() {
   if (!user) {
     if (window.location.pathname === "/sso") return <SsoReturn onLogin={setUser} />;
     if (window.location.pathname === "/reinitialisation") return <ResetPassword />;
-    return <Login onLogin={setUser} />;
+    return <Login onLogin={setUser} icone={icone} />;
   }
   if (user.mustChange) {
     return <ForcePassword user={user} onDone={() => setUser({ ...user, mustChange: false })} onLogout={logout} />;
@@ -90,8 +92,13 @@ export default function App() {
     <AuthContext.Provider value={{ user }}>
       <div className="layout">
         <aside className="sidebar">
-          <h1>Kikan</h1>
-          <div className="sub">Suivi des actifs</div>
+          <div className="brand">
+            {icone && <img className="brand-icon" src={icone} alt="" />}
+            <div>
+              <h1>Kikan</h1>
+              <div className="sub">Suivi des actifs</div>
+            </div>
+          </div>
           <nav>
             <NavLink to="/" end>Tableau de bord</NavLink>
             <NavLink to="/entites">Entites</NavLink>

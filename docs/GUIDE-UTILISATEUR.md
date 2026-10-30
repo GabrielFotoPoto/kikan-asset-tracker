@@ -184,7 +184,7 @@ développement » : le numéro n'est renseigné que sur les images publiées. Ut
 | **Entités** | le groupe et ses filiales (parent, activation). Une entité utilisée se désactive, elle ne se supprime pas |
 | **Chartes** | déposer la charte (Word, PDF ou Markdown), globale ou par entité. Une nouvelle version **archive** l'ancienne ; les documents déjà signés ne changent pas |
 | **Import** | reprise de l'existant par **CSV ou Excel**, dans l'ordre : entités, applications, salariés, matériel, affectations, accès. Toujours **simulation d'abord**, puis import réel « tout ou rien ». Un import réalisé peut être **annulé** tant que rien de ce qu'il a créé n'est utilisé |
-| **Paramétrage** | types et services, catégories de besoin, **coûts de remplacement** (budget des prévisions), fusion des marques et modèles, **modèle de PDF** (logo, mentions), **E-mails** (SMTP, rappels, rapport mensuel), **intégrations** (jetons d'API, GLPI), connexion Microsoft 365 |
+| **Paramétrage** | types et services, catégories de besoin, **coûts de remplacement** (budget des prévisions), **apparence** (icône de l'application), fusion des marques et modèles, **modèle de PDF** (logo, mentions), **E-mails** (SMTP, rappels, rapport mensuel), **intégrations** (jetons d'API, GLPI), connexion Microsoft 365 |
 | **Comptes** | créer des comptes nominatifs, choisir le rôle et le **périmètre** (RH, lecture), réinitialiser un mot de passe, désactiver |
 | **Stockage** | où sont rangés les PDF scellés ; test de connexion ; copie vers un nouveau moteur |
 | **Sauvegarde** | état de la dernière sauvegarde chiffrée ; l'alerte du tableau de bord |
@@ -212,6 +212,18 @@ Dans **Paramétrage, E-mails** : serveur SMTP, expéditeur, adresse de liste, **
 Chaque personne ne reçoit que ce qui concerne son périmètre.
 
 ![Réglages des e-mails](captures/emails-reglages.png)
+
+### 7.3 Personnaliser l'icône de l'application
+
+**Paramétrage, onglet Apparence** (informatique) : choisissez une image **PNG ou JPEG** (300 Ko au plus, de préférence carrée, 256 x 256 px conseillé, fond transparent). Kikan la vérifie et la
+réencode, puis l'affiche **à côté du nom dans le menu** (sur une pastille claire), **au-dessus de la connexion** et comme **icône de l'onglet** du navigateur. Les deux aperçus montrent le rendu
+avant de quitter la page. **Supprimer l'icône** revient à l'affichage par défaut. Le nom « Kikan » ne change pas.
+
+![Onglet Apparence](captures/icone-apparence.png)
+
+L'icône de la page de connexion est lisible **sans être connecté** : n'y mettez rien de confidentiel.
+
+![Page de connexion avec l'icône](captures/icone-connexion.png)
 
 ## 8. Je veux...
 

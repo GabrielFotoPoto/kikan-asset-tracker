@@ -356,6 +356,7 @@ La page **Paramétrage** (informatique) regroupe :
   L'écran de signature affiche la même liste et en transmet l'empreinte : si les accès changent entre l'affichage et la
   signature, celle-ci est refusée (rechargement), de sorte que le salarié signe exactement ce qu'il a vu. Le nombre d'accès et
   l'empreinte de la liste sont enregistrés avec la signature. Sans effet sur la restitution.
+- **Apparence** : **icône de l'application** (PNG ou JPEG, 300 Ko, ré-encodée par le serveur) affichée dans le menu, sur la page de connexion et comme icône d'onglet. Elle est servie sans connexion (page de connexion) : n'y mettez rien de confidentiel.
 - **Modèle de PDF** : nom de l'organisation, **logo** (PNG ou JPEG, 300 Ko, 1000 x 400 px, ré-encodé par le serveur),
   mentions légales et pied de page, appliqués à l'accusé de remise, à l'accusé de restitution et au rapport PDF, avec un
   aperçu. Le modèle en vigueur est **figé dans chaque document signé** et son empreinte est enregistrée avec la
