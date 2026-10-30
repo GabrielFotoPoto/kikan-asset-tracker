@@ -39,7 +39,7 @@ et A.5.18 (droits d'accès).
 
 ## Fonctionnalités
 
-La version publiée est la **0.3.1** (historique dans le [CHANGELOG](CHANGELOG.md)).
+La version publiée est la **0.3.2** (historique dans le [CHANGELOG](CHANGELOG.md)).
 
 **Cycle de vie du matériel et des salariés**
 - **Cycle de vie du salarié** : formulaire d'entrée (RH) avec les **besoins de matériel** à cocher, départ avec liste automatique du matériel à récupérer et rappels, passage en « sorti » une fois tout rendu.
