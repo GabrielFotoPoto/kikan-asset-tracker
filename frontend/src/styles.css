@@ -141,3 +141,6 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .ac-list { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; margin: 2px 0 0; padding: 4px 0; list-style: none; background: #fff; border: 1px solid #c3ccd9; border-radius: 8px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); max-height: 260px; overflow-y: auto; }
 .ac-item { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; cursor: pointer; font-size: 14px; min-height: 36px; align-items: center; }
 .ac-item[aria-selected="true"] { background: #e8eef7; }
+
+.account .about-link { display: block; margin-top: 12px; font-size: 12px; opacity: 0.75; color: inherit; text-decoration: none; text-align: center; }
+.account .about-link:hover, .account .about-link.active { opacity: 1; text-decoration: underline; }

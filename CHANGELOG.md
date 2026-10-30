@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **Page « À propos »** (lien en pied de menu, tous les comptes) : version et date de publication, notes de la version, licence GPL-3.0-or-later et auteur, liens vers le dépôt, composants principaux avec leur version installée et leur licence. Une image construite en local s'annonce « version de développement ». Nouvelle route `GET /apropos` ; la date de publication est transmise aux images par le workflow de publication (`KIKAN_RELEASE_DATE`). Nouvelle suite `tests/apropos_check.py`.
+
 ## [0.3.0] - 2026-10-30
 
 Pilotage, conformité et durcissement : revue des droits d'accès, purge RGPD paramétrable, annulation d'import, session sécurisée, guides.
