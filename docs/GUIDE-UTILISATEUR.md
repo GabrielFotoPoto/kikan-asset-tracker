@@ -217,13 +217,13 @@ Chaque personne ne reçoit que ce qui concerne son périmètre.
 
 **Paramétrage, onglet Apparence** (informatique) : choisissez une image **PNG ou JPEG** (300 Ko au plus, de préférence carrée, 256 x 256 px conseillé, fond transparent). Kikan la vérifie et la
 réencode, puis l'affiche **à côté du nom dans le menu** (sur une pastille claire), **au-dessus de la connexion** et comme **icône de l'onglet** du navigateur. Les deux aperçus montrent le rendu
-avant de quitter la page. **Supprimer l'icône** revient à l'affichage par défaut. Le nom « Kikan » ne change pas.
+avant de quitter la page. **Supprimer l'icône** revient au **logo Kikan** par défaut (le carré bleu au K blanc et à la pastille orange). Le nom « Kikan » ne change pas.
 
-![Onglet Apparence](captures/icone-apparence.png)
+![Onglet Apparence : aperçus de l'icône (ici le logo Kikan par défaut)](captures/icone-apparence.png)
 
 L'icône de la page de connexion est lisible **sans être connecté** : n'y mettez rien de confidentiel.
 
-![Page de connexion avec l'icône](captures/icone-connexion.png)
+![Page de connexion avec le logo Kikan par défaut](captures/icone-connexion.png)
 
 ## 8. Je veux...
 

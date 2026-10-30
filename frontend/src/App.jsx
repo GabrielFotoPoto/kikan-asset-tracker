@@ -93,7 +93,7 @@ export default function App() {
       <div className="layout">
         <aside className="sidebar">
           <div className="brand">
-            {icone && <img className="brand-icon" src={icone} alt="" />}
+            <img className="brand-icon" src={icone} alt="" />
             <div>
               <h1>Kikan</h1>
               <div className="sub">Suivi des actifs</div>

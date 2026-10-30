@@ -327,7 +327,7 @@ Personnalisation maximale, sans toucher au code :
   accès dans le document de remise.
 - **Charte informatique** (texte, versions) - annexée au document de remise.
 - Modèle de PDF d'accusé (logo, mentions légales, pied de page).
-- **Apparence** : **icône de l'application** (menu, page de connexion, onglet du navigateur), déposée par l'informatique ; le nom « Kikan » reste celui du produit.
+- **Apparence** : **icône de l'application** (menu, page de connexion, onglet du navigateur), déposée par l'informatique ; sans icône déposée, le **logo Kikan** par défaut s'affiche ; le nom « Kikan » reste celui du produit.
 - Certificat de scellement (auto-signé) et autorité de temps.
 - **Emplacement de dépôt des PDF** (local, lecteur réseau SMB, partage WebDAV), structure par année (`AAAA/`),
   état et test de connexion (page Stockage ; les identifiants restent dans l'environnement).
@@ -491,7 +491,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | D2 | **Interface multilingue** (français et anglais) | Prop. |
 | D3 | **API publique documentée** avec jetons d'accès | Prop. |
 | D4 | **Webhooks** vers des outils externes (par exemple n8n) | Prop. |
-| D5 | **Personnalisation de l'apparence** : icône de l'application (menu, page de connexion, favicon). **Fait (2026-10-30)** : dépôt PNG ou JPEG par l'informatique (Paramétrage, Apparence), image vérifiée et réécrite en PNG, lecture publique limitée à cette image, prévisualisation, suppression ; le nom de l'application reste « Kikan » | Prop. |
+| D5 | **Personnalisation de l'apparence** : icône de l'application (menu, page de connexion, favicon). **Fait (2026-10-30)** : dépôt PNG ou JPEG par l'informatique (Paramétrage, Apparence), image vérifiée et réécrite en PNG, lecture publique limitée à cette image, prévisualisation, suppression ; sans icône déposée, le **logo Kikan** (jeu de favicons dans `frontend/public/`, `docs/logo/`) s'affiche partout ; le nom de l'application reste « Kikan » | Prop. |
 
 ### Sécurité et exploitation (en continu)
 
@@ -509,7 +509,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 ## 14. Décisions
 
 **Tranchées :**
-- **Apparence** : seule l'**icône** est personnalisable (pas le nom du produit) ; PNG ou JPEG, même vérification que le logo des PDF ; servie sans session pour la page de connexion (§12).
+- **Apparence** : seule l'**icône** est personnalisable (pas le nom du produit), le **logo Kikan** (carré bleu, K blanc, pastille orange à coche) étant l'icône par défaut ; PNG ou JPEG, même vérification que le logo des PDF ; servie sans session pour la page de connexion (§12).
 - **Budget de renouvellement** (C3) : coût de remplacement **par type** avec exception par modèle (pas de prix d'achat par matériel), saisi par l'informatique ; matériel sans coût compté à part ; devise unique (euro) (§10).
 - Nom : **Kikan** (機器管理).
 - Pile : **React + FastAPI (Python) + PostgreSQL** (§11).

@@ -19,7 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { api, downloadFile, errorText, fetchDataUrl } from "../api.js";
-import { brandingChanged, iconUrl } from "../branding.js";
+import { ICONE_DEFAUT, brandingChanged, iconUrl } from "../branding.js";
 import ConfirmButton from "../components/ConfirmButton.jsx";
 import Glpi from "./Glpi.jsx";
 
@@ -123,7 +123,8 @@ function Apparence({ setErr, setMsg }) {
   const [hash, setHash] = useState(null);
   const load = () => api.get("/branding").then((b) => setHash(b.icone || null)).catch((e) => setErr(errorText(e)));
   useEffect(() => { load(); }, []);
-  const url = iconUrl(hash);
+  const url = iconUrl(hash);          // icone personnalisee (ou null)
+  const apercu = url || ICONE_DEFAUT; // ce qui s'affiche reellement
 
   const pick = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -151,6 +152,7 @@ function Apparence({ setErr, setMsg }) {
     <div className="card">
       <p className="muted" style={{ marginTop: 0 }}>
         Icone de l'application : affichee a cote du nom dans le menu, au-dessus du formulaire de connexion et dans l'onglet du navigateur.
+        Sans icone deposee, c'est le logo Kikan qui s'affiche.
         Image PNG ou JPEG, 300 Ko au plus, de preference carree (256 x 256 px conseille) avec un fond transparent. L'icone du menu est posee
         sur un fond clair ; la page de connexion l'affiche sans connexion, ne mettez donc rien de confidentiel dans l'image.
       </p>
@@ -158,20 +160,19 @@ function Apparence({ setErr, setMsg }) {
         <input type="file" accept="image/png,image/jpeg" onChange={pick} />
         {url && <ConfirmButton onConfirm={remove}>Supprimer l'icone</ConfirmButton>}
       </div>
-      {url ? (
-        <div className="row" style={{ alignItems: "center", gap: 24 }}>
-          <div>
-            <div className="muted">Menu</div>
-            <div style={{ background: "var(--brand)", padding: 14, borderRadius: 8, display: "inline-flex", gap: 10, alignItems: "center", color: "#fff" }}>
-              <img className="brand-icon" src={url} alt="Icone actuelle dans le menu" /><b>Kikan</b>
-            </div>
-          </div>
-          <div>
-            <div className="muted">Connexion</div>
-            <img src={url} alt="Icone actuelle sur la page de connexion" style={{ width: 64, height: 64, objectFit: "contain", border: "1px solid #d7dde6", borderRadius: 8, background: "#fff" }} />
+      <div className="row" style={{ alignItems: "center", gap: 24 }}>
+        <div>
+          <div className="muted">Menu</div>
+          <div style={{ background: "var(--brand)", padding: 14, borderRadius: 8, display: "inline-flex", gap: 10, alignItems: "center", color: "#fff" }}>
+            <img className="brand-icon" src={apercu} alt="Icone actuelle dans le menu" /><b>Kikan</b>
           </div>
         </div>
-      ) : <p className="muted">Aucune icone definie : l'application s'affiche avec son nom seul.</p>}
+        <div>
+          <div className="muted">Connexion</div>
+          <img src={apercu} alt="Icone actuelle sur la page de connexion" style={{ width: 64, height: 64, objectFit: "contain", border: "1px solid #d7dde6", borderRadius: 8, background: "#fff" }} />
+        </div>
+      </div>
+      {!url && <p className="muted">Aucune icone personnalisee : le logo Kikan par defaut est utilise.</p>}
     </div>
   );
 }

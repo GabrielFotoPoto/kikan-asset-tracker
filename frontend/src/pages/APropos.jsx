@@ -30,7 +30,9 @@ export default function APropos() {
 
   return (
     <div>
-      <h2>A propos de {d.application}</h2>
+      <h2 style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <img src="/icon-192.png" alt="" width={40} height={40} style={{ borderRadius: 8 }} />A propos de {d.application}
+      </h2>
 
       <div className="card">
         <h3>Version</h3>
