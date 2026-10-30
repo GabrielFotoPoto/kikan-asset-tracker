@@ -17,6 +17,8 @@ COPY app ./app
 # Version affichee par /health (positionnee a la construction des images publiees)
 ARG KIKAN_VERSION=dev
 ENV KIKAN_VERSION=$KIKAN_VERSION
+ARG KIKAN_RELEASE_DATE=
+ENV KIKAN_RELEASE_DATE=$KIKAN_RELEASE_DATE
 
 USER kikan
 EXPOSE 8000
