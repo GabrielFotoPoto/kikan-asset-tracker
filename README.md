@@ -610,3 +610,10 @@ Copyright (C) 2026 Gabriel Chollet.
 
 Ce programme est un logiciel libre : vous pouvez le redistribuer et/ou le modifier selon les
 termes de la GPLv3. Il est distribué dans l'espoir qu'il sera utile, mais SANS AUCUNE GARANTIE.
+
+### Logo et nom
+
+Le **code** de Kikan est distribué sous GPL-3.0-or-later. Le **logo Kikan** (`docs/logo/`, `frontend/public/`) et le **nom « Kikan »** ne sont
+**pas** couverts par cette licence : © 2026 Gabriel Chollet, tous droits réservés. Vous pouvez les utiliser, **sans modification**, pour désigner
+ce projet (lien, article, présentation, installation et utilisation du logiciel tel quel). Toute version modifiée ou dérivée doit utiliser un autre
+nom et un autre logo. Détail : [docs/logo/LICENCE.md](docs/logo/LICENCE.md).
