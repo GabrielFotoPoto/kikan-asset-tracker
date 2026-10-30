@@ -32,6 +32,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
+from .theme import BLEU_MARQUE
+
 if not openpyxl.DEFUSEDXML:  # sans defusedxml, openpyxl ne se protege pas des bombes XML
     raise RuntimeError("defusedxml est requis pour lire des classeurs Excel en securite")
 
@@ -142,7 +144,7 @@ def read_xlsx(raw: bytes, max_rows: int) -> tuple[list[dict], list[str], dict]:
 
 # --- Ecriture ---
 
-HEADER_FILL = PatternFill("solid", fgColor="2B4C7E")
+HEADER_FILL = PatternFill("solid", fgColor=BLEU_MARQUE.lstrip("#").upper())
 HEADER_FONT = Font(bold=True, color="FFFFFF")
 
 

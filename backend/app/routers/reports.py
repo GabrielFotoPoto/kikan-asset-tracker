@@ -30,6 +30,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from .. import xlsx_io
 from ..scope import GLOBAL, Scope, scope_dep
+from ..theme import BLEU_MARQUE
 from ..pdf_template import footer_callback, header_flowables, load_template, mentions_flowables
 from sqlmodel import Session, select
 
@@ -132,7 +133,7 @@ def _pdf(rows: list[dict], jour: str, template: dict | None = None) -> bytes:
         data.append([r[key] for key, _ in COLUMNS])
     table = Table(data, repeatRows=1)
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b4c7e")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(BLEU_MARQUE)),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
         ("FONTSIZE", (0, 0), (-1, -1), 7),

@@ -6,7 +6,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Modifié
-- **Couleur de marque** : retour au **bleu du logo, `#1D428A`**, pour la barre latérale, les boutons, les liens, les chiffres, la couleur du thème du navigateur et le manifeste (la 0.3.3 utilisait `#024B8F`, issu de la conversion du quadri C100 M75 J0 N0, qui ne correspondait pas au logo).
+- **Couleur de marque** : retour au **bleu du logo, `#1D428A`**, pour la barre latérale, les boutons, les liens, les chiffres, la couleur du thème du navigateur et le manifeste, **et pour les en-têtes de tableau des PDF et des exports Excel** (rapports, statistiques, prévisions, revue des accès, accusés de remise), qui utilisaient l'ancien `#2b4c7e` : une seule constante (`backend/app/theme.py`) remplace sept valeurs dispersées. Seuls les documents générés après la mise à jour changent ; les PDF déjà scellés ne sont pas modifiés (la 0.3.3 utilisait `#024B8F`, issu de la conversion du quadri C100 M75 J0 N0, qui ne correspondait pas au logo).
 
 ### Documentation
 - **Licence du logo et du nom** : le code reste en GPL-3.0-or-later ; le logo et le nom « Kikan » ne sont pas couverts par cette licence (tous droits réservés, usage autorisé sans modification pour désigner le projet et utiliser le logiciel tel quel). Section « Logo et nom » du README, politique détaillée dans `docs/logo/LICENCE.md`.

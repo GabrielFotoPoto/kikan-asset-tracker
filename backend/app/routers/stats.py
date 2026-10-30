@@ -43,6 +43,7 @@ from ..auth import get_current_account
 from ..docname import heure_locale
 from ..scope import Scope, restreindre_entite, scope_dep
 from ..db import get_session
+from ..theme import BLEU_MARQUE
 from ..pdf_template import footer_callback, header_flowables, load_template, mentions_flowables
 from ..models import (
     Asset,
@@ -260,7 +261,7 @@ def _pdf(s: dict, jour: str, template: dict | None = None) -> bytes:
             continue
         table = Table([entetes] + [[str(c) for c in l] for l in lignes], repeatRows=1, hAlign="LEFT")
         table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b4c7e")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(BLEU_MARQUE)),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
             ("FONTSIZE", (0, 0), (-1, -1), 8),
