@@ -207,8 +207,10 @@ def build_template(spec: dict, choices: dict[str, list[str]]) -> bytes:
     return _to_bytes(wb)
 
 
-def build_table(sheet_title: str, headers: list[str], rows: list[list], date_columns: set[int] = frozenset()) -> bytes:
-    """Tableau d'export : en-tetes, filtre automatique, volets figes, largeurs ; dates typees, texte jamais interprete."""
+def build_table(sheet_title: str, headers: list[str], rows: list[list], date_columns: set[int] = frozenset(),
+                amount_columns: set[int] = frozenset()) -> bytes:
+    """Tableau d'export : en-tetes, filtre automatique, volets figes, largeurs ; dates et montants (nombres calcules par
+    Kikan) types, texte jamais interprete."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = sheet_title[:31]
@@ -222,6 +224,9 @@ def build_table(sheet_title: str, headers: list[str], rows: list[list], date_col
                     continue
                 except ValueError:
                     pass
+            if (c - 1) in amount_columns and isinstance(value, (int, float)) and not isinstance(value, bool):
+                ws.cell(row=r, column=c, value=value).number_format = "#,##0.00"
+                continue
             put_text(ws, r, c, value)
     if rows:
         ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{len(rows) + 1}"

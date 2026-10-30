@@ -213,6 +213,24 @@ class AssetType(SQLModel, table=True):
     actif: bool = True
 
 
+class CoutRemplacement(SQLModel, table=True):
+    """Cout de remplacement estime (C3) : par type de materiel, avec exception possible pour une marque et un modele.
+
+    Le montant est en centimes d'euro (entier : pas d'arrondi flottant). Une ligne sans marque ni modele vaut pour tout le type ;
+    une ligne avec marque et modele l'emporte sur elle pour ce modele precis."""
+    __tablename__ = "couts_remplacement"
+    __table_args__ = (Index("uq_couts_remplacement_cle", func.lower(literal_column("type")),
+                            func.lower(func.coalesce(literal_column("marque"), "")),
+                            func.lower(func.coalesce(literal_column("modele"), "")), unique=True),)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    type: str = Field(index=True)
+    marque: Optional[str] = None
+    modele: Optional[str] = None
+    montant_centimes: int
+    maj_le: NaiveDatetime = Field(default_factory=utcnow)
+    maj_par: Optional[str] = None
+
+
 class BesoinCategorie(SQLModel, table=True):
     """Categorie de besoin (liste de parametrage, geree par l'informatique) : ce que les RH cochent a l'arrivee d'un salarie.
 

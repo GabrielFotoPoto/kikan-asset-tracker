@@ -171,6 +171,7 @@ Ce qui fait la valeur de preuve :
 > dans* l'application : le champ libre documente le niveau attendu.
 
 ### 4.8 Tables de paramétrage
+- `couts_remplacement` : **coût de remplacement estimé** (C3) par type de matériel, avec exception possible pour un modèle précis (marque et modèle) ; montant en **centimes d'euro** (entier), clé unique insensible à la casse (type, marque, modèle) ; modifiable par l'informatique seule.
 - `asset_types` et `services` : listes de paramétrage (actif ou non), enrichies à la saisie et à l'import ; `settings` : modèle de PDF (organisation, mentions, pied de page, logo).
 - `policies` : chartes d'usage **déposées en fichier** (PDF normalisé et fichier d'origine dans le stockage, empreintes SHA-256), portée (globale ou entité), version, statut active ou archivée ; une seule version active par portée.
 - `settings` : paramètres globaux (voir §8).
@@ -315,11 +316,13 @@ Alimente au passage le catalogue marques/modèles (§5).
 - **Rapport mensuel** : même contenu, figé à une date, pour le contrôle mensuel.
 - **Exports** : **CSV** (données brutes) **et PDF** (mise en forme, horodaté, pour archive/audit).
 - Génération manuelle en v0.1 ; planification automatique prévue plus tard.
+- Statistiques du parc et prévisions de renouvellement, exportables : voir §10.
 
 ## 8. Interface de paramétrage
 
 Personnalisation maximale, sans toucher au code :
 - Types d'actifs, marques/modèles du catalogue (ajout, fusion, nettoyage).
+- **Coûts de remplacement estimés** par type (exception par modèle), qui chiffrent le budget des prévisions de renouvellement (§10).
 - **Liste des applications** (ajout/désactivation, portée par entité) + option d'inclusion des
   accès dans le document de remise.
 - **Charte informatique** (texte, versions) - annexée au document de remise.
@@ -346,11 +349,26 @@ Personnalisation maximale, sans toucher au code :
 - Détail : [docs/RGPD.md](docs/RGPD.md).
 - Principe de minimisation : ne stocker que les données nécessaires au suivi.
 
-## 10. Statistiques (plus tard)
+## 10. Statistiques et prévisions
 
-- Modèles de PC / smartphones les plus distribués.
-- Répartition par service, taux d'équipement, âge moyen du parc, renouvellements à venir.
-- Mêmes exports CSV/PDF.
+**Statistiques (C1, fait)** - `GET /stats`
+- Modèles de PC / smartphones les plus distribués, répartition par statut, entité et service, taux d'équipement, âge moyen du parc.
+- **Filtres** : entité (sous-entités incluses, toujours dans la portée du compte, 404 hors portée) et période (`du`, `au`).
+- Les répartitions décrivent le parc **à la date du jour** ; la période pilote les **mouvements** (matériels remis, restitués, achetés,
+  au total et par mois, en dates locales de l'organisation) et la fenêtre des renouvellements (sans période : 12 mois).
+- Exports **CSV, Excel et PDF** (modèle de PDF de l'organisation).
+
+**Prévisions de renouvellement (C3, fait)** - `GET /previsions`
+- **Budget estimé** = somme des coûts de remplacement (§8) du matériel dont l'`echeance_renouvellement` tombe dans la période ; le
+  matériel **réformé** est ignoré. Sans période : du mois en cours aux 11 mois suivants (12 mois) ; durée maximale 60 mois.
+- **Coût d'un matériel** : l'exception de son modèle (marque et modèle) si elle existe, sinon le coût de son type. Sans coût, le matériel est
+  compté **« sans estimation »** et n'entre pas dans les totaux (le manque est affiché, jamais masqué).
+- Vues : par **mois** (mois vides compris), par **année civile**, par **type**, par **entité**, détail du matériel ; échéances **antérieures
+  à la période** et non renouvelées signalées à part (« en retard »).
+- Mêmes **filtres d'entité** et exports **CSV, Excel et PDF** ; consultation ouverte aux trois rôles dans leur portée (B2), **sans aucune
+  donnée de salarié**. Montants en euros ; une seule devise.
+- Les coûts suivent le **renommage d'un type** et partent avec un type supprimé (inutilisé) ; une exception dont la marque ou le modèle a été
+  fusionné reste listée avec « 0 matériel concerné » et se supprime à la main.
 
 ## 11. Pile technique (décidée)
 
@@ -457,7 +475,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 |---|---|---|
 | C1 | **Statistiques exportables** (CSV et PDF), avec filtres par entité et période. **Fait (2026-10-30)** : filtre par entité (sous-entités incluses, limité à la portée du compte, 404 hors portée) et par période (mouvements remis, restitués et achetés, au total et par mois ; fenêtre des renouvellements) ; export CSV, Excel et PDF (modèle de PDF de l'organisation) ; les répartitions décrivent le parc à la date du jour | SPEC |
 | C2 | **Revue périodique des droits d'accès** : rapport « qui a accès à quoi » et campagne de validation (ISO A.5.18) **Fait (2026-11-05)** : anomalies (salarié sorti, application désactivée) et rapport exportable ; campagne à la demande, décisions par les RH dans leur périmètre et l'informatique ; clôture seulement si tout est décidé, accès à retirer passés à non, rapport PDF scellé, retraits suivis jusqu'à confirmation ; rappels (échéance, retraits, revue annuelle) | Prop. |
-| C3 | **Prévision des renouvellements** avec budget estimé | Prop. |
+| C3 | **Prévision des renouvellements** avec budget estimé. **Fait (2026-10-30)** : coût de remplacement par type (exception par modèle) saisi par l'informatique dans le Paramétrage (migration 0017) ; page Prévisions par mois, année, type et entité sur une période au choix (12 mois par défaut), échéances dépassées signalées, matériel sans coût compté à part ; filtre d'entité dans la portée du compte ; export CSV, Excel et PDF ; aucune donnée de salarié | Prop. |
 | C4 | **Étiquettes et QR codes** sur le matériel, recherche par scan | Prop. |
 | C5 | **Pièces jointes** au matériel (facture, garantie) | Prop. |
 
@@ -486,6 +504,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 ## 14. Décisions
 
 **Tranchées :**
+- **Budget de renouvellement** (C3) : coût de remplacement **par type** avec exception par modèle (pas de prix d'achat par matériel), saisi par l'informatique ; matériel sans coût compté à part ; devise unique (euro) (§10).
 - Nom : **Kikan** (機器管理).
 - Pile : **React + FastAPI (Python) + PostgreSQL** (§11).
 - Signature : **simple + scellement PAdES-B-T**, **certificat auto-signé** de l'organisation (§3).

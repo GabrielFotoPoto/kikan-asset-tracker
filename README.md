@@ -36,7 +36,7 @@ La version publiée est la **0.3.0** (historique dans le [CHANGELOG](CHANGELOG.m
 - **Stockage des PDF scellés** : volume local, partage **SMB**, **WebDAV**, **SharePoint Online** ou **DocuWare**, avec vérification d'empreinte.
 
 **Pilotage et conformité**
-- **Reporting** « qui détient quoi » à l'instant T, export **CSV, Excel et PDF** ; **statistiques** de parc (modèles, répartition, renouvellements à venir, mouvements), filtrables par entité et par période, exportables en CSV, Excel et PDF.
+- **Reporting** « qui détient quoi » à l'instant T, export **CSV, Excel et PDF** ; **statistiques** de parc (modèles, répartition, renouvellements à venir, mouvements), filtrables par entité et par période, exportables en CSV, Excel et PDF ; **prévisions de renouvellement** avec **budget estimé** (par mois, année, type et entité), à partir d'un coût de remplacement par type saisi dans le Paramétrage.
 - **Rappels et rapport mensuel par e-mail** (renouvellements, départs, matériel non restitué, besoins, purge, revue des accès), selon le périmètre de chacun.
 - **Rétention RGPD** : durée de conservation et délai de grace **réglables**, purge par l'informatique, quarantaine des PDF du partage avant suppression et liste pour la GED : voir [docs/RGPD.md](docs/RGPD.md).
 - **Journal d'audit** de toutes les écritures et des refus d'accès, sans donnée personnelle superflue.
@@ -347,6 +347,7 @@ La page **Paramétrage** (informatique) regroupe :
   renommage, activation, suppression si inutilisé). Les listes sont **souples** : une valeur nouvelle saisie ou importée
   s'ajoute à la liste sans jamais bloquer, et une valeur qui ne diffère que par la casse reprend la graphie de la liste.
   Renommer met à jour tout le matériel ou toutes les fiches concernés.
+- **Coûts de remplacement** : montant estimé en euros par type de matériel, avec exception possible pour un modèle précis ; il chiffre le budget de la page **Prévisions**. Un coût suit le renommage de son type.
 - **Marques et modèles** : outil de **fusion** des variantes (Dell, DELL, Dell Technologies) vers un nom unique, avec
   détection des variantes probables, aperçu du nombre de matériels touchés et confirmation. Opération atomique, tracée.
 - **Accès applicatifs dans l'accusé de remise** (option) : case à cocher « Inclure les accès applicatifs » dans l'onglet
@@ -552,7 +553,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   entité (B2, **fait**), rappels par e-mail (B3, **fait**), rapport mensuel automatique (B4, **fait**), connecteur GLPI et API d'import (B5, **fait**), dépôt via l'API
   SharePoint Online et DocuWare (B6, **fait**), besoins matériels saisis par les RH (B7, **fait**), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : revue périodique des droits d'accès (C2, **fait**), statistiques exportables (C1, **fait**), prévision des
-  renouvellements (C3), étiquettes et QR codes (C4), pièces jointes (C5).
+  renouvellements (C3, **fait**), étiquettes et QR codes (C4), pièces jointes (C5).
 - **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).
 - **Sécurité et exploitation, en continu** : MFA locale (E1), certificat de scellement reconnu et clé dans un coffre
   (E2), journal d'audit infalsifiable (E3), révocation des sessions (E4), intégration continue, Dependabot et images

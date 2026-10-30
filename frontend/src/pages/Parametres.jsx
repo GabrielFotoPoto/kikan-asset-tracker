@@ -26,6 +26,7 @@ const TABS = [
   ["types", "Types d'actifs"],
   ["categories-besoin", "Categories de besoin"],
   ["services", "Services"],
+  ["couts", "Couts de remplacement"],
   ["marques", "Marques et modeles"],
   ["mail", "E-mails"],
   ["integrations", "Integrations"],
@@ -114,6 +115,75 @@ function ListEditor({ kind, label, help, setErr, setMsg }) {
 
 // Cle de rapprochement : "Dell", "DELL" et "dell." sont probablement la meme marque.
 const proche = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// Couts de remplacement estimes (previsions de renouvellement) : un montant par type, exception possible par modele.
+function Couts({ setErr, setMsg }) {
+  const vide = { type: "", marque: "", modele: "", montant: "" };
+  const [couts, setCouts] = useState([]);
+  const [types, setTypes] = useState([]);
+  const [f, setF] = useState(vide);
+  const eur = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+
+  const load = () => {
+    api.get("/parametres/couts").then(setCouts).catch((e) => setErr(errorText(e)));
+    api.get("/parametres/types").then((t) => setTypes(t.filter((x) => x.actif))).catch(() => {});
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setErr(null); setMsg(null);
+    try {
+      await api.put("/parametres/couts", { type: f.type, marque: f.marque || null, modele: f.modele || null, montant: f.montant });
+      setMsg("Cout enregistre.");
+      setF({ ...vide, type: f.type });
+      load();
+    } catch (ex) { setErr(errorText(ex)); }
+  };
+  const remove = async (c) => {
+    setErr(null); setMsg(null);
+    try { await api.del(`/parametres/couts/${c.id}`); setMsg("Cout supprime."); load(); } catch (ex) { setErr(errorText(ex)); }
+  };
+  const sansCout = types.filter((t) => t.utilise > 0 && !couts.some((c) => !c.modele && c.type.toLowerCase() === t.nom.toLowerCase()));
+
+  return (
+    <div className="card">
+      <p className="muted" style={{ marginTop: 0 }}>
+        Cout de remplacement estime, en euros, utilise par la page Previsions pour chiffrer le budget. Un montant par type de materiel ;
+        pour un modele precis qui coute autrement, ajoutez une exception avec sa marque et son modele (elle l'emporte sur le type).
+        Enregistrer a nouveau le meme type (ou le meme modele) remplace le montant.
+      </p>
+      <form className="row" onSubmit={save} style={{ marginBottom: 12 }}>
+        <select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} required>
+          <option value="">Type...</option>
+          {types.map((t) => <option key={t.id} value={t.nom}>{t.nom}</option>)}
+        </select>
+        <input value={f.marque} maxLength={100} placeholder="Marque (exception)" onChange={(e) => setF({ ...f, marque: e.target.value })} />
+        <input value={f.modele} maxLength={100} placeholder="Modele (exception)" onChange={(e) => setF({ ...f, modele: e.target.value })} />
+        <input type="number" min="0" max="1000000" step="0.01" value={f.montant} placeholder="Montant (EUR)" onChange={(e) => setF({ ...f, montant: e.target.value })} required />
+        <button type="submit">Enregistrer</button>
+      </form>
+      {sansCout.length > 0 && (
+        <p className="muted">Types utilises sans cout : {sansCout.map((t) => t.nom).join(", ")}. Leur materiel n'entre pas dans le budget.</p>
+      )}
+      <table>
+        <thead><tr><th>Type</th><th>Exception (marque / modele)</th><th>Montant</th><th>Materiels concernes</th><th></th></tr></thead>
+        <tbody>
+          {couts.map((c) => (
+            <tr key={c.id}>
+              <td>{c.type}</td>
+              <td>{c.modele ? `${c.marque} ${c.modele}` : <span className="muted">tout le type</span>}</td>
+              <td>{eur.format(c.montant)}</td>
+              <td>{c.utilise}</td>
+              <td><button className="ghost" onClick={() => remove(c)}>Supprimer</button></td>
+            </tr>
+          ))}
+          {couts.length === 0 && <tr><td colSpan={5} className="muted">Aucun cout renseigne.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 function MergeTool({ setErr, setMsg }) {
   const [mode, setMode] = useState("marques");
@@ -779,6 +849,7 @@ export default function Parametres() {
         <ListEditor kind="services" label="Service" setErr={setErr} setMsg={setMsg}
           help="Services proposes dans la fiche salarie (liste commune a toutes les entites). Renommer un service met a jour toutes les fiches concernees." />
       )}
+      {tab === "couts" && <Couts setErr={setErr} setMsg={setMsg} />}
       {tab === "marques" && <MergeTool setErr={setErr} setMsg={setMsg} />}
       {tab === "pdf" && <PdfTemplate setErr={setErr} setMsg={setMsg} />}
       {tab === "mail" && <Courriel setErr={setErr} setMsg={setMsg} />}

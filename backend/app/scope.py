@@ -98,6 +98,18 @@ def expand_scope(session: Session, chosen: set[int]) -> Scope:
     return Scope(False, frozenset(visible), frozenset(ancestors))
 
 
+def restreindre_entite(session: Session, scope: Scope, entite_id: int | None) -> tuple[Scope, Entite | None]:
+    """Portee effective d'une requete filtree par entite : celle du compte, restreinte a l'entite choisie et a ses sous-entites.
+    Une entite inconnue ou hors portee est "introuvable" (404)."""
+    if entite_id is None:
+        return scope, None
+    entite = session.get(Entite, entite_id)
+    if not entite or not scope.allows(entite_id):
+        raise HTTPException(404, "Entite introuvable")
+    choisie = expand_scope(session, {entite_id})
+    return (choisie if scope.globale else Scope(False, scope.ids & choisie.ids)), entite
+
+
 def compute_scope(session: Session, account: Account) -> Scope:
     if account.role == Role.informatique or account.portee_globale:
         return GLOBAL

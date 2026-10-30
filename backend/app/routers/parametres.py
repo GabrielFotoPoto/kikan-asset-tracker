@@ -19,6 +19,7 @@
 import base64
 import re
 from datetime import datetime
+from decimal import Decimal
 from urllib.parse import urlparse
 
 from cryptography import x509
@@ -34,7 +35,7 @@ from ..auth import get_current_account, require_roles
 from ..catalogs import MAX_NAME
 from ..db import get_session
 from ..filestore import active_name
-from ..models import Account, Asset, AssetType, Besoin, BesoinCategorie, Service, Setting, User
+from ..models import Account, Asset, AssetType, Besoin, BesoinCategorie, CoutRemplacement, Service, Setting, User, utcnow
 from ..pdfgen import build_receipt
 from ..rules import audit_change, changed_fields, count, refuse_delete
 from .import_data import MAX_IMPORT_BYTES, MAX_IMPORT_ROWS
@@ -106,6 +107,7 @@ def _register(kind: str, model, usage_label: str) -> None:
             # Le renommage suit : toutes les fiches qui portaient l'ancien nom prennent le nouveau.
             if kind == "types":
                 res = session.exec(update(Asset).where(func.lower(Asset.type) == old.lower()).values(type=nom))
+                session.exec(update(CoutRemplacement).where(func.lower(CoutRemplacement.type) == old.lower()).values(type=nom))
             elif kind == "categories-besoin":
                 res = session.exec(update(Besoin).where(func.lower(Besoin.type) == old.lower()).values(type=nom))
             else:
@@ -126,6 +128,9 @@ def _register(kind: str, model, usage_label: str) -> None:
             "Desactivez-le plutot que de le supprimer, ou fusionnez-le avec un autre.",
         )
         nom = obj.nom
+        if kind == "types":
+            for cout in session.exec(select(CoutRemplacement).where(func.lower(CoutRemplacement.type) == nom.lower())).all():
+                session.delete(cout)
         session.delete(obj)
         session.commit()
         audit(account.username, "parametrage", target=f"{kind}/{item_id}", detail=f"suppression : {nom}")
@@ -134,6 +139,68 @@ def _register(kind: str, model, usage_label: str) -> None:
 _register("types", AssetType, "actif(s)")
 _register("services", Service, "salarie(s)")
 _register("categories-besoin", BesoinCategorie, "besoin(s)")
+
+
+# --- Couts de remplacement estimes (previsions de renouvellement, C3) ---
+
+class CoutIn(BaseModel):
+    type: str = Field(max_length=MAX_NAME)
+    marque: str | None = Field(default=None, max_length=MAX_NAME)
+    modele: str | None = Field(default=None, max_length=MAX_NAME)
+    montant: Decimal = Field(ge=0, le=Decimal("1000000"), max_digits=9, decimal_places=2)
+
+
+def _cout_sortie(session: Session, c: CoutRemplacement) -> dict:
+    conditions = [func.lower(Asset.type) == c.type.lower()]
+    if c.modele:
+        conditions += [func.lower(Asset.marque) == (c.marque or "").lower(), func.lower(Asset.modele) == c.modele.lower()]
+    return {"id": c.id, "type": c.type, "marque": c.marque, "modele": c.modele,
+            "montant": float(Decimal(c.montant_centimes) / 100), "utilise": count(session, Asset, *conditions)}
+
+
+@router.get("/couts")
+def list_couts(session: Session = Depends(get_session)):
+    rows = session.exec(select(CoutRemplacement)).all()
+    rows.sort(key=lambda c: (c.type.lower(), (c.marque or "").lower(), (c.modele or "").lower()))
+    return [_cout_sortie(session, c) for c in rows]
+
+
+@router.put("/couts")
+def set_cout(data: CoutIn, session: Session = Depends(get_session), account: Account = Depends(get_current_account)):
+    """Cree ou remplace le cout d'un type (ou d'un modele precis de ce type)."""
+    type_ = session.exec(select(AssetType).where(func.lower(AssetType.nom) == _clean_name(data.type).lower())).first()
+    if not type_:
+        raise HTTPException(400, "Type inconnu : ajoutez-le d'abord dans l'onglet Types")
+    marque = re.sub(r"\s+", " ", data.marque or "").strip() or None
+    modele = re.sub(r"\s+", " ", data.modele or "").strip() or None
+    if bool(marque) != bool(modele):
+        raise HTTPException(400, "Une exception vise un modele precis : indiquez la marque et le modele (ou ni l'un ni l'autre)")
+    cle = (func.lower(CoutRemplacement.type) == type_.nom.lower(),
+           func.lower(func.coalesce(CoutRemplacement.marque, "")) == (marque or "").lower(),
+           func.lower(func.coalesce(CoutRemplacement.modele, "")) == (modele or "").lower())
+    cout = session.exec(select(CoutRemplacement).where(*cle)).first()
+    centimes = int((data.montant * 100).to_integral_value())
+    if cout:
+        cout.montant_centimes, cout.maj_le, cout.maj_par = centimes, utcnow(), account.username
+        action = "modification"
+    else:
+        cout = CoutRemplacement(type=type_.nom, marque=marque, modele=modele, montant_centimes=centimes, maj_par=account.username)
+        action = "ajout"
+    session.add(cout)
+    session.commit()
+    session.refresh(cout)
+    audit(account.username, "parametrage", target=f"couts/{cout.id}", detail=f"{action} : cout de remplacement ({type_.nom})")
+    return _cout_sortie(session, cout)
+
+
+@router.delete("/couts/{cout_id}", status_code=204)
+def delete_cout(cout_id: int, session: Session = Depends(get_session), account: Account = Depends(get_current_account)):
+    cout = session.get(CoutRemplacement, cout_id)
+    if not cout:
+        raise HTTPException(404, "Cout introuvable")
+    session.delete(cout)
+    session.commit()
+    audit(account.username, "parametrage", target=f"couts/{cout_id}", detail="suppression : cout de remplacement")
 
 
 # --- Fusion des marques et des modeles ---

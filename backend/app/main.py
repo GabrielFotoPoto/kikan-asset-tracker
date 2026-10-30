@@ -50,6 +50,7 @@ from .routers import (
     mail_admin,
     parametres,
     policies,
+    previsions,
     reports,
     sso,
     revues,
@@ -161,6 +162,7 @@ app.include_router(rgpd.router)
 app.include_router(revues.router)
 app.include_router(user_apps.router)
 app.include_router(stats.router)
+app.include_router(previsions.router)
 app.include_router(apropos.router)
 app.include_router(audit_log.router)
 app.include_router(storage_admin.router)
