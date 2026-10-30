@@ -33,6 +33,7 @@ from .db import engine, init_db
 from . import reminders
 from .filestore import StorageError, sync_pending
 from .routers import (
+    apropos,
     applications,
     assets,
     assignments,
@@ -160,6 +161,7 @@ app.include_router(rgpd.router)
 app.include_router(revues.router)
 app.include_router(user_apps.router)
 app.include_router(stats.router)
+app.include_router(apropos.router)
 app.include_router(audit_log.router)
 app.include_router(storage_admin.router)
 app.include_router(mail_admin.router)

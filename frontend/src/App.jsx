@@ -41,6 +41,7 @@ import Rgpd from "./pages/Rgpd.jsx";
 import Revues from "./pages/Revues.jsx";
 import Acces from "./pages/Acces.jsx";
 import Stats from "./pages/Stats.jsx";
+import APropos from "./pages/APropos.jsx";
 import Audit from "./pages/Audit.jsx";
 import Compte from "./pages/Compte.jsx";
 import Stockage from "./pages/Stockage.jsx";
@@ -119,6 +120,7 @@ export default function App() {
               <div className="role" title="Perimetre de votre compte">{portee.globale ? "toute l'organisation" : "perimetre limite"}</div>
             )}
             <button className="ghost" onClick={logout}>Se deconnecter</button>
+            <NavLink className="about-link" to="/a-propos">A propos</NavLink>
           </div>
         </aside>
         <main className="main">
@@ -150,6 +152,7 @@ export default function App() {
             <Route path="/sauvegarde" element={user.role === "informatique" ? <Sauvegarde /> : <Navigate to="/" />} />
             <Route path="/journal" element={<Audit />} />
             <Route path="/compte" element={<Compte />} />
+            <Route path="/a-propos" element={<APropos />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>

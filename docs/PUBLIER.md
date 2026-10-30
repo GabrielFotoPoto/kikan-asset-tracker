@@ -66,7 +66,7 @@ Ne fusionnez que ce qui est au vert ; lisez les notes de version des mises à jo
 5. Au premier envoi, ouvrir chaque paquet dans *Packages* et le rendre **public** si vous voulez que d'autres puissent le télécharger sans
    identifiants (les paquets créés par un workflow sont privés par défaut).
 
-La version s'affiche dans `/health` (variable `KIKAN_VERSION` fixée à la construction ; `dev` en développement).
+La version s'affiche dans `/health` et dans la page **À propos** (variable `KIKAN_VERSION` fixée à la construction ; `dev` en développement) ; la date de publication de cette page vient de `KIKAN_RELEASE_DATE`, renseignée par le workflow.
 
 ## Installer à partir des images publiées
 
