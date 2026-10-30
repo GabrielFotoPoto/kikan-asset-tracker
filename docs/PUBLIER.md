@@ -58,11 +58,11 @@ Ne fusionnez que ce qui est au vert ; lisez les notes de version des mises à jo
 2. Vérifier que la CI est verte sur `main`.
 3. Étiqueter et envoyer :
    ```bash
-   git tag v0.3.3
-   git push origin v0.3.3
+   git tag v0.3.4
+   git push origin v0.3.4
    ```
 4. Le workflow `.github/workflows/release.yml` construit et publie sur le **GitHub Container Registry** quatre images (`amd64` et `arm64`),
-   `ghcr.io/gabrielfotopoto/kikan-api`, `kikan-web`, `kikan-converter` et `kikan-backup`, étiquetées `0.3.3`, `0.3` et `latest` (`latest` seulement pour une version finale, pas pour une préversion `-rc`), puis crée la
+   `ghcr.io/gabrielfotopoto/kikan-api`, `kikan-web`, `kikan-converter` et `kikan-backup`, étiquetées `0.3.4`, `0.3` et `latest` (`latest` seulement pour une version finale, pas pour une préversion `-rc`), puis crée la
    **version GitHub** (notes générées, `docker-compose.yml`, `docker-compose.ghcr.yml` et `.env.example` en pièces jointes).
 5. Au premier envoi, ouvrir chaque paquet dans *Packages* et le rendre **public** si vous voulez que d'autres puissent le télécharger sans
    identifiants (les paquets créés par un workflow sont privés par défaut).
@@ -74,7 +74,7 @@ La version s'affiche dans `/health` et dans la page **À propos** (variable `KIK
 Aucune compilation sur le serveur (pas à pas complet dans le [guide d'installation](INSTALLATION.md)) :
 
 ```bash
-export KIKAN_VERSION=0.3.3            # ou latest
+export KIKAN_VERSION=0.3.4            # ou latest
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
 ```
