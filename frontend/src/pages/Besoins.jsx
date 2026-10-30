@@ -25,10 +25,10 @@ import ConfirmButton from "../components/ConfirmButton.jsx";
 
 const STATUTS = { demande: "Demande", en_preparation: "En preparation", satisfait: "Satisfait", annule: "Annule" };
 const BADGE = { demande: "badge", en_preparation: "badge", satisfait: "badge ok", annule: "badge bad" };
-const empty = { user_id: "", type: "", quantite: 1, commentaire: "", date_souhaitee: "" };
+const empty = { user_id: "", type: "", gamme: "", quantite: 1, commentaire: "", date_souhaitee: "" };
 const row = { display: "flex", flexDirection: "row", alignItems: "center", gap: 8 };
 
-// Besoins de materiel : saisis par les RH a l'arrivee d'un salarie, traites par l'informatique, soldes par la remise.
+// Besoins de materiel : souhaits exprimes par les RH a l'entree d'un salarie (categorie et gamme), suivis par l'informatique, soldes par la remise.
 export default function Besoins() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -37,7 +37,7 @@ export default function Besoins() {
   const it = user.role === "informatique";
   const [items, setItems] = useState([]);
   const [users, setUsers] = useState([]);
-  const [types, setTypes] = useState([]);
+  const [choix, setChoix] = useState([]);
   const [filtre, setFiltre] = useState("ouverts");
   const [forUser, setForUser] = useState(params.get("user") || "");
   const [form, setForm] = useState({ ...empty, user_id: params.get("user") || "" });
@@ -49,8 +49,8 @@ export default function Besoins() {
     const q = new URLSearchParams();
     if (filtre) q.set("statut", filtre);
     if (forUser) q.set("user_id", forUser);
-    const [b, u, t] = await Promise.all([api.get("/besoins?" + q), api.get("/users"), api.get("/besoins/categories")]);
-    setItems(b); setUsers(u); setTypes(t);
+    const [b, u, c] = await Promise.all([api.get("/besoins?" + q), api.get("/users"), api.get("/besoins/choix")]);
+    setItems(b); setUsers(u); setChoix(c);
   };
   useEffect(() => { load().catch((e) => setErr(errorText(e))); }, [filtre, forUser]);
 
@@ -62,7 +62,7 @@ export default function Besoins() {
   const submit = (e) => {
     e.preventDefault();
     const payload = {
-      type: form.type, quantite: Number(form.quantite) || 1,
+      type: form.type, gamme: form.gamme || null, quantite: Number(form.quantite) || 1,
       commentaire: form.commentaire || null, date_souhaitee: form.date_souhaitee || null,
     };
     if (editing) {
@@ -75,9 +75,10 @@ export default function Besoins() {
 
   const startEdit = (b) => {
     setEditing(b.id);
-    setForm({ user_id: String(b.user_id), type: b.type, quantite: b.quantite, commentaire: b.commentaire || "", date_souhaitee: b.date_souhaitee || "" });
+    setForm({ user_id: String(b.user_id), type: b.type, gamme: b.gamme || "", quantite: b.quantite, commentaire: b.commentaire || "", date_souhaitee: b.date_souhaitee || "" });
     window.scrollTo({ top: 0 });
   };
+  const gammes = choix.find((c) => c.nom === form.type)?.gammes || [];
   const statut = (b, s, ok) => run(() => api.post(`/besoins/${b.id}/statut`, { statut: s }), ok);
   const editable = (b) => b.statut === "demande" || (it && b.statut === "en_preparation");
   const selectedUser = users.find((u) => String(u.id) === String(form.user_id));
@@ -86,8 +87,8 @@ export default function Besoins() {
     <div>
       <h2>Besoins de materiel</h2>
       <p className="muted">
-        Les RH declarent le materiel necessaire a un salarie (typiquement a son arrivee) ; l'informatique le prepare puis le remet
-        depuis la page Remises, ce qui solde automatiquement le besoin.
+        Les RH expriment un souhait a l'arrivee d'un salarie (categorie de materiel et gamme) depuis le formulaire d'entree ; l'informatique
+        choisit le materiel precis, le prepare puis le remet depuis la page Remises, ce qui solde automatiquement le besoin.
       </p>
       {err && <p className="err">{err}</p>}
       {msg && <p className="ok-msg">{msg}</p>}
@@ -106,11 +107,19 @@ export default function Besoins() {
                 </select>
               </label>
               <label>Type de materiel
-                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, gamme: "" })}>
                   <option value="">-</option>
-                  {types.map((t) => <option key={t} value={t}>{t}</option>)}
+                  {choix.map((c) => <option key={c.nom} value={c.nom}>{c.nom}</option>)}
                 </select>
               </label>
+              {gammes.length > 0 && (
+                <label>Gamme
+                  <select value={form.gamme} onChange={(e) => setForm({ ...form, gamme: e.target.value })}>
+                    <option value="">Non precisee</option>
+                    {gammes.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </label>
+              )}
               <label>Quantite
                 <input type="number" min="1" max="20" value={form.quantite} onChange={(e) => setForm({ ...form, quantite: e.target.value })} />
               </label>
@@ -148,7 +157,7 @@ export default function Besoins() {
                 <tr key={b.id}>
                   <td>{b.salarie}{b.matricule && <div className="muted">{b.matricule}</div>}</td>
                   <td>{b.date_arrivee || "-"}</td>
-                  <td>{b.quantite} x {b.type}</td>
+                  <td>{b.quantite} x {b.type}{b.gamme && <div className="muted">Gamme : {b.gamme}</div>}</td>
                   <td>{b.date_souhaitee || "-"}</td>
                   <td>{b.commentaire || "-"}</td>
                   <td>

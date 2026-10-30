@@ -130,7 +130,7 @@ export default function Assignments() {
                 <label key={b.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <input type="checkbox" checked={besoinIds.includes(b.id)}
                          onChange={() => setBesoinIds((p) => (p.includes(b.id) ? p.filter((x) => x !== b.id) : [...p, b.id]))} />
-                  {b.quantite} x {b.type}{b.commentaire ? ` (${b.commentaire})` : ""}{b.date_souhaitee ? ` - souhaite le ${b.date_souhaitee}` : ""}
+                  {b.quantite} x {b.type}{b.gamme ? ` - gamme ${b.gamme}` : ""}{b.commentaire ? ` (${b.commentaire})` : ""}{b.date_souhaitee ? ` - souhaite le ${b.date_souhaitee}` : ""}
                 </label>
               ))}
             </div>

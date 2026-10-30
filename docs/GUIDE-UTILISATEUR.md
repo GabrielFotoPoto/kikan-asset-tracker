@@ -17,7 +17,7 @@ partis se fait par une **purge RGPD** encadrée (voir la section 7).
 | Rôle | Pour qui | Ce qu'il peut faire |
 |---|---|---|
 | **informatique** | l'équipe informatique | tout : matériel, remises, restitutions, signatures, entités, import, paramétrage, comptes, stockage, sauvegarde, RGPD, journal d'audit |
-| **rh** | le service RH | entrées et départs des salariés, besoins de matériel, accès applicatifs, décisions de la revue des accès ; lecture du reste |
+| **rh** | le service RH | entrées et départs des salariés, **souhaits de matériel** à l'entrée (sans la page Besoins), accès applicatifs, décisions de la revue des accès ; lecture du reste |
 | **lecture** | contrôle, direction | consulter et exporter, sans rien modifier |
 
 Les comptes **RH** et **lecture** peuvent être **limités à des entités** (par exemple une seule filiale) : ils ne voient alors que les salariés, le matériel et les accès de ces
@@ -52,19 +52,23 @@ Page **Utilisateurs**, formulaire **Ajouter (formulaire d'entrée)** :
 ![Page Utilisateurs](captures/guide-utilisateurs.png)
 
 1. Renseignez le matricule, le nom, le prénom, l'e-mail, la **filiale / entité**, le service, la date d'arrivée. Le statut est « actif » ou « prévu » (arrivée à venir).
-2. Cochez dans **Matériel nécessaire** les catégories de besoin (par exemple « PC portable avec pavé numérique », « Smartphone Android »). Cela crée automatiquement les **besoins**
-   que l'informatique verra dans sa file de préparation. Les catégories sont gérées par l'informatique (Paramétrage).
-3. **Ajouter**. Le bouton **Besoins** d'une ligne ouvre les besoins de ce salarié ; **Modifier** corrige la fiche.
+2. Cochez dans **Matériel souhaité** ce dont le salarié a besoin (par exemple « PC portable avec pavé numérique », « Smartphone Apple »). Vous exprimez un **souhait**, pas un choix de matériel :
+   l'informatique retiendra le modèle exact selon le stock. Quand une catégorie propose des **gammes**, un menu apparaît une fois la case cochée : choisissez-en une (**Standard** ou **Haut de gamme**
+   pour un PC portable ; **Normal**, **Pro** ou **XL** pour un smartphone Apple) ou laissez « non précisée ». Cela crée automatiquement les **besoins** que l'informatique verra dans sa file de préparation.
+   Les catégories et leurs gammes sont gérées par l'informatique (Paramétrage).
+
+   ![Matériel souhaité et gamme, à l'entrée d'un salarié](captures/besoins-saisie-rh.png)
+3. **Ajouter**. **Modifier** corrige la fiche. Les RH n'ont pas de page Besoins : une erreur dans un souhait se signale à l'informatique, qui la corrige.
 
 L'**acronyme** à trois lettres (proposé à partir du prénom et du nom, modifiable) sert à nommer les PDF du salarié.
 
-### 5.2 Suivre les besoins de matériel (RH et informatique)
+### 5.2 Suivre les besoins de matériel (informatique)
 
-Page **Besoins** : un besoin passe par **demande**, **en préparation**, **satisfait** (ou **annulé**).
+Page **Besoins** (informatique ; lecture seule pour le rôle lecture ; **pas d'accès pour les RH**) : un besoin passe par **demande**, **en préparation**, **satisfait** (ou **annulé**). La **gamme** souhaitée figure sous le matériel.
 
-![Besoins saisis par les RH](captures/besoins-saisie-rh.png)
+![Besoins à traiter, avec la gamme souhaitée](captures/besoins-file-informatique.png)
 
-- Les **RH** déclarent, modifient ou annulent un besoin tant qu'il est « demandé ».
+- Les besoins viennent des **souhaits** exprimés par les RH à l'entrée d'un salarié ; l'informatique peut aussi en déclarer, modifier (catégorie, gamme, quantité) ou annuler.
 - L'**informatique** le prend en charge (« en préparation ») puis le **solde en faisant la remise** : à la création d'une remise, les besoins ouverts du salarié sont proposés d'office et se
   solderont avec elle (section 5.4).
 - Des **rappels par e-mail** préviennent des besoins non traités avant une arrivée.
@@ -184,7 +188,7 @@ développement » : le numéro n'est renseigné que sur les images publiées. Ut
 | **Entités** | le groupe et ses filiales (parent, activation). Une entité utilisée se désactive, elle ne se supprime pas |
 | **Chartes** | déposer la charte (Word, PDF ou Markdown), globale ou par entité. Une nouvelle version **archive** l'ancienne ; les documents déjà signés ne changent pas |
 | **Import** | reprise de l'existant par **CSV ou Excel**, dans l'ordre : entités, applications, salariés, matériel, affectations, accès. Toujours **simulation d'abord**, puis import réel « tout ou rien ». Un import réalisé peut être **annulé** tant que rien de ce qu'il a créé n'est utilisé |
-| **Paramétrage** | types et services, catégories de besoin, **coûts de remplacement** (budget des prévisions), **apparence** (icône de l'application), fusion des marques et modèles, **modèle de PDF** (logo, mentions), **E-mails** (SMTP, rappels, rapport mensuel), **intégrations** (jetons d'API, GLPI), connexion Microsoft 365 |
+| **Paramétrage** | types et services, catégories de besoin et **gammes proposées aux RH**, **coûts de remplacement** (budget des prévisions), **apparence** (icône de l'application), fusion des marques et modèles, **modèle de PDF** (logo, mentions), **E-mails** (SMTP, rappels, rapport mensuel), **intégrations** (jetons d'API, GLPI), connexion Microsoft 365 |
 | **Comptes** | créer des comptes nominatifs, choisir le rôle et le **périmètre** (RH, lecture), réinitialiser un mot de passe, désactiver |
 | **Stockage** | où sont rangés les PDF scellés ; test de connexion ; copie vers un nouveau moteur |
 | **Sauvegarde** | état de la dernière sauvegarde chiffrée ; l'alerte du tableau de bord |
@@ -230,7 +234,7 @@ L'icône de la page de connexion est lisible **sans être connecté** : n'y mett
 | Je veux... | Où | Qui |
 |---|---|---|
 | enregistrer l'arrivée d'un salarié | Utilisateurs, formulaire d'entrée | RH |
-| signaler qu'il lui faut un PC ou un téléphone | cases « Matériel nécessaire » ou page Besoins | RH |
+| signaler qu'il lui faut un PC ou un téléphone | cases « Matériel souhaité » et gamme, au formulaire d'entrée | RH |
 | remettre un PC et le faire signer | Remises, puis Signer | informatique |
 | retrouver le PDF d'une remise | Remises, bouton « PDF scellé » | informatique, RH, lecture |
 | déclarer un départ | Sorties, Déclarer un départ | RH, informatique |

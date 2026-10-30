@@ -118,6 +118,48 @@ function ListEditor({ kind, label, help, setErr, setMsg }) {
 // Cle de rapprochement : "Dell", "DELL" et "dell." sont probablement la meme marque.
 const proche = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
+// Gammes proposees aux RH pour chaque categorie de besoin (ex. Normal, Pro, XL), separees par des virgules.
+function Gammes({ setErr, setMsg }) {
+  const [cats, setCats] = useState([]);
+  const [saisie, setSaisie] = useState({});
+  const load = () => api.get("/parametres/categories-besoin").then((c) => {
+    setCats(c); setSaisie(Object.fromEntries(c.map((x) => [x.id, (x.gammes || []).join(", ")])));
+  }).catch((e) => setErr(errorText(e)));
+  useEffect(() => { load(); }, []);
+  const save = async (c) => {
+    setErr(null); setMsg(null);
+    try {
+      const gammes = saisie[c.id].split(",").map((g) => g.trim()).filter(Boolean);
+      await api.put(`/parametres/categories-besoin/${c.id}/gammes`, { gammes });
+      setMsg(`Gammes de « ${c.nom} » enregistrees.`);
+      load();
+    } catch (ex) { setErr(errorText(ex)); }
+  };
+  return (
+    <div className="card">
+      <h3>Gammes proposees aux RH</h3>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Quand les RH cochent une categorie a l'arrivee d'un salarie, elles peuvent preciser une gamme parmi celles-ci (10 au plus par categorie,
+        separees par des virgules). Exemples : <i>Normal, Pro, XL</i> pour un smartphone Apple ; <i>Standard, Haut de gamme</i> pour un PC portable.
+        Laisser vide : aucune gamme n'est proposee.
+      </p>
+      <table>
+        <thead><tr><th>Categorie</th><th>Gammes</th><th></th></tr></thead>
+        <tbody>
+          {cats.map((c) => (
+            <tr key={c.id}>
+              <td>{c.nom}{!c.actif && <span className="muted"> (desactivee)</span>}</td>
+              <td><input style={{ minWidth: 320 }} value={saisie[c.id] ?? ""} maxLength={300} placeholder="ex. Normal, Pro, XL" onChange={(e) => setSaisie({ ...saisie, [c.id]: e.target.value })} /></td>
+              <td><button className="ghost" onClick={() => save(c)}>Enregistrer</button></td>
+            </tr>
+          ))}
+          {cats.length === 0 && <tr><td colSpan={3} className="muted">Aucune categorie.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // Apparence : icone de l'application (menu, page de connexion, onglet du navigateur).
 function Apparence({ setErr, setMsg }) {
   const [hash, setHash] = useState(null);
@@ -903,8 +945,11 @@ export default function Parametres() {
           help="Types proposes dans le formulaire materiel. La liste s'enrichit aussi a la saisie et a l'import ; renommer un type met a jour tout le materiel concerne." />
       )}
       {tab === "categories-besoin" && (
+        <>
         <ListEditor kind="categories-besoin" label="Categorie" setErr={setErr} setMsg={setMsg}
-          help="Cases a cocher du formulaire d'entree et de la page Besoins. Une categorie decrit un usage (ex. PC portable avec pave numerique, Smartphone Apple), jamais une marque ni un modele : l'informatique choisit le materiel precis a la remise. Desactiver une categorie la retire des choix sans toucher aux besoins existants." />
+          help="Cases a cocher du formulaire d'entree (souhaits des RH) et menus de la page Besoins (informatique). Une categorie decrit un usage (ex. PC portable avec pave numerique, Smartphone Apple), jamais une marque ni un modele : l'informatique choisit le materiel precis a la remise. Desactiver une categorie la retire des choix sans toucher aux besoins existants." />
+        <Gammes setErr={setErr} setMsg={setMsg} />
+        </>
       )}
       {tab === "services" && (
         <ListEditor kind="services" label="Service" setErr={setErr} setMsg={setMsg}

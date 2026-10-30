@@ -59,7 +59,7 @@ export default function Dashboard() {
         <div className="card tile"><div className="n">{assets.length}</div><div className="l">Actifs</div></div>
         <div className="card tile"><div className="n">{byStatus("affecte")}</div><div className="l">Affectes</div></div>
         <div className="card tile"><div className="n">{byStatus("stock")}</div><div className="l">En stock</div></div>
-        <Link to="/besoins" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n">{besoins}</div><div className="l">Besoins a traiter</div></Link>
+        {user.role !== "rh" && <Link to="/besoins" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n">{besoins}</div><div className="l">Besoins a traiter</div></Link>}
         <Link to="/revues" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n" style={anomalies ? { color: "#9b1c1c" } : undefined}>{anomalies}</div><div className="l">Anomalies d'acces</div></Link>
       </div>
 

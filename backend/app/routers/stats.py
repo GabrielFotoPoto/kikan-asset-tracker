@@ -50,8 +50,10 @@ from ..models import (
     Besoin,
     Assignment,
     AssignmentAsset,
+    Account,
     EmployeeStatus,
     Entite,
+    Role,
     User,
 )
 
@@ -282,8 +284,11 @@ def stats(
     au: date | None = None,
     session: Session = Depends(get_session),
     scope: Scope = Depends(scope_dep),
+    account: Account = Depends(get_current_account),
 ):
     resultat = calculer(session, scope, entite_id, du, au)
+    if account.role == Role.rh:  # le suivi des besoins de materiel n'est pas visible des RH
+        resultat["besoins_a_traiter"] = None
     jour = date.today().isoformat()
     if format == "json":
         return resultat
