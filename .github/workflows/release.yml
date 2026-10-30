@@ -1,7 +1,7 @@
 # Publication d'une version : a l'envoi d'une etiquette vX.Y.Z, construit et publie les images Docker (GitHub Container Registry)
 # puis cree la version GitHub avec le fichier compose des images publiees.
 #
-#   git tag v0.3.3 && git push origin v0.3.3
+#   git tag v0.3.4 && git push origin v0.3.4
 name: Publication
 
 on:
