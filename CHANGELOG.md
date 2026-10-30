@@ -6,6 +6,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Ajouté
+- **Statistiques exportables** (C1) : filtres par entité (sous-entités incluses, dans la portée du compte) et par période, bloc « Mouvements de la période » (matériels remis, restitués et achetés, par mois), fenêtre des renouvellements réglable, export **CSV, Excel et PDF** (`GET /stats?format=csv|xlsx|pdf&entite_id=&du=&au=`). Nouvelle suite `tests/stats_check.py`.
 - **Page « À propos »** (lien en pied de menu, tous les comptes) : version et date de publication, notes de la version, licence GPL-3.0-or-later et auteur, liens vers le dépôt, composants principaux avec leur version installée et leur licence. Une image construite en local s'annonce « version de développement ». Nouvelle route `GET /apropos` ; la date de publication est transmise aux images par le workflow de publication (`KIKAN_RELEASE_DATE`). Nouvelle suite `tests/apropos_check.py`.
 
 ## [0.3.0] - 2026-10-30
