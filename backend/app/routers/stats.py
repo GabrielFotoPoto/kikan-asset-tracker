@@ -41,7 +41,7 @@ from sqlmodel import Session, select
 from .. import xlsx_io
 from ..auth import get_current_account
 from ..docname import heure_locale
-from ..scope import Scope, expand_scope, scope_dep
+from ..scope import Scope, restreindre_entite, scope_dep
 from ..db import get_session
 from ..pdf_template import footer_callback, header_flowables, load_template, mentions_flowables
 from ..models import (
@@ -61,22 +61,11 @@ router = APIRouter(
 )
 
 
-def _portee(session: Session, scope: Scope, entite_id: int | None) -> tuple[Scope, Entite | None]:
-    """Portee effective : celle du compte, restreinte a l'entite choisie et a ses sous-entites."""
-    if entite_id is None:
-        return scope, None
-    entite = session.get(Entite, entite_id)
-    if not entite or not scope.allows(entite_id):
-        raise HTTPException(404, "Entite introuvable")
-    choisie = expand_scope(session, {entite_id})
-    return (choisie if scope.globale else Scope(False, scope.ids & choisie.ids)), entite
-
-
 def calculer(session: Session, scope: Scope, entite_id: int | None = None,
              du: date | None = None, au: date | None = None) -> dict:
     if du and au and du > au:
         raise HTTPException(422, "La date de debut est posterieure a la date de fin")
-    scope, entite = _portee(session, scope, entite_id)
+    scope, entite = restreindre_entite(session, scope, entite_id)
     assets = session.exec(scope.where(select(Asset), Asset.entite_id)).all()
     entites = {e.id: e.nom for e in session.exec(select(Entite)).all()}
 

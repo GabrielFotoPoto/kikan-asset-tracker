@@ -42,6 +42,7 @@ import Revues from "./pages/Revues.jsx";
 import Acces from "./pages/Acces.jsx";
 import Stats from "./pages/Stats.jsx";
 import APropos from "./pages/APropos.jsx";
+import Previsions from "./pages/Previsions.jsx";
 import Audit from "./pages/Audit.jsx";
 import Compte from "./pages/Compte.jsx";
 import Stockage from "./pages/Stockage.jsx";
@@ -103,6 +104,7 @@ export default function App() {
             <NavLink to="/sorties">Sorties</NavLink>
             <NavLink to="/rapports">Rapports</NavLink>
             <NavLink to="/statistiques">Statistiques</NavLink>
+            <NavLink to="/previsions">Previsions</NavLink>
             <NavLink to="/revues">Revue des acces</NavLink>
             {user.role === "informatique" && <NavLink to="/rgpd">RGPD</NavLink>}
             {user.role === "informatique" && <NavLink to="/import">Import</NavLink>}
@@ -143,6 +145,7 @@ export default function App() {
             <Route path="/signer/:mode/:id" element={<Sign />} />
             <Route path="/rapports" element={<Reports />} />
             <Route path="/statistiques" element={<Stats />} />
+            <Route path="/previsions" element={<Previsions />} />
             <Route path="/revues" element={<Revues />} />
             <Route path="/rgpd" element={user.role === "informatique" ? <Rgpd /> : <Navigate to="/" />} />
             <Route path="/import" element={user.role === "informatique" ? <Import /> : <Navigate to="/" />} />
