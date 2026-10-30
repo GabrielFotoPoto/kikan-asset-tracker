@@ -5,6 +5,17 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Mise à jour depuis 0.3.2
+- La migration 0018 (gammes) s'applique seule au démarrage de l'API. Les catégories de besoin d'origine reçoivent des gammes par défaut (PC portable : Standard, Haut de gamme ; Smartphone Apple : Normal, Pro, XL), modifiables dans **Paramétrage, Catégories de besoin**.
+- **Les RH n'ont plus accès à la page Besoins** (menu, tuile du tableau de bord, liens) ni aux routes de suivi (`GET /besoins`, `/besoins/ouverts`, modification, changement de statut : réponse 403). Elles gardent la création d'un souhait depuis le formulaire d'entrée d'un salarié. Un souhait saisi par erreur se corrige désormais côté informatique.
+
+### Ajouté
+- **Gamme souhaitée** sur les besoins : l'informatique définit par catégorie une liste de gammes (10 au plus, par exemple Normal, Pro, XL pour un smartphone Apple ; Standard, Haut de gamme pour un PC portable) ; à l'entrée d'un salarié, les RH choisissent la gamme (facultative) une fois la catégorie cochée. La gamme apparaît sur la page Besoins, à la remise et dans le rappel e-mail. `GET /besoins/choix`, `PUT /parametres/categories-besoin/{id}/gammes`.
+
+### Modifié
+- **Couleur de marque** : bleu **#024B8F** (quadri C100 M75 J0 N0) pour la barre latérale, les boutons, les liens et les chiffres (jusqu'ici `#2b4c7e`), et pour la couleur du thème du navigateur et du manifeste.
+- Le formulaire d'entrée parle de **matériel souhaité** (et non plus « nécessaire ») ; le compteur « Besoins à traiter » n'est plus renvoyé aux RH (`null`). Le texte de la page Besoins décrit le nouveau rôle des RH.
+
 ## [0.3.2] - 2026-10-30
 
 Identité visuelle : logo Kikan par défaut et icône de l'application personnalisable.

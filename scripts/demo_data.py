@@ -302,8 +302,15 @@ def charger():
     cats = need("categories", call("GET", "/besoins/categories", token=token))
     pc_cat = next((c for c in cats if c.startswith("PC portable")), cats[0])
     phone_cat = next((c for c in cats if c.startswith("Smartphone")), cats[-1])
-    b1 = need("besoin", call("POST", "/besoins", {"user_id": made[40]["id"], "type": pc_cat, "quantite": 1, "commentaire": "Poste comptabilite"}, token))
-    need("besoin", call("POST", "/besoins", {"user_id": made[40]["id"], "type": phone_cat, "quantite": 1}, token))
+    choix = need("choix des besoins", call("GET", "/besoins/choix", token=token))
+    gammes = {c["nom"]: c["gammes"] for c in choix}
+
+    def gamme(cat, i):  # gamme proposee pour la categorie (la derniere si moins de choix), ou rien
+        g = gammes.get(cat) or []
+        return g[min(i, len(g) - 1)] if g else None
+
+    b1 = need("besoin", call("POST", "/besoins", {"user_id": made[40]["id"], "type": pc_cat, "gamme": gamme(pc_cat, 1), "quantite": 1, "commentaire": "Poste comptabilite"}, token))
+    need("besoin", call("POST", "/besoins", {"user_id": made[40]["id"], "type": phone_cat, "gamme": gamme(phone_cat, 1), "quantite": 1}, token))
     b3 = need("besoin", call("POST", "/besoins", {"user_id": made[41]["id"], "type": pc_cat, "quantite": 1, "commentaire": "Avec double ecran"}, token))
     need("besoin", call("POST", "/besoins", {"user_id": made[42]["id"], "type": pc_cat, "quantite": 1}, token))
     need("statut besoin", call("POST", f"/besoins/{b3['id']}/statut", {"statut": "en_preparation"}, token))

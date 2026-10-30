@@ -145,7 +145,7 @@ def collect(session: Session, cfg: MailConfig, today: date) -> dict[str, list[di
             out["besoins"].append({"cle": "besoin:%d" % b.id, "entite_id": u.entite_id, "ligne":
                                    "- %s %s (%s) : %d x %s, souhaite le %s%s [%s]" % (
                                        clean(u.prenom), clean(u.nom), clean(u.matricule) or "sans matricule", b.quantite,
-                                       clean(b.type), _fmt(due), " (date depassee)" if late else "",
+                                       clean(b.type) + (" (" + clean(b.gamme) + ")" if b.gamme else ""), _fmt(due), " (date depassee)" if late else "",
                                        "en preparation" if b.statut == "en_preparation" else "a traiter")})
     if cfg.revue:  # revue des droits d'acces : echeance, retraits a confirmer, revue annuelle (informatique ; nombres seulement)
         st = revue_acces.etat_rappels(session, today)

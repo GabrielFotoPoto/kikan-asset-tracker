@@ -45,12 +45,12 @@ export default function Users() {
   const [q, setQ] = useState("");
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
-  const [types, setTypes] = useState([]);
-  const [besoins, setBesoins] = useState([]);
+  const [choix, setChoix] = useState([]);      // categories de besoin actives, avec leurs gammes
+  const [besoins, setBesoins] = useState({});   // souhaits coches : { categorie: gamme choisie ("" = non precisee) }
 
   const load = () => api.get("/users" + (q ? `?q=${encodeURIComponent(q)}` : "")).then(setItems).catch((e) => setErr(errorText(e)));
   useEffect(() => { api.get("/entites").then(setEntites); }, []);
-  useEffect(() => { api.get("/besoins/categories").then(setTypes).catch(() => {}); }, []);
+  useEffect(() => { api.get("/besoins/choix").then(setChoix).catch(() => {}); }, []);
   useEffect(() => { api.get("/users/catalogue/services").then(setServices).catch(() => {}); }, [items]);
   useEffect(() => { load(); }, [q]);
 
@@ -67,8 +67,11 @@ export default function Users() {
     setErr(null); setMsg(null);
     window.scrollTo({ top: 0 });
   };
-  const cancel = () => { setEditing(null); setForm(empty); setBesoins([]); setErr(null); };
-  const toggleBesoin = (t) => setBesoins((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
+  const cancel = () => { setEditing(null); setForm(empty); setBesoins({}); setErr(null); };
+  const toggleBesoin = (t) => setBesoins((cur) => {
+    if (t in cur) { const { [t]: _retire, ...reste } = cur; return reste; }
+    return { ...cur, [t]: "" };
+  });
 
   const submit = async (e) => {
     e.preventDefault();
@@ -93,13 +96,14 @@ export default function Users() {
         if (homonyme && !window.confirm(`Un salarie ${homonyme.prenom} ${homonyme.nom} existe deja (${entiteNom(homonyme.entite_id)}). Creer quand meme ? (homonyme : pensez a differencier l'acronyme)`)) return;
         const created = await api.post("/users", payload);
         const failed = [];
-        for (const type of besoins) {
-          try { await api.post("/besoins", { user_id: created.id, type }); } catch { failed.push(type); }
+        const souhaits = Object.entries(besoins);
+        for (const [type, gamme] of souhaits) {
+          try { await api.post("/besoins", { user_id: created.id, type, gamme: gamme || null }); } catch { failed.push(type); }
         }
-        const ok = besoins.length - failed.length;
+        const ok = souhaits.length - failed.length;
         cancel();
-        setMsg(`${form.prenom} ${form.nom} ajoute${ok ? `, ${ok} besoin(s) de materiel enregistre(s)` : ""}.`);
-        if (failed.length) setErr(`Besoin non enregistre (${failed.join(", ")}) : a saisir depuis la page Besoins.`);
+        setMsg(`${form.prenom} ${form.nom} ajoute${ok ? `, ${ok} souhait(s) de materiel enregistre(s)` : ""}.`);
+        if (failed.length) setErr(`Souhait non enregistre (${failed.join(", ")}) : a signaler a l'informatique.`);
       }
       load();
     } catch (ex) { setErr(errorText(ex)); }
@@ -149,14 +153,25 @@ export default function Users() {
           </label>
           <label>Date d'arrivee<input type="date" value={form.date_arrivee} onChange={(e) => setForm({ ...form, date_arrivee: e.target.value })} /></label>
           <label>Date de sortie<input type="date" value={form.date_sortie} onChange={(e) => setForm({ ...form, date_sortie: e.target.value })} /></label>
-          {!editing && types.length > 0 && (
+          {!editing && choix.length > 0 && (
             <fieldset style={{ gridColumn: "1 / -1" }}>
-              <legend>Materiel necessaire</legend>
-              <div className="row">
-                {types.map((t) => (
-                  <label key={t} className="row" style={{ gap: 6 }}>
-                    <input type="checkbox" checked={besoins.includes(t)} onChange={() => toggleBesoin(t)} />{t}
-                  </label>
+              <legend>Materiel souhaite</legend>
+              <p className="muted" style={{ marginTop: 0 }}>
+                Indiquez ce dont le salarie a besoin ; precisez la gamme si elle est proposee. L'informatique choisira le materiel exact.
+              </p>
+              <div className="row" style={{ alignItems: "flex-start" }}>
+                {choix.map((c) => (
+                  <div key={c.nom} style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 220 }}>
+                    <label className="row" style={{ gap: 6 }}>
+                      <input type="checkbox" checked={c.nom in besoins} onChange={() => toggleBesoin(c.nom)} />{c.nom}
+                    </label>
+                    {c.nom in besoins && c.gammes.length > 0 && (
+                      <select aria-label={`Gamme : ${c.nom}`} value={besoins[c.nom]} onChange={(e) => setBesoins({ ...besoins, [c.nom]: e.target.value })}>
+                        <option value="">Gamme : non precisee</option>
+                        {c.gammes.map((g) => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                    )}
+                  </div>
                 ))}
               </div>
             </fieldset>
@@ -188,7 +203,7 @@ export default function Users() {
                   <td>
                     <div className="row">
                       <button className="ghost" onClick={() => startEdit(u)}>Modifier</button>
-                      <Link to={`/besoins?user=${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Besoins</Link>
+                      {user.role !== "rh" && <Link to={`/besoins?user=${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Besoins</Link>}
                       {canDelete && <ConfirmButton onConfirm={() => remove(u)}>Supprimer</ConfirmButton>}
                     </div>
                   </td>

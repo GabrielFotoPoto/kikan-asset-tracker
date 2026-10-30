@@ -27,7 +27,7 @@ export function useAuth() {
 
 // Droits d'ecriture par domaine, alignes sur le backend.
 export function canWrite(role, domain) {
-  if (domain === "users" || domain === "besoins" || domain === "revues") return role === "rh" || role === "informatique";
-  // entites, materiel, remises, import, applications : informatique
+  if (domain === "users" || domain === "revues") return role === "rh" || role === "informatique";
+  // besoins (suivi : les RH expriment leur souhait depuis le formulaire d'entree), entites, materiel, remises, import, applications : informatique
   return role === "informatique";
 }

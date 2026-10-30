@@ -15,10 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Besoins materiels : saisis par les RH a l'arrivee d'un salarie, traites et soldes par l'informatique.
+"""Besoins materiels : souhaits exprimes par les RH a l'arrivee d'un salarie, traites et soldes par l'informatique.
 
-Cycle : demande -> en_preparation -> satisfait (par la remise) ; annule. Une RH ne voit et ne modifie que les besoins des
-salaries de son perimetre (cloisonnement par entite). Le statut "satisfait" ne s'obtient que par une remise.
+Les RH expriment un souhait (une categorie de la liste du Parametrage, par exemple "Smartphone Apple", et sa gamme : Normal, Pro,
+XL...) depuis le formulaire d'entree du salarie : c'est leur seul acces (creation, dans leur perimetre). Le suivi (liste,
+modification, statuts) est reserve a l'informatique, en lecture seule pour le role lecture. L'informatique choisit le materiel
+precis a la remise. Cycle : demande -> en_preparation -> satisfait (par la remise) ; annule. Le statut "satisfait" ne s'obtient que
+par une remise.
 """
 import re
 from datetime import date, datetime
@@ -30,15 +33,20 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from ..audit import audit
-from ..auth import get_current_account, writer_guard
+from ..auth import get_current_account, require_roles, writer_guard
 from ..db import get_session
-from ..models import Account, Besoin, BesoinCategorie, Role, User
+from ..models import Account, Besoin, BesoinCategorie, User
 from ..scope import Scope, scope_dep, visible_user
 
 router = APIRouter(
     prefix="/besoins", tags=["besoins"],
-    dependencies=[Depends(writer_guard("rh", "informatique"))],
+    dependencies=[Depends(get_current_account)],
 )
+
+# Acces par route : les RH ne peuvent que creer un souhait (formulaire d'entree) ; le suivi est a l'informatique.
+SUIVI_LECTURE = Depends(require_roles("informatique", "lecture"))
+SUIVI_ECRITURE = Depends(writer_guard("informatique"))
+CREATION = Depends(writer_guard("rh", "informatique"))
 
 OUVERTS = ("demande", "en_preparation")
 STATUTS = ("demande", "en_preparation", "satisfait", "annule")
@@ -52,6 +60,7 @@ def _clean(value: str | None, limit: int) -> str | None:
 class BesoinIn(BaseModel):
     user_id: int
     type: str = Field(min_length=1, max_length=100)
+    gamme: str | None = Field(default=None, max_length=40)
     quantite: int = Field(default=1, ge=1, le=20)
     commentaire: str | None = Field(default=None, max_length=200)
     date_souhaitee: date | None = None
@@ -64,6 +73,11 @@ class BesoinIn(BaseModel):
             raise ValueError("type requis")
         return v
 
+    @field_validator("gamme")
+    @classmethod
+    def _gamme(cls, v: str | None) -> str | None:
+        return _clean(v, 40)
+
     @field_validator("commentaire")
     @classmethod
     def _comment(cls, v: str | None) -> str | None:
@@ -72,6 +86,7 @@ class BesoinIn(BaseModel):
 
 class BesoinUpdate(BaseModel):
     type: str | None = Field(default=None, max_length=100)
+    gamme: str | None = Field(default=None, max_length=40)
     quantite: int | None = Field(default=None, ge=1, le=20)
     commentaire: str | None = Field(default=None, max_length=200)
     date_souhaitee: date | None = None
@@ -80,6 +95,11 @@ class BesoinUpdate(BaseModel):
     @classmethod
     def _type(cls, v: str | None) -> str | None:
         return _clean(v, 100) if v is not None else None
+
+    @field_validator("gamme")
+    @classmethod
+    def _gamme(cls, v: str | None) -> str | None:
+        return _clean(v, 40)
 
     @field_validator("commentaire")
     @classmethod
@@ -99,6 +119,17 @@ def known_type(session: Session, nom: str) -> str:
     return found.nom
 
 
+def known_gamme(session: Session, type_: str, gamme: str | None) -> str | None:
+    """Gamme canonique, parmi celles proposees pour la categorie (liste du Parametrage) ; vide si aucune n'est choisie."""
+    if not gamme:
+        return None
+    cat = session.exec(select(BesoinCategorie).where(func.lower(BesoinCategorie.nom) == type_.lower())).first()
+    for g in (cat.gammes if cat and cat.gammes else []):
+        if g.lower() == gamme.lower():
+            return g
+    raise HTTPException(400, "Gamme inconnue pour cette categorie : choisissez une gamme de la liste")
+
+
 def _out(session: Session, b: Besoin, users: dict[int, User] | None = None) -> dict:
     user = (users or {}).get(b.user_id) or session.get(User, b.user_id)
     return {
@@ -106,7 +137,7 @@ def _out(session: Session, b: Besoin, users: dict[int, User] | None = None) -> d
         "salarie": f"{user.prenom} {user.nom}" if user else "?", "matricule": user.matricule if user else None,
         "entite_id": user.entite_id if user else None, "statut_salarie": user.statut.value if user else None,
         "date_arrivee": user.date_arrivee if user else None,
-        "type": b.type, "quantite": b.quantite, "commentaire": b.commentaire, "date_souhaitee": b.date_souhaitee,
+        "type": b.type, "gamme": b.gamme, "quantite": b.quantite, "commentaire": b.commentaire, "date_souhaitee": b.date_souhaitee,
         "statut": b.statut, "cree_par": b.cree_par, "traite_par": b.traite_par, "assignment_id": b.assignment_id,
         "cree_le": b.cree_le, "maj_le": b.maj_le,
     }
@@ -122,12 +153,20 @@ def _visible(session: Session, scope: Scope, besoin_id: int) -> Besoin:
 
 @router.get("/categories", response_model=list[str])
 def categories(session: Session = Depends(get_session)):
-    """Categories de besoin actives, pour les cases a cocher et les menus (RH et informatique)."""
+    """Categories de besoin actives, pour les menus (tous les roles)."""
     rows = session.exec(select(BesoinCategorie.nom).where(BesoinCategorie.actif == True)).all()  # noqa: E712
     return sorted(rows, key=str.lower)
 
 
-@router.get("")
+@router.get("/choix")
+def choix(session: Session = Depends(get_session)):
+    """Categories actives avec leurs gammes, pour le formulaire d'entree (cases a cocher et choix de la gamme)."""
+    rows = session.exec(select(BesoinCategorie).where(BesoinCategorie.actif == True)).all()  # noqa: E712
+    rows.sort(key=lambda c: c.nom.lower())
+    return [{"nom": c.nom, "gammes": list(c.gammes or [])} for c in rows]
+
+
+@router.get("", dependencies=[SUIVI_LECTURE])
 def list_besoins(
     statut: str | None = None, entite_id: int | None = None, user_id: int | None = None, type: str | None = None,
     session: Session = Depends(get_session), scope: Scope = Depends(scope_dep),
@@ -155,7 +194,7 @@ def list_besoins(
     return items
 
 
-@router.get("/ouverts/{user_id}")
+@router.get("/ouverts/{user_id}", dependencies=[SUIVI_LECTURE])
 def open_for_user(user_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
     """Besoins encore ouverts d'un salarie (proposes a la creation d'une remise)."""
     visible_user(session, scope, user_id)
@@ -163,12 +202,13 @@ def open_for_user(user_id: int, session: Session = Depends(get_session), scope: 
     return [_out(session, b) for b in rows]
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=[CREATION])
 def create_besoin(data: BesoinIn, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep),
                   account: Account = Depends(get_current_account)):
     user = visible_user(session, scope, data.user_id)
-    b = Besoin(user_id=user.id, type=known_type(session, data.type), quantite=data.quantite, commentaire=data.commentaire,
-               date_souhaitee=data.date_souhaitee or user.date_arrivee, cree_par=account.username)
+    type_ = known_type(session, data.type)
+    b = Besoin(user_id=user.id, type=type_, gamme=known_gamme(session, type_, data.gamme), quantite=data.quantite,
+               commentaire=data.commentaire, date_souhaitee=data.date_souhaitee or user.date_arrivee, cree_par=account.username)
     session.add(b)
     session.commit()
     session.refresh(b)
@@ -176,17 +216,16 @@ def create_besoin(data: BesoinIn, session: Session = Depends(get_session), scope
     return _out(session, b)
 
 
-def _editable(b: Besoin, account: Account) -> None:
-    allowed = ("demande", "en_preparation") if account.role == Role.informatique else ("demande",)
-    if b.statut not in allowed:
+def _editable(b: Besoin) -> None:
+    if b.statut not in OUVERTS:
         raise HTTPException(409, "Ce besoin n'est plus modifiable")
 
 
-@router.put("/{besoin_id}")
+@router.put("/{besoin_id}", dependencies=[SUIVI_ECRITURE])
 def update_besoin(besoin_id: int, data: BesoinUpdate, session: Session = Depends(get_session),
                   scope: Scope = Depends(scope_dep), account: Account = Depends(get_current_account)):
     b = _visible(session, scope, besoin_id)
-    _editable(b, account)
+    _editable(b)
     changed = []
     fields = data.model_fields_set
     if "type" in fields and data.type:
@@ -194,6 +233,17 @@ def update_besoin(besoin_id: int, data: BesoinUpdate, session: Session = Depends
         if new != b.type:
             b.type = new
             changed.append("type")
+            if "gamme" not in fields and b.gamme:  # la gamme n'est conservee que si la nouvelle categorie la propose
+                try:
+                    b.gamme = known_gamme(session, b.type, b.gamme)
+                except HTTPException:
+                    b.gamme = None
+                    changed.append("gamme")
+    if "gamme" in fields:
+        new_gamme = known_gamme(session, b.type, data.gamme)
+        if new_gamme != b.gamme:
+            b.gamme = new_gamme
+            changed.append("gamme")
     if "quantite" in fields and data.quantite and data.quantite != b.quantite:
         b.quantite = data.quantite
         changed.append("quantite")
@@ -210,15 +260,13 @@ def update_besoin(besoin_id: int, data: BesoinUpdate, session: Session = Depends
     return _out(session, b)
 
 
-@router.post("/{besoin_id}/statut")
+@router.post("/{besoin_id}/statut", dependencies=[SUIVI_ECRITURE])
 def set_statut(besoin_id: int, data: StatutIn, session: Session = Depends(get_session),
                scope: Scope = Depends(scope_dep), account: Account = Depends(get_current_account)):
     """Changement de statut. "satisfait" n'est pas accepte ici : il resulte d'une remise."""
     b = _visible(session, scope, besoin_id)
     if b.statut in ("satisfait", "annule"):
         raise HTTPException(409, "Ce besoin est clos")
-    if account.role != Role.informatique and not (data.statut == "annule" and b.statut == "demande"):
-        raise HTTPException(403, "Les RH peuvent seulement annuler un besoin qui n'est pas encore en preparation")
     if data.statut == b.statut:
         raise HTTPException(409, "Le besoin a deja ce statut")
     b.statut = data.statut
