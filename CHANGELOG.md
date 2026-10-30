@@ -5,6 +5,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.3.3] - 2026-10-30
+
+Souhaits de matériel avec gamme (les RH sans accès à la page Besoins) et nouveau bleu de marque.
+
 ### Mise à jour depuis 0.3.2
 - La migration 0018 (gammes) s'applique seule au démarrage de l'API. Les catégories de besoin d'origine reçoivent des gammes par défaut (PC portable : Standard, Haut de gamme ; Smartphone Apple : Normal, Pro, XL), modifiables dans **Paramétrage, Catégories de besoin**.
 - **Les RH n'ont plus accès à la page Besoins** (menu, tuile du tableau de bord, liens) ni aux routes de suivi (`GET /besoins`, `/besoins/ouverts`, modification, changement de statut : réponse 403). Elles gardent la création d'un souhait depuis le formulaire d'entrée d'un salarié. Un souhait saisi par erreur se corrige désormais côté informatique.
