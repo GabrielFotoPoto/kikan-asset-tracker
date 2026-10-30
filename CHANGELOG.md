@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **Statistiques exportables** (C1) : filtres par entité (sous-entités incluses, dans la portée du compte) et par période, bloc « Mouvements de la période » (matériels remis, restitués et achetés, par mois), fenêtre des renouvellements réglable, export **CSV, Excel et PDF** (`GET /stats?format=csv|xlsx|pdf&entite_id=&du=&au=`). Nouvelle suite `tests/stats_check.py`.
+
 ## [0.3.0] - 2026-10-30
 
 Pilotage, conformité et durcissement : revue des droits d'accès, purge RGPD paramétrable, annulation d'import, session sécurisée, guides.
