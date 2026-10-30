@@ -241,6 +241,8 @@ class BesoinCategorie(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     nom: str = Field(index=True)
     actif: bool = True
+    # Gammes proposees aux RH pour cette categorie (ex. Normal, Pro, XL) : liste geree par l'informatique ; vide = aucune.
+    gammes: Optional[list] = Field(default=None, sa_column=Column(JSON))
 
 
 class Service(SQLModel, table=True):
@@ -424,6 +426,7 @@ class Besoin(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
     type: str
+    gamme: Optional[str] = None       # gamme souhaitee, parmi celles de la categorie (facultatif)
     quantite: int = 1
     commentaire: Optional[str] = None
     date_souhaitee: Optional[date] = None

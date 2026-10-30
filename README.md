@@ -42,8 +42,8 @@ et A.5.18 (droits d'accès).
 La version publiée est la **0.3.2** (historique dans le [CHANGELOG](CHANGELOG.md)).
 
 **Cycle de vie du matériel et des salariés**
-- **Cycle de vie du salarié** : formulaire d'entrée (RH) avec les **besoins de matériel** à cocher, départ avec liste automatique du matériel à récupérer et rappels, passage en « sorti » une fois tout rendu.
-- **Besoins de matériel** : demandés par les RH, préparés par l'informatique, **soldés automatiquement par la remise** ; rappels avant les arrivées.
+- **Cycle de vie du salarié** : formulaire d'entrée (RH) avec le **matériel souhaité** à cocher (et la gamme à préciser), départ avec liste automatique du matériel à récupérer et rappels, passage en « sorti » une fois tout rendu.
+- **Besoins de matériel** : souhaits exprimés par les RH (catégorie et **gamme**), préparés par l'informatique qui choisit le matériel exact, **soldés automatiquement par la remise** ; rappels avant les arrivées.
 - **Remise signée** : accusé PDF (matériel + charte informatique annexée), **signature manuscrite sur tablette**, puis **scellement PAdES** (certificat de l'organisation, horodatage RFC 3161 optionnel). Document infalsifiable et vérifiable ; nom de fichier lisible et sans hasard (`AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf`).
 - **Restitution signée** (A.5.11), avec la même signature, conduite par l'informatique ou les RH.
 - **Accès applicatifs** (A.5.18) : catalogue d'applications, attribution par salarié avec précision de niveau.
@@ -152,7 +152,7 @@ L'import des entités est un lot que l'on retrouve sur la page Import.
 | Rôle | Droits |
 |---|---|
 | **informatique** | Tout : matériel, remises, restitutions, signatures, entités, import, paramétrage, RGPD, comptes, journal d'audit. |
-| **rh** | Cycle de vie des salariés (entrées, départs), restitutions, accès applicatifs, besoins de matériel. Lecture du reste. |
+| **rh** | Cycle de vie des salariés (entrées, départs, **souhaits de matériel** à l'entrée), restitutions, accès applicatifs. Pas d'accès à la page Besoins. Lecture du reste. |
 | **lecture** | Consultation et export uniquement. |
 
 > La connexion **Microsoft 365 (Entra ID)**, facultative, attribue le rôle à partir des **rôles d'application** Entra `Kikan.IT` (informatique) et `Kikan.RH` (rh) ;
@@ -257,23 +257,29 @@ annuelle). Détail : [docs/REVUE-ACCES.md](docs/REVUE-ACCES.md).
 
 ## Besoins de matériel
 
-Les **RH** déclarent le matériel nécessaire à un salarié, typiquement à son arrivée (salarié au statut « prévu ») ;
-l'**informatique** le prépare puis le remet. Page **Besoins** (lecture pour tous, saisie pour les RH et l'informatique).
+Les **RH** expriment un **souhait** à l'arrivée d'un salarié, depuis le formulaire d'entrée : elles cochent une catégorie (par exemple
+« PC portable avec pavé numérique », « Smartphone Apple ») et, si la catégorie en propose, précisent la **gamme** (Standard ou Haut de
+gamme pour un PC ; Normal, Pro ou XL pour un smartphone Apple). Elles ne choisissent **pas** le matériel définitif : l'**informatique**
+retient le matériel exact selon le stock, le prépare puis le remet. Les RH n'ont **pas accès** à la page Besoins (ni au suivi).
 
-- **Un besoin** : un salarié, un type de matériel (de la liste du Paramétrage : les RH ne créent pas de types), une quantité,
-  des précisions courtes et une date souhaitée (par défaut, la date d'arrivée).
-- **Quatre statuts** : `demande`, `en préparation`, `satisfait`, `annulé`. La RH peut modifier ou annuler tant que le besoin
-  est en demande ; l'informatique le prend en charge, le remet en demande ou l'annule. **« Satisfait » ne s'obtient que par une
-  remise** : à la création d'une remise, les besoins ouverts du salarié sont proposés (cochés d'office) et soldés avec elle.
-- **Cloisonnement** : une RH ne voit et ne modifie que les besoins des salariés de son périmètre.
-- **Tableau de bord** : compteur « Besoins à traiter ». **E-mail** (Paramétrage, onglet E-mails) : rappel hebdomadaire à
-  l'informatique pour les arrivées proches dont le besoin n'est pas traité.
+- **Un besoin** : un salarié, une catégorie (liste du Paramétrage : les RH ne créent pas de catégories), une **gamme** facultative parmi celles
+  de la catégorie, une quantité, des précisions courtes et une date souhaitée (par défaut, la date d'arrivée).
+- **Gammes** : l'informatique les définit par catégorie (**Paramétrage, Catégories de besoin**, 10 au plus, séparées par des virgules) ;
+  sans gamme définie, la catégorie n'en propose pas. Les catégories d'origine reçoivent des gammes par défaut, modifiables.
+- **Quatre statuts** : `demande`, `en préparation`, `satisfait`, `annulé`, gérés par l'informatique (lecture seule pour le rôle lecture).
+  **« Satisfait » ne s'obtient que par une remise** : à la création d'une remise, les besoins ouverts du salarié sont proposés (cochés
+  d'office, gamme comprise) et soldés avec elle.
+- **Cloisonnement** : une RH ne crée un souhait que pour un salarié de son périmètre.
+- **Tableau de bord** : compteur « Besoins à traiter » (informatique et lecture, pas les RH). **E-mail** (Paramétrage, onglet E-mails) :
+  rappel hebdomadaire à l'informatique pour les arrivées proches dont le besoin n'est pas traité (gamme indiquée).
 - Un salarié qui a des besoins ne se supprime pas ; la purge RGPD les supprime avec lui. Les créations, changements de statut et
   soldes sont tracés dans le journal d'audit (jamais le texte des précisions).
 
-![Une RH déclare un besoin pour un arrivant de son périmètre](docs/captures/besoins-saisie-rh.png)
+![Une RH coche le matériel souhaité et précise la gamme](docs/captures/besoins-saisie-rh.png)
 
-![L'informatique voit tous les besoins et les prend en charge](docs/captures/besoins-file-informatique.png)
+![L'informatique définit les gammes de chaque catégorie](docs/captures/besoins-gammes.png)
+
+![L'informatique voit tous les besoins, avec la gamme, et les prend en charge](docs/captures/besoins-file-informatique.png)
 
 ![À la création d'une remise, les besoins ouverts sont proposés et soldés](docs/captures/besoins-remise-solde.png)
 
@@ -575,7 +581,7 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   modèles (A8, **fait**).
 - **v0.2 - identité, intégrations, automatisation** : SSO Microsoft 365 / Entra ID (B1, **fait**, à valider sur votre tenant), comptes cloisonnés par
   entité (B2, **fait**), rappels par e-mail (B3, **fait**), rapport mensuel automatique (B4, **fait**), connecteur GLPI et API d'import (B5, **fait**), dépôt via l'API
-  SharePoint Online et DocuWare (B6, **fait**), besoins matériels saisis par les RH (B7, **fait**), import et export Excel (B8, **fait**).
+  SharePoint Online et DocuWare (B6, **fait**), besoins matériels exprimés par les RH avec leur gamme (B7, **fait**), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : revue périodique des droits d'accès (C2, **fait**), statistiques exportables (C1, **fait**), prévision des
   renouvellements (C3, **fait**), étiquettes et QR codes (C4), pièces jointes (C5).
 - **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).

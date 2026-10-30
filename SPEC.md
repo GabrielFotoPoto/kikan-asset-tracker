@@ -172,6 +172,7 @@ Ce qui fait la valeur de preuve :
 
 ### 4.8 Tables de paramétrage
 - `couts_remplacement` : **coût de remplacement estimé** (C3) par type de matériel, avec exception possible pour un modèle précis (marque et modèle) ; montant en **centimes d'euro** (entier), clé unique insensible à la casse (type, marque, modèle) ; modifiable par l'informatique seule.
+- `besoin_categories` : catégories de besoin cochées par les RH, avec leurs **gammes** (liste JSON, 10 au plus ; ex. Normal, Pro, XL) ; `besoins` : un souhait par salarié (catégorie, **gamme** facultative parmi celles de la catégorie, quantité, précisions, date souhaitée, statut).
 - `asset_types` et `services` : listes de paramétrage (actif ou non), enrichies à la saisie et à l'import ; `settings` : modèle de PDF (organisation, mentions, pied de page, logo) et **icône de l'application** (`app_icone`, PNG réencodé).
 - `policies` : chartes d'usage **déposées en fichier** (PDF normalisé et fichier d'origine dans le stockage, empreintes SHA-256), portée (globale ou entité), version, statut active ou archivée ; une seule version active par portée.
 - `settings` : paramètres globaux (voir §8).
@@ -197,6 +198,7 @@ Objectif : accélérer les saisies suivantes en réutilisant ce qui a déjà ét
 - **Informatique** : gère les **actifs**, conduit la **remise signée à l'arrivée** et **peut
   aussi** conduire la **restitution à la sortie**, paramètre l'outil.
 - **Accès applicatifs** (§6.5) : attribuables par **les RH ou l'informatique**.
+- **Besoins de matériel** : les RH n'expriment qu'un **souhait** (création, depuis le formulaire d'entrée) ; le suivi est à l'informatique, sans accès pour les RH.
 - **Lecture seule** *(optionnel, plus tard)* : consultation et export des rapports (RSSI, direction).
 
 > **Portée par entité** (B2, fait) : les comptes RH et lecture sont **globaux** ou **limités à une ou
@@ -235,7 +237,7 @@ sur la tablette.
 
 ### 6.0 Arrivée d'un employé (RH)
 1. Les **RH** saisissent le nouvel employé via un **formulaire d'entrée** : **nom, prénom,
-   filiale/entité**, service, **date d'arrivée**, éventuellement besoins matériels.
+   filiale/entité**, service, **date d'arrivée**, éventuellement **souhaits de matériel** (catégorie et gamme ; elles ne choisissent pas le matériel définitif).
    Statut `prevu` → `actif`.
 2. L'**informatique** voit l'arrivée (tableau de bord), distribue le matériel, puis fait signer
    l'**accusé de remise** à l'arrivée (§6.1).
@@ -470,7 +472,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | B4 | **Rapport mensuel automatique** : généré, archivé dans le stockage et envoyé par e-mail. **Fait (2026-10-29)** : rapport envoyé chaque mois à l'informatique et à la liste (lien vers Kikan, pièce jointe Excel ou PDF facultative) ; l'**archivage dans le stockage** n'est pas fait (décision du 2026-11-01 : seuls les PDF scellés vont dans SharePoint et DocuWare) | SPEC |
 | B5 | **Connecteur GLPI** (synchronisation du matériel et des salariés, champs `source` et `id_externe`). **Fait (2026-10-31)** : API d'import par jetons (`/api/v1`, hachés, expirables, droits et périmètre limités, simulation, lots, idempotente) et connecteur GLPI à la demande, ordinateurs et téléphones avec numéros de série, import sur sélection et export des salariés et de leur matériel vers GLPI, sans suppression ni écrasement, testé contre GLPI 10.0.28, 11.0.12 et 12.0.1 ; la création de tickets reste à faire | SPEC |
 | B6 | **Dépôt via l'API SharePoint Online et DocuWare** (SMB et WebDAV existent déjà). **Fait (2026-11-01)** : deux moteurs de stockage de plus (un seul actif à la fois), uniquement pour les PDF scellés (les chartes restent en local) : SharePoint par Microsoft Graph (`Sites.Selected`, fichiers de plus de 4 Mio par blocs) et DocuWare par l'API REST (compte de service, champs d'index à associer, aucune donnée nominative sans association explicite) ; même tampon local, vérification d'empreinte et reprise que SMB et WebDAV ; outil de copie vers le moteur actif sans suppression ; testés contre de faux services, **à valider sur un vrai tenant** (docs/SHAREPOINT.md, docs/DOCUWARE.md) | SPEC |
-| B7 | **Besoins matériels saisis par les RH** à l'arrivée, repris par l'informatique. **Fait (2026-10-30)** : page Besoins, quatre statuts (demande, en préparation, satisfait, annulé), type pris dans la liste du Paramétrage, périmètre des RH respecté, proposition automatique des besoins ouverts à la création d'une remise et solde avec elle, compteur du tableau de bord, rappel e-mail des arrivées proches non traitées, purge RGPD | SPEC |
+| B7 | **Besoins matériels exprimés par les RH** à l'arrivée (souhait : catégorie et gamme), repris par l'informatique. **Fait (2026-10-30), revu (2026-10-30)** : les RH n'ont plus accès à la page Besoins (création seule, au formulaire d'entrée) ; **gamme** par catégorie (liste définie par l'informatique, migration 0018) ; page Besoins réservée à l'informatique (lecture pour le rôle lecture) ; quatre statuts (demande, en préparation, satisfait, annulé), type pris dans la liste du Paramétrage, périmètre des RH respecté, proposition automatique des besoins ouverts à la création d'une remise et solde avec elle, compteur du tableau de bord, rappel e-mail des arrivées proches non traitées, purge RGPD | SPEC |
 | B8 | **Import et export Excel (.xlsx)** en plus du CSV. **Fait (2026-10-28)** : import avec le même parcours que le CSV (première feuille visible, lignes vides ignorées, formules jamais évaluées), modèles Excel, export du rapport de détention, protections contre archives et XML piégés, macros et liens externes | Prop. |
 
 ### v0.3 - pilotage
@@ -509,6 +511,8 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 ## 14. Décisions
 
 **Tranchées :**
+- **Couleur de marque** (barre latérale, boutons, liens, titres chiffrés) : bleu **quadri C100 M75 J0 N0**, soit **#024B8F** à l'écran (conversion ICC avec le profil CMJN générique d'Apple ; une autre conversion donne un bleu voisin). La référence Pantone indiquée (« 7387 ») ne semble pas correspondre à ce quadri et est à confirmer. Le bleu du logo (`#1d428a`, fichiers d'origine) n'a pas été modifié ; les en-têtes de tableaux des PDF et exports gardent `#2b4c7e`.
+- **Besoins de matériel** : les RH expriment un **souhait** (catégorie et gamme), sans accès au suivi (page Besoins, liste, modification, statuts) ; l'informatique choisit le matériel exact (§5bis, §6.0).
 - **Apparence** : seule l'**icône** est personnalisable (pas le nom du produit), le **logo Kikan** (carré bleu, K blanc, pastille orange à coche) étant l'icône par défaut ; PNG ou JPEG, même vérification que le logo des PDF ; servie sans session pour la page de connexion (§12).
 - **Budget de renouvellement** (C3) : coût de remplacement **par type** avec exception par modèle (pas de prix d'achat par matériel), saisi par l'informatique ; matériel sans coût compté à part ; devise unique (euro) (§10).
 - Nom : **Kikan** (機器管理).

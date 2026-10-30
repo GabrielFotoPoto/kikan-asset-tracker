@@ -74,7 +74,8 @@ def _register(kind: str, model, usage_label: str) -> None:
     def list_items(session: Session = Depends(get_session)):
         rows = session.exec(select(model)).all()
         rows.sort(key=lambda r: r.nom.lower())
-        return [{"id": r.id, "nom": r.nom, "actif": r.actif, "utilise": _usage(session, kind, r.nom)} for r in rows]
+        return [{"id": r.id, "nom": r.nom, "actif": r.actif, "utilise": _usage(session, kind, r.nom),
+                 **({"gammes": list(r.gammes or [])} if kind == "categories-besoin" else {})} for r in rows]
 
     @router.post(f"/{kind}", status_code=201, name=f"creer_{kind}")
     def create_item(data: ItemIn, session: Session = Depends(get_session),
@@ -140,6 +141,34 @@ def _register(kind: str, model, usage_label: str) -> None:
 _register("types", AssetType, "actif(s)")
 _register("services", Service, "salarie(s)")
 _register("categories-besoin", BesoinCategorie, "besoin(s)")
+
+
+class GammesIn(BaseModel):
+    gammes: list[str] = Field(default_factory=list, max_length=10)
+
+
+@router.put("/categories-besoin/{item_id}/gammes")
+def set_gammes(item_id: int, data: GammesIn, session: Session = Depends(get_session),
+               account: Account = Depends(get_current_account)):
+    """Gammes proposees aux RH pour une categorie de besoin (ex. Normal, Pro, XL) ; liste vide = aucune gamme."""
+    cat = session.get(BesoinCategorie, item_id)
+    if not cat:
+        raise HTTPException(404, "Categorie introuvable")
+    propres, vus = [], set()
+    for g in data.gammes:
+        g = re.sub(r"[\x00-\x1f\x7f\s]+", " ", g or "").strip()
+        if not g:
+            continue
+        if len(g) > 40:
+            raise HTTPException(400, "Une gamme ne peut pas depasser 40 caracteres")
+        if g.lower() not in vus:
+            vus.add(g.lower())
+            propres.append(g)
+    cat.gammes = propres
+    session.add(cat)
+    session.commit()
+    audit(account.username, "parametrage", target=f"categories-besoin/{cat.id}", detail=f"gammes : {len(propres)}")
+    return {"id": cat.id, "nom": cat.nom, "gammes": propres}
 
 
 # --- Couts de remplacement estimes (previsions de renouvellement, C3) ---
