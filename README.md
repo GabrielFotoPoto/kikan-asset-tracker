@@ -46,6 +46,7 @@ La version publiée est la **0.3.3** (historique dans le [CHANGELOG](CHANGELOG.m
 - **Besoins de matériel** : souhaits exprimés par les RH (catégorie et **gamme**), préparés par l'informatique qui choisit le matériel exact, **soldés automatiquement par la remise** ; rappels avant les arrivées.
 - **Remise signée** : accusé PDF (matériel + charte informatique annexée), **signature manuscrite sur tablette**, puis **scellement PAdES** (certificat de l'organisation, horodatage RFC 3161 optionnel). Document infalsifiable et vérifiable ; nom de fichier lisible et sans hasard (`AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf`).
 - **Restitution signée** (A.5.11), avec la même signature, conduite par l'informatique ou les RH.
+- **Renouvellement du matériel** d'un salarié en poste : l'informatique remet le nouveau matériel et récupère l'ancien **en une seule opération**, avec **un seul document signé et scellé** (« accusé d'échange »). Devenir de l'ancien matériel choisi à l'échange (rendu, retour en stock, à réformer), charte annexée au choix, lien conservé entre ancien et nouveau matériel. L'échéance de renouvellement n'est qu'un repère : l'informatique décide quand renouveler.
 - **Accès applicatifs** (A.5.18) : catalogue d'applications, attribution par salarié avec précision de niveau.
 - **Revue périodique des droits d'accès** : anomalies (accès d'un salarié sorti, application désactivée), rapport « qui a accès à quoi », campagnes de validation par les RH, clôture avec **rapport PDF scellé**, suivi des retraits : voir [docs/REVUE-ACCES.md](docs/REVUE-ACCES.md).
 

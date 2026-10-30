@@ -122,6 +122,26 @@ Tant que du matériel n'est pas revenu, le salarié reste affiché dans **Dépar
 Page **Accès applicatifs** : le **catalogue des applications** (informatique) et, par salarié, les **accès accordés** avec une précision (profil, droits). Les applications peuvent être
 propres à une entité. Une application sans accès peut être supprimée ; sinon on la **désactive**. Un accès qui est retiré passe à « non » (l'historique est conservé).
 
+### 5.7 Renouveler le matériel d'un salarié en poste (informatique)
+
+L'informatique décide du renouvellement, **avant ou après l'échéance** : la date de renouvellement n'est qu'un repère (page Prévisions, rappels). Pour renouveler, un seul geste remet le nouveau
+matériel **et** récupère l'ancien, avec **un seul document signé**.
+
+1. Lancez l'opération depuis la page **Matériel** (bouton **Renouveler** sur un matériel affecté : le salarié est reconnu automatiquement) ou depuis **Utilisateurs** (bouton **Renouveler** d'un salarié en poste).
+2. À gauche, **cochez le matériel à récupérer** et choisissez son **devenir** : *Rendu* (à traiter ensuite), *Retour en stock* ou *À réformer*. À droite, **cochez le nouveau matériel** en stock (recherche par type, marque, modèle ou série).
+3. Au besoin : soldez les **besoins ouverts** du salarié, **joignez la charte** (case décochée par défaut : le salarié l'a déjà signée à son arrivée) et indiquez un **motif** (facultatif).
+
+   ![Préparation d'un renouvellement](captures/echange-preparation.png)
+4. **Continuer vers la signature** : l'écran récapitule le matériel remis et le matériel restitué. Le salarié coche la déclaration et **signe sur la tablette**, puis **Valider l'échange**.
+
+   ![Signature d'un échange](captures/echange-signature.png)
+5. Rien ne change tant que l'échange n'est pas validé. À la validation, le nouveau matériel passe **affecté**, l'ancien prend le devenir choisi, et Kikan produit le **PDF scellé** (un seul numéro de document).
+
+   ![Accusé d'échange de matériel](captures/echange-document.png)
+
+Le renouvellement peut être **partiel** : le salarié garde ce que vous ne cochez pas (son smartphone, par exemple), et seule l'affectation entièrement rendue est clôturée. Dans la liste des remises, l'échange apparaît avec le
+badge **échange** et la liste du matériel restitué ; le bouton **PDF scellé** ouvre l'accusé d'échange. Réservé à un salarié **en poste** (statut actif).
+
 ## 6. Contrôler et rendre compte
 
 | Page | Pour quoi faire |
@@ -236,6 +256,7 @@ L'icône de la page de connexion est lisible **sans être connecté** : n'y mett
 | enregistrer l'arrivée d'un salarié | Utilisateurs, formulaire d'entrée | RH |
 | signaler qu'il lui faut un PC ou un téléphone | cases « Matériel souhaité » et gamme, au formulaire d'entrée | RH |
 | remettre un PC et le faire signer | Remises, puis Signer | informatique |
+| renouveler le matériel d'un salarié (remettre du neuf, récupérer l'ancien) | Matériel ou Utilisateurs, bouton Renouveler | informatique |
 | retrouver le PDF d'une remise | Remises, bouton « PDF scellé » | informatique, RH, lecture |
 | déclarer un départ | Sorties, Déclarer un départ | RH, informatique |
 | récupérer le matériel d'un partant | Sorties, Restituer et signer | RH, informatique |

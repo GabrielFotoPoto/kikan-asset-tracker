@@ -18,7 +18,7 @@
 import hashlib
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field, NaiveDatetime
 from sqlmodel import Session, SQLModel, select
 
 from ..audit import audit
-from ..auth import client_ip, get_current_account, writer_guard
+from ..auth import client_ip, get_current_account, require_roles, writer_guard
 from ..db import get_session
 from .policies import read_pdf
 from ..models import (
@@ -36,6 +36,8 @@ from ..models import (
     Assignment,
     AssignmentAsset,
     Besoin,
+    EchangeRetour,
+    EmployeeStatus,
     Entite,
     Policy,
     Signature,
@@ -54,7 +56,7 @@ from .. import acces_remise
 from ..charte import append_annex, resolve_policy
 from ..signing import seal_pdf
 from ..filestore import meta_for, read_document, sha256_hex, store_document
-from ..scope import Scope, scope_dep, visible_assignment
+from ..scope import Scope, scope_dep, visible_assignment, visible_user
 from .besoins import OUVERTS, settle
 
 router = APIRouter(
@@ -150,6 +152,237 @@ def create_assignment(data: AssignmentCreate, session: Session = Depends(get_ses
     return assignment
 
 
+# --- Echange (renouvellement) : remise du nouveau materiel et restitution de l'ancien, en un seul document signe ---
+
+class AncienIn(BaseModel):
+    asset_id: int
+    destination: Literal["rendu", "stock", "reforme"] = "rendu"   # devenir de l'ancien materiel
+
+
+class EchangeRequest(BaseModel):
+    """Echange pour un salarie en poste. Le signataire est deduit de la fiche du salarie (jamais saisi)."""
+    user_id: int
+    nouveaux_ids: list[int] = Field(min_length=1, max_length=50)
+    anciens: list[AncienIn] = Field(min_length=1, max_length=50)
+    joindre_charte: bool = False          # la charte n'est annexee que sur demande (le salarie l'a deja signee a son arrivee)
+    policy_id: int | None = None          # charte choisie ; sinon celle qui s'applique a l'entite du salarie
+    besoin_ids: list[int] = Field(default_factory=list, max_length=50)
+    consent: bool = False
+    signature_image: str | None = Field(default=None, max_length=MAX_B64_CHARS)
+    note: str | None = Field(default=None, max_length=500)
+    acces_empreinte: str | None = Field(default=None, max_length=64)
+    strokes: int | None = Field(default=None, ge=0, le=1000)
+    duration_ms: int | None = Field(default=None, ge=0, le=600000)
+
+
+def _detenus(session: Session, user_id: int) -> dict[int, tuple[Asset, list[AssignmentAsset]]]:
+    """Materiel actuellement detenu par le salarie : actif affecte, porte par une affectation ouverte et pas encore rendu."""
+    rows = session.exec(
+        select(AssignmentAsset, Asset, Assignment)
+        .join(Asset, Asset.id == AssignmentAsset.asset_id)
+        .join(Assignment, Assignment.id == AssignmentAsset.assignment_id)
+        .where(Assignment.user_id == user_id, Assignment.statut == "en_cours", Asset.statut == AssetStatus.affecte,
+               AssignmentAsset.date_retour.is_(None))
+    ).all()
+    out: dict[int, tuple[Asset, list[AssignmentAsset]]] = {}
+    for link, asset, _ in rows:
+        out.setdefault(asset.id, (asset, []))[1].append(link)
+    return out
+
+
+def _fiche(a: Asset) -> dict:
+    return {"id": a.id, "type": a.type, "marque": a.marque, "modele": a.modele,
+            "numero_serie": a.numero_serie, "identifiant_interne": a.identifiant_interne,
+            "echeance_renouvellement": a.echeance_renouvellement}
+
+
+@router.get("/detenteur/{asset_id}", dependencies=[Depends(require_roles("informatique"))])
+def detenteur(asset_id: int, session: Session = Depends(get_session)):
+    """Salarie qui detient actuellement ce materiel (pour lancer un renouvellement depuis la page Materiel)."""
+    row = session.exec(
+        select(Assignment.user_id)
+        .join(AssignmentAsset, AssignmentAsset.assignment_id == Assignment.id)
+        .join(Asset, Asset.id == AssignmentAsset.asset_id)
+        .where(AssignmentAsset.asset_id == asset_id, Assignment.statut == "en_cours", Asset.statut == AssetStatus.affecte,
+               AssignmentAsset.date_retour.is_(None))
+    ).first()
+    if row is None:
+        raise HTTPException(404, "Ce materiel n'est detenu par aucun salarie")
+    user = session.get(User, row)
+    return {"user_id": user.id, "salarie": f"{user.prenom} {user.nom}".strip()}
+
+
+@router.get("/echange/recap", dependencies=[Depends(require_roles("informatique"))])
+def echange_recap(user_id: int, session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    """Donnees de l'ecran d'echange : materiel detenu, charte applicable, acces applicatifs, besoins ouverts."""
+    user = visible_user(session, scope, user_id)
+    entite = session.get(Entite, user.entite_id) if user.entite_id else None
+    policy = resolve_policy(session, user.entite_id)
+    besoins = session.exec(select(Besoin).where(Besoin.user_id == user.id, Besoin.statut.in_(OUVERTS)).order_by(Besoin.id)).all()
+    return {
+        "signature_obligatoire": HANDWRITTEN_REQUIRED,
+        "salarie": {"id": user.id, "prenom": user.prenom, "nom": user.nom, "matricule": user.matricule, "service": user.service,
+                    "entite": entite.nom if entite else None,
+                    "statut": user.statut.value if hasattr(user.statut, "value") else user.statut},
+        "detenus": sorted((_fiche(a) for a, _ in _detenus(session, user.id).values()), key=lambda x: x["id"]),
+        "charte": {"id": policy.id, "titre": policy.titre, "version": policy.version, "nb_pages": policy.nb_pages} if policy else None,
+        "acces_remise": acces_remise.recap_view(session, user.id),
+        "besoins": [{"id": b.id, "type": b.type, "gamme": b.gamme, "quantite": b.quantite, "commentaire": b.commentaire,
+                     "date_souhaitee": b.date_souhaitee} for b in besoins],
+    }
+
+
+@router.post("/echange", response_model=Signature, status_code=201)
+def echange(data: EchangeRequest, request: Request, session: Session = Depends(get_session),
+            account: Account = Depends(get_current_account)):
+    """Renouvellement : le nouveau materiel est remis et l'ancien restitue dans une seule operation, un seul document signe
+    et scelle, un seul numero. Tout ou rien : rien ne change tant que la signature n'est pas enregistree."""
+    user = session.get(User, data.user_id)
+    if not user:
+        raise HTTPException(404, "Utilisateur introuvable")
+    if user.statut != EmployeeStatus.actif:
+        raise HTTPException(409, "L'echange concerne un salarie en poste (statut actif)")
+
+    nouveaux_ids = list(dict.fromkeys(data.nouveaux_ids))
+    destinations: dict[int, str] = {}
+    for ancien in data.anciens:
+        if destinations.setdefault(ancien.asset_id, ancien.destination) != ancien.destination:
+            raise HTTPException(400, f"Deux devenirs differents pour le materiel {ancien.asset_id}")
+    if set(nouveaux_ids) & set(destinations):
+        raise HTTPException(400, "Un meme materiel ne peut pas etre remis et restitue dans le meme echange")
+    for bid in dict.fromkeys(data.besoin_ids):  # verifie les besoins avant de modifier quoi que ce soit
+        b = session.get(Besoin, bid)
+        if not b or b.user_id != user.id:
+            raise HTTPException(400, "Besoin inconnu ou d'un autre salarie")
+        if b.statut not in OUVERTS:
+            raise HTTPException(409, f"Le besoin {bid} est deja clos")
+
+    # Verrous : le salarie d'abord, puis tout le materiel concerne dans l'ordre des identifiants (pas d'interblocage).
+    session.exec(select(User).where(User.id == user.id).with_for_update()).first()
+    ids = sorted(set(nouveaux_ids) | set(destinations))
+    locked = {a.id: a for a in session.exec(select(Asset).where(Asset.id.in_(ids)).order_by(Asset.id).with_for_update()).all()}
+    nouveaux: list[Asset] = []
+    for aid in nouveaux_ids:
+        asset = locked.get(aid)
+        if not asset:
+            raise HTTPException(404, f"Actif {aid} introuvable")
+        if asset.statut == AssetStatus.affecte:
+            raise HTTPException(409, f"Actif {aid} deja affecte")
+        if asset.statut == AssetStatus.reforme:
+            raise HTTPException(409, f"Actif {aid} reforme : il ne peut pas etre remis")
+        nouveaux.append(asset)
+    detenus = _detenus(session, user.id)
+    anciens: list[Asset] = []
+    for aid in destinations:
+        if aid not in locked:
+            raise HTTPException(404, f"Actif {aid} introuvable")
+        if aid not in detenus:
+            raise HTTPException(409, f"Le materiel {aid} n'est pas detenu par ce salarie")
+        anciens.append(locked[aid])
+
+    policy = None
+    if data.joindre_charte:
+        if data.policy_id is not None:
+            policy = session.get(Policy, data.policy_id)
+            if not policy or policy.statut != "active" or not policy.fichier_ref:
+                raise HTTPException(400, "Charte inconnue ou archivee")
+        else:
+            policy = resolve_policy(session, user.entite_id)
+            if not policy:
+                raise HTTPException(400, "Aucune charte ne s'applique a ce salarie")
+    try:
+        signature_png, image_meta, methode = prepare_signature(data.consent, data.signature_image)
+    except SignatureImageError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    signataire = f"{user.prenom} {user.nom}".strip()  # deduit de la fiche, jamais saisi librement
+    entite = session.get(Entite, user.entite_id) if user.entite_id else None
+    charte_pdf = read_pdf(policy) if policy and policy.fichier_ref else None   # empreinte controlee a la lecture
+    template = load_template(session)
+    acces_items = acces_fp = None
+    if acces_remise.include_access(session):
+        acces_items = acces_remise.snapshot(session, user.id)
+        acces_fp = acces_remise.fingerprint(acces_items)
+        if data.acces_empreinte and data.acces_empreinte != acces_fp:
+            raise HTTPException(409, "Les acces applicatifs ont change depuis l'affichage : rechargez l'ecran avant de signer")
+
+    now = datetime.utcnow()
+    assignment = Assignment(user_id=user.id, policy_id=policy.id if policy else None, cree_par=account.username,
+                            statut="en_cours", type="echange")
+    session.add(assignment)
+    session.flush()   # pas de commit : les verrous sont gardes jusqu'au commit final
+
+    # Nouveau materiel : affecte.
+    for asset in nouveaux:
+        asset.statut = AssetStatus.affecte
+        asset.maj_le = now
+        session.add(asset)
+        session.add(AssignmentAsset(assignment_id=assignment.id, asset_id=asset.id))
+    # Ancien materiel : rendu, remis en stock ou reforme (au choix), date de retour par actif, rattache a l'echange.
+    ouvertes: set[int] = set()
+    for asset in anciens:
+        asset.statut = {"rendu": AssetStatus.rendu, "stock": AssetStatus.stock, "reforme": AssetStatus.reforme}[destinations[asset.id]]
+        asset.maj_le = now
+        session.add(asset)
+        for link in detenus[asset.id][1]:
+            link.date_retour = now
+            session.add(link)
+            ouvertes.add(link.assignment_id)
+        session.add(EchangeRetour(assignment_id=assignment.id, asset_id=asset.id, destination=destinations[asset.id]))
+    session.flush()
+    # Une affectation se cloture quand tout son materiel est parti.
+    fermees = []
+    for aid in sorted(ouvertes):
+        liens = session.exec(select(AssignmentAsset).where(AssignmentAsset.assignment_id == aid)).all()
+        if all(l.date_retour is not None or session.get(Asset, l.asset_id).statut != AssetStatus.affecte for l in liens):
+            ancienne = session.get(Assignment, aid)
+            ancienne.date_restitution = now
+            ancienne.statut = "restitue"
+            session.add(ancienne)
+            fermees.append(aid)
+    settled = settle(session, data.besoin_ids, user.id, assignment.id, account.username)
+
+    pdf = build_receipt(
+        user={"nom": user.nom, "prenom": user.prenom, "matricule": user.matricule},
+        entite_nom=entite.nom if entite else None,
+        assets=[_fiche(a) for a in nouveaux], restitues=[_fiche(a) for a in anciens],
+        policy_text=policy.texte if policy and not charte_pdf else None,
+        charte_info={"titre": policy.titre, "version": policy.version, "sha256": policy.sha256,
+                     "nb_pages": policy.nb_pages} if charte_pdf else None,
+        title="Accuse d'echange de materiel", kind="echange",
+        signature_png=signature_png, signataire=signataire, temoin=account.username, signed_at=now,
+        template=template, acces=acces_items,
+    )
+    if charte_pdf:
+        pdf = append_annex(pdf, charte_pdf)
+    sealed = seal_pdf(pdf, reason="Echange de materiel", name=signataire)
+    reference = store_document(nom_document(session, user, now), sealed,
+                               meta_for("Echange", heure_locale(now).year, assignment.id, entite, user, now))
+    signature = Signature(
+        assignment_id=assignment.id, signataire=signataire, methode=methode, horodatage=now,
+        empreinte_doc=hashlib.sha256(sealed).hexdigest(),
+        audit_json={
+            "type": "echange", "note": data.note, "nb_actifs": len(nouveaux), "nb_restitues": len(anciens),
+            "assets_restitues": [a.id for a in anciens], "devenirs": {str(k): v for k, v in destinations.items()},
+            "affectations_cloturees": fermees,
+            "temoin": account.username, "ip": client_ip(request),
+            "user_agent": (request.headers.get("user-agent") or "")[:200],
+            "image": image_meta, "traits": data.strokes, "duree_ms": data.duration_ms,
+            "acces": None if acces_items is None else {"nb": len(acces_items), "sha256": acces_fp},
+            "modele_pdf": None if template["vide"] else {"sha256": template["sha256"], "logo": bool(template["logo"])},
+            "charte": {"id": policy.id, "titre": policy.titre, "version": policy.version,
+                       "sha256": policy.sha256, "entite_id": policy.entite_id} if charte_pdf else None,
+        },
+        ged_reference=reference,
+    )
+    session.add(signature)
+    session.commit()
+    session.refresh(signature)
+    audit(account.username, "echange", target=str(assignment.id), detail=f"{len(nouveaux)} remis, {len(anciens)} restitues")
+    if settled:
+        audit(account.username, "besoins_soldes", target=str(assignment.id), detail=f"{settled} besoin(s)")
+    return signature
+
+
 class AssignmentOut(SQLModel):
     id: int
     user_id: int
@@ -158,7 +391,9 @@ class AssignmentOut(SQLModel):
     policy_id: Optional[int] = None
     statut: str
     cree_par: Optional[str] = None
+    type: str = "remise"                            # remise | echange
     date_signature: Optional[NaiveDatetime] = None  # heure de signature de la remise (None tant qu'elle n'est pas signee)
+    restitues: list[dict] = []                      # echange : ancien materiel rendu (avec son devenir)
 
 
 @router.get("", response_model=list[AssignmentOut])
@@ -172,7 +407,14 @@ def list_assignments(session: Session = Depends(get_session), user_id: int | Non
         for sig in session.exec(select(Signature).where(Signature.assignment_id.in_([a.id for a in rows]))):
             if (sig.audit_json or {}).get("type") != "restitution" and sig.horodatage:
                 signed[sig.assignment_id] = min(sig.horodatage, signed.get(sig.assignment_id, sig.horodatage))
-    return [AssignmentOut(**a.model_dump(), date_signature=signed.get(a.id)) for a in rows]
+    retours: dict[int, list[dict]] = {}
+    if rows:
+        for r, asset in session.exec(select(EchangeRetour, Asset).join(Asset, Asset.id == EchangeRetour.asset_id)
+                                     .where(EchangeRetour.assignment_id.in_([a.id for a in rows]))):
+            retours.setdefault(r.assignment_id, []).append({
+                "id": asset.id, "type": asset.type, "marque": asset.marque, "modele": asset.modele,
+                "identifiant_interne": asset.identifiant_interne, "destination": r.destination})
+    return [AssignmentOut(**a.model_dump(), date_signature=signed.get(a.id), restitues=retours.get(a.id, [])) for a in rows]
 
 
 @router.get("/{assignment_id}", response_model=Assignment)
@@ -309,9 +551,10 @@ def sign_assignment(
 
 
 @router.get("/{assignment_id}/document")
-def get_document(assignment_id: int, type: str = Query("remise", pattern="^(remise|restitution)$"),
+def get_document(assignment_id: int, type: str = Query("remise", pattern="^(remise|restitution|echange)$"),
                  session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
-    """PDF scelle de la remise (par defaut) ou de la restitution rattachee a cette affectation (?type=restitution).
+    """PDF scelle de la remise (par defaut), de la restitution rattachee a cette affectation (?type=restitution) ou de l'echange
+    qui l'a creee (?type=echange).
 
     Une affectation peut porter deux signatures (remise, puis restitution) : le choix est explicite et deterministe."""
     visible_assignment(session, scope, assignment_id)
@@ -320,7 +563,7 @@ def get_document(assignment_id: int, type: str = Query("remise", pattern="^(remi
     def kind(sig):
         # Le type est dans le faisceau de preuves ; l'ancien nom de fichier (restitution_...) ne sert que de repli.
         known = (sig.audit_json or {}).get("type")
-        if known in ("remise", "restitution"):
+        if known in ("remise", "restitution", "echange"):
             return known
         name = (sig.ged_reference or "").rsplit("/", 1)[-1]
         return "restitution" if name.startswith("restitution_") else "remise"

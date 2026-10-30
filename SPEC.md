@@ -113,10 +113,13 @@ Ce qui fait la valeur de preuve :
 | date_restitution | datetime | nullable |
 | charte_version | FK → `policies` | charte d'usage signée |
 | statut | enum | `en_cours`, `restitue` |
+| type | texte | `remise` (par défaut) ou `echange` (renouvellement, §6.2bis) |
 | cree_par | FK → compte admin | |
 
 > Une remise peut porter **plusieurs actifs** → table de liaison `assignment_assets`
-> (assignment_id, asset_id). Un même actif a un historique d'affectations.
+> (assignment_id, asset_id, **date_retour**). Un même actif a un historique d'affectations. La **date de retour est portée par chaque actif** :
+> une affectation ne se clôture que lorsque tout son matériel est parti (restitution partielle ou échange partiel).
+> `echange_retours` (assignment_id, asset_id, destination) rattache à l'échange l'ancien matériel restitué et son devenir (`rendu`, `stock`, `reforme`).
 
 ### 4.4 `signatures` (preuves de signature)
 | champ | type | note |
@@ -263,6 +266,21 @@ sur la tablette.
   La restitution peut être conduite par **l'informatique** (contrôle des équipements) **ou
   par les RH** (contrairement à la remise à l'arrivée, réservée à l'informatique).
 - Réforme : actif → `reforme` (fin de vie), sortie de l'inventaire actif mais conservé en historique.
+
+### 6.2bis Renouvellement du matériel d'un salarié en poste (échange)
+- **Décision et déclenchement : informatique seule.** Aucune demande ne passe par les RH ou le salarié. L'`echeance_renouvellement` n'est qu'un **repère** :
+  l'informatique renouvelle quand elle le décide, **avant** l'échéance (le besoin a changé) comme **après** (échéance dépassée mais prolongée).
+- **Une seule opération, un seul document signé** (« Accusé d'échange de matériel ») : le nouveau matériel est **remis** et l'ancien **restitué** ensemble.
+  Deux tableaux (remis, restitué), une déclaration, **une signature manuscrite** sur la tablette, scellement PAdES, **un seul numéro** de document du salarié.
+- **Écran** (`/renouveler`, depuis la page Matériel ou Utilisateurs) : à gauche le matériel détenu (on coche ce qui est rendu, avec son **devenir** : *rendu* à traiter
+  ensuite, *retour en stock* ou *à réformer*) ; à droite le matériel en stock à remettre ; besoins ouverts du salarié soldés avec l'échange ; **charte au choix, décochée
+  par défaut** (le salarié l'a signée à son arrivée) ; motif facultatif.
+- **Tout ou rien, en une fois sur la tablette** : tant que la signature n'est pas enregistrée, aucun statut ne change (pas d'état « en attente »). Verrous sur le salarié puis sur
+  tout le matériel concerné ; un second échange simultané des mêmes matériels est refusé (409). Réservé à un salarié au statut **actif**.
+- **Effets** : nouveaux actifs `affecte` (nouvelle affectation de type `echange`) ; anciens actifs `rendu`, `stock` ou `reforme` avec leur **date de retour** ; les affectations
+  entièrement restituées sont clôturées, les autres restent ouvertes (échange partiel).
+- **Preuves** : type `echange` dans le faisceau de preuves (matériel remis et restitué, devenirs, affectations clôturées, témoin, IP, empreintes du modèle de PDF, de la charte et des accès).
+- Statistiques de mouvements : une restitution est comptée **par actif**, à sa date de retour (restitution classique et échange).
 
 ### 6.3 Départ d'un employé (RH → informatique)
 1. Les **RH** recherchent/sélectionnent le salarié et fixent sa **date de sortie**
@@ -484,6 +502,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | C3 | **Prévision des renouvellements** avec budget estimé. **Fait (2026-10-30)** : coût de remplacement par type (exception par modèle) saisi par l'informatique dans le Paramétrage (migration 0017) ; page Prévisions par mois, année, type et entité sur une période au choix (12 mois par défaut), échéances dépassées signalées, matériel sans coût compté à part ; filtre d'entité dans la portée du compte ; export CSV, Excel et PDF ; aucune donnée de salarié | Prop. |
 | C4 | **Étiquettes et QR codes** sur le matériel, recherche par scan | Prop. |
 | C5 | **Pièces jointes** au matériel (facture, garantie) | Prop. |
+| C6 | **Renouvellement du matériel d'un salarié en poste (échange)** : remise du nouveau matériel et restitution de l'ancien en un seul document signé (§6.2bis). **Lot 1 fait (2026-10-30)** : opération d'échange (API, document, signature tablette), devenir de l'ancien matériel, charte au choix, date de retour par actif (migration 0019), boutons *Renouveler* ; **lot 2 à faire** : page « Renouvellements » (en retard, à venir), report d'échéance avec motif facultatif, prévisions et rappels sans le matériel rendu | Prop. |
 
 ### v0.4 - montée en échelle
 
@@ -511,6 +530,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 ## 14. Décisions
 
 **Tranchées :**
+- **Renouvellement** (C6) : décidé par l'**informatique seule** ; l'échéance est indicative (renouvellement avant ou après) ; **une seule opération et un seul document signé** (remise + restitution) ; **signature en une fois** sur la tablette, sans état « en attente » ; devenir de l'ancien matériel **choisi à l'échange** ; **charte au choix, décochée par défaut** ; motif de report **facultatif**.
 - **Licence du logo et du nom** : le code est en GPL-3.0-or-later ; le **logo** et le **nom « Kikan »** ne sont pas couverts (© 2026 Gabriel Chollet, tous droits réservés). Usage autorisé sans modification pour désigner le projet et pour utiliser le logiciel tel quel ; une version modifiée ou dérivée prend un autre nom et un autre logo. Le nom n'est pas déposé comme marque (`docs/logo/LICENCE.md`).
 - **Couleur de marque** (barre latérale, boutons, liens, chiffres, couleur du navigateur, PDF et Excel) : le **bleu du logo, #1D428A** (RVB 29, 66, 138), validé comme référence par l'auteur. La conversion écran du quadri C100 M75 J0 N0 (#024B8F, profil CMJN générique d'Apple) n'a pas été retenue, et la référence Pantone indiquée (« 7387 ») n'a pas pu être rattachée à ce bleu : à confirmer si une valeur Pantone officielle est nécessaire. Le même bleu (constante unique `backend/app/theme.py`, variable CSS `--brand`) sert aux **en-têtes de tableau des PDF et des exports Excel** : l'ancien bleu `#2b4c7e` n'est plus utilisé nulle part.
 - **Besoins de matériel** : les RH expriment un **souhait** (catégorie et gamme), sans accès au suivi (page Besoins, liste, modification, statuts) ; l'informatique choisit le matériel exact (§5bis, §6.0).

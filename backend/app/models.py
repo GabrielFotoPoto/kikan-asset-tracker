@@ -156,12 +156,22 @@ class Assignment(SQLModel, table=True):
     policy_id: Optional[int] = Field(default=None, foreign_key="policies.id")
     statut: str = "en_cours"
     cree_par: Optional[str] = None
+    type: str = "remise"          # remise | echange (renouvellement : remise du nouveau materiel et restitution de l'ancien)
 
 
 class AssignmentAsset(SQLModel, table=True):
     __tablename__ = "assignment_assets"
     assignment_id: int = Field(foreign_key="assignments.id", primary_key=True)
     asset_id: int = Field(foreign_key="assets.id", primary_key=True)
+    date_retour: Optional[NaiveDatetime] = None   # restitution de cet actif (l'affectation, elle, ne se cloture que lorsque tout est rendu)
+
+
+class EchangeRetour(SQLModel, table=True):
+    """Materiel ancien restitue lors d'un echange (renouvellement) : rattache a l'affectation de l'echange, avec son devenir."""
+    __tablename__ = "echange_retours"
+    assignment_id: int = Field(foreign_key="assignments.id", primary_key=True)
+    asset_id: int = Field(foreign_key="assets.id", primary_key=True)
+    destination: str = "rendu"    # rendu | stock | reforme
 
 
 class Signature(SQLModel, table=True):

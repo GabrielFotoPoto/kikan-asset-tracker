@@ -157,12 +157,18 @@ export default function Assignments() {
               <tr key={a.id}>
                 <td>{a.id}</td>
                 <td>{userName(a.user_id)}</td>
-                <td><span className="badge">{a.statut}</span></td>
+                <td>
+                  <span className="badge">{a.statut}</span>
+                  {a.type === "echange" && <span className="badge ok" style={{ marginLeft: 6 }}>echange</span>}
+                  {a.type === "echange" && a.restitues.length > 0 && (
+                    <div className="muted">Restitue : {a.restitues.map((r) => `${r.type || ""} ${r.identifiant_interne || r.id}`.trim()).join(", ")}</div>
+                  )}
+                </td>
                 <td>{a.date_signature ? dateHeure(a.date_signature) : <span className="muted">non signee ({dateHeure(a.date_remise)})</span>}</td>
                 <td>
                   <div className="row">
-                    {writable && <button className="ghost" onClick={() => sign(a.id)}>Signer</button>}
-                    <button className="ghost" onClick={() => downloadFile(`/assignments/${a.id}/document`, `remise_${a.id}.pdf`)}>PDF scelle</button>
+                    {writable && a.type !== "echange" && <button className="ghost" onClick={() => sign(a.id)}>Signer</button>}
+                    <button className="ghost" onClick={() => downloadFile(`/assignments/${a.id}/document${a.type === "echange" ? "?type=echange" : ""}`, `${a.type === "echange" ? "echange" : "remise"}_${a.id}.pdf`)}>PDF scelle</button>
                   </div>
                 </td>
               </tr>

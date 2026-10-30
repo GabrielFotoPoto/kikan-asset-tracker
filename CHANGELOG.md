@@ -5,6 +5,17 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Mise à jour depuis 0.3.3
+- La migration 0019 (échange de matériel) s'applique seule au démarrage de l'API : type d'affectation, **date de retour par actif**, retours d'échange. Les affectations déjà clôturées reçoivent la date de leur clôture comme date de retour.
+
+### Ajouté
+- **Renouvellement du matériel d'un salarié en poste (échange)**, réservé à l'informatique : remise du nouveau matériel et restitution de l'ancien **en une seule opération, avec un seul document signé et scellé** (« Accusé d'échange de matériel », un seul numéro). Page `/renouveler` (boutons **Renouveler** sur la page Matériel et sur la page Utilisateurs), signature en une fois sur la tablette (rien ne change avant la signature), **devenir de l'ancien matériel choisi** (rendu, retour en stock, à réformer), **charte annexée au choix** (décochée par défaut), besoins ouverts soldés, motif facultatif, renouvellement **partiel** possible. `POST /assignments/echange`, `GET /assignments/echange/recap`, `GET /assignments/detenteur/{id}`, document `?type=echange`. Nouvelle suite `tests/echange_check.py`.
+- La liste des remises affiche le type **échange** et le matériel restitué.
+
+### Modifié
+- Une restitution est enregistrée **par actif** (date de retour) : les statistiques de mouvements comptent désormais chaque restitution à sa date, y compris pour les restitutions partielles et les échanges ; une affectation ne se clôture que lorsque tout son matériel est parti.
+- La resynchronisation du stockage reconnaît le type de document (remise, restitution, échange) d'après ses preuves, et non plus d'après le nom du fichier.
+
 ### Modifié
 - **Couleur de marque** : retour au **bleu du logo, `#1D428A`**, pour la barre latérale, les boutons, les liens, les chiffres, la couleur du thème du navigateur et le manifeste, **et pour les en-têtes de tableau des PDF et des exports Excel** (rapports, statistiques, prévisions, revue des accès, accusés de remise), qui utilisaient l'ancien `#2b4c7e` : une seule constante (`backend/app/theme.py`) remplace sept valeurs dispersées. Seuls les documents générés après la mise à jour changent ; les PDF déjà scellés ne sont pas modifiés (la 0.3.3 utilisait `#024B8F`, issu de la conversion du quadri C100 M75 J0 N0, qui ne correspondait pas au logo).
 

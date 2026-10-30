@@ -44,6 +44,7 @@ import Stats from "./pages/Stats.jsx";
 import APropos from "./pages/APropos.jsx";
 import { useBranding } from "./branding.js";
 import Previsions from "./pages/Previsions.jsx";
+import Renouveler from "./pages/Renouveler.jsx";
 import Audit from "./pages/Audit.jsx";
 import Compte from "./pages/Compte.jsx";
 import Stockage from "./pages/Stockage.jsx";
@@ -153,6 +154,7 @@ export default function App() {
             <Route path="/rapports" element={<Reports />} />
             <Route path="/statistiques" element={<Stats />} />
             <Route path="/previsions" element={<Previsions />} />
+            <Route path="/renouveler" element={user.role === "informatique" ? <Renouveler /> : <Navigate to="/" />} />
             <Route path="/revues" element={<Revues />} />
             <Route path="/rgpd" element={user.role === "informatique" ? <Rgpd /> : <Navigate to="/" />} />
             <Route path="/import" element={user.role === "informatique" ? <Import /> : <Navigate to="/" />} />

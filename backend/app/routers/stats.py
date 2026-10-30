@@ -153,7 +153,9 @@ def _mouvements(session: Session, scope: Scope, assets: list[Asset], du: date | 
     def dans(jour: date | None) -> bool:
         return jour is not None and (du is None or jour >= du) and (au is None or jour <= au)
 
-    nb_actifs = Counter(l.assignment_id for l in session.exec(select(AssignmentAsset)).all())
+    liens: dict[int, list[AssignmentAsset]] = {}
+    for l in session.exec(select(AssignmentAsset)).all():
+        liens.setdefault(l.assignment_id, []).append(l)
     par_mois: dict[str, Counter] = {}
     totaux = Counter()
 
@@ -164,10 +166,12 @@ def _mouvements(session: Session, scope: Scope, assets: list[Asset], du: date | 
     for a in session.exec(scope.assignments(select(Assignment))).all():
         remise = heure_locale(a.date_remise).date() if a.date_remise else None
         if dans(remise):
-            compter("remis", remise, nb_actifs.get(a.id, 0))
-        retour = heure_locale(a.date_restitution).date() if a.date_restitution else None
-        if dans(retour):
-            compter("restitues", retour, nb_actifs.get(a.id, 0))
+            compter("remis", remise, len(liens.get(a.id, [])))
+        # Restitutions : date de retour de chaque actif (un echange ou une restitution partielle ne clot pas l'affectation).
+        for l in liens.get(a.id, []):
+            retour = heure_locale(l.date_retour).date() if l.date_retour else None
+            if dans(retour):
+                compter("restitues", retour, 1)
     for a in assets:
         if dans(a.date_achat):
             compter("achetes", a.date_achat, 1)

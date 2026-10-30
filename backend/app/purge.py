@@ -37,7 +37,7 @@ from .filestore import (
     DOCUMENT_ONLY, StorageError, delete_document, mettre_en_quarantaine, parse_reference, sortir_de_quarantaine,
 )
 from .models import (
-    Assignment, AssignmentAsset, Besoin, EmployeeStatus, PurgeDocument, RevueLigne, Signature, User, UserApplication,
+    Assignment, AssignmentAsset, Besoin, EchangeRetour, EmployeeStatus, PurgeDocument, RevueLigne, Signature, User, UserApplication,
 )
 
 log = logging.getLogger("kikan.purge")
@@ -107,6 +107,8 @@ def purger(session: Session, actor: str, ids: list[int] | None = None, today: da
                 session.delete(sig)
             for link in session.exec(select(AssignmentAsset).where(AssignmentAsset.assignment_id == assignment.id)).all():
                 session.delete(link)
+            for retour in session.exec(select(EchangeRetour).where(EchangeRetour.assignment_id == assignment.id)).all():
+                session.delete(retour)
             # Sans relation declaree entre les modeles, l'ordre des suppressions n'est pas garanti : enfants d'abord.
             session.flush()
             session.delete(assignment)
