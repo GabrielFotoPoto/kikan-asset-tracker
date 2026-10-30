@@ -1,6 +1,6 @@
 # Utilisation des images Docker PUBLIEES (aucune compilation sur le serveur) :
 #
-#   export KIKAN_VERSION=0.3.3            # version voulue (liste : onglet Packages du depot GitHub) ; par defaut latest
+#   export KIKAN_VERSION=0.3.4            # version voulue (liste : onglet Packages du depot GitHub) ; par defaut latest
 #   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
 #   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
 #
