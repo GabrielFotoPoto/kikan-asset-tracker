@@ -28,14 +28,14 @@ function Repartition({ titre, items, cle, label }) {
     <div className="card">
       <h3>{titre}</h3>
       {items.length === 0 ? <p className="muted">Aucune echeance.</p> : (
-        <table>
+        <div className="table-scroll"><table>
           <thead><tr><th>{label}</th><th>Materiels</th><th>Budget estime</th><th>Sans estimation</th></tr></thead>
           <tbody>
             {items.map((i) => (
               <tr key={i[cle]}><td>{i[cle]}</td><td>{i.nombre}</td><td>{eur.format(i.montant)}</td><td>{i.sans_estimation || "-"}</td></tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </div>
   );
@@ -122,7 +122,7 @@ export default function Previsions() {
 
       <div className="card">
         <h3>Par mois</h3>
-        <table>
+        <div className="table-scroll"><table>
           <thead><tr><th>Mois</th><th>Materiels</th><th>Budget estime</th><th></th></tr></thead>
           <tbody>
             {p.par_mois.map((m) => (
@@ -134,7 +134,7 @@ export default function Previsions() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <Repartition titre="Par annee" items={p.par_annee} cle="annee" label="Annee" />
@@ -144,7 +144,7 @@ export default function Previsions() {
       <div className="card">
         <h3>Detail des materiels a renouveler</h3>
         {p.items.length === 0 ? <p className="muted">Aucune echeance sur la periode.</p> : (
-          <table>
+          <div className="table-scroll"><table>
             <thead><tr><th>Echeance</th><th>Entite</th><th>Id interne</th><th>Type</th><th>Marque</th><th>Modele</th><th>Cout estime</th></tr></thead>
             <tbody>
               {p.items.map((i) => (
@@ -155,7 +155,7 @@ export default function Previsions() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

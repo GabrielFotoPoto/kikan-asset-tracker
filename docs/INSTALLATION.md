@@ -62,7 +62,7 @@ Autres réglages utiles (tous facultatifs, commentés dans `.env.example`) : `KI
 **Méthode A** (images publiées) :
 
 ```bash
-export KIKAN_VERSION=0.3.0       # la version voulue ; par défaut : la dernière version finale
+export KIKAN_VERSION=0.3.1       # la version voulue ; par défaut : la dernière version finale
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
 ```
@@ -73,7 +73,7 @@ docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
 docker compose up -d --build
 ```
 
-Sous Windows (PowerShell), remplacez `export KIKAN_VERSION=0.3.0` par `$env:KIKAN_VERSION = "0.3.0"`. Si le téléchargement des images est refusé
+Sous Windows (PowerShell), remplacez `export KIKAN_VERSION=0.3.1` par `$env:KIKAN_VERSION = "0.3.1"`. Si le téléchargement des images est refusé
 (paquets non publics), connectez-vous d'abord : `docker login ghcr.io` avec un jeton personnel GitHub autorisé à lire les paquets (`read:packages`).
 
 Vérification (une minute après le démarrage) :
@@ -83,7 +83,7 @@ docker compose ps                      # db, api, web et converter : "Up" (healt
 curl -sk https://localhost:3443/api/health
 ```
 
-La réponse attendue est `{"status":"ok","app":"Kikan","version":"0.3.0"}`. La base est créée et les migrations s'appliquent seules au démarrage de l'API.
+La réponse attendue est `{"status":"ok","app":"Kikan","version":"0.3.1"}`. La base est créée et les migrations s'appliquent seules au démarrage de l'API.
 
 ## 5. Première connexion
 
