@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Documentation
+- **Licence du logo et du nom** : le code reste en GPL-3.0-or-later ; le logo et le nom « Kikan » ne sont pas couverts par cette licence (tous droits réservés, usage autorisé sans modification pour désigner le projet et utiliser le logiciel tel quel). Section « Logo et nom » du README, politique détaillée dans `docs/logo/LICENCE.md`.
+
 ## [0.3.3] - 2026-10-30
 
 Souhaits de matériel avec gamme (les RH sans accès à la page Besoins) et nouveau bleu de marque.
