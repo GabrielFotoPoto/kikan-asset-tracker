@@ -122,12 +122,33 @@ Tant que du matériel n'est pas revenu, le salarié reste affiché dans **Dépar
 Page **Accès applicatifs** : le **catalogue des applications** (informatique) et, par salarié, les **accès accordés** avec une précision (profil, droits). Les applications peuvent être
 propres à une entité. Une application sans accès peut être supprimée ; sinon on la **désactive**. Un accès qui est retiré passe à « non » (l'historique est conservé).
 
+### 5.7 Renouveler le matériel d'un salarié en poste (informatique)
+
+L'informatique décide du renouvellement, **avant ou après l'échéance** : la date de renouvellement n'est qu'un repère (pages Renouvellements, section 6.4, et Prévisions ; rappels). Pour renouveler, un seul geste remet le nouveau
+matériel **et** récupère l'ancien, avec **un seul document signé**.
+
+1. Lancez l'opération depuis la page **Renouvellements** (bouton **Renouveler**), la page **Matériel** (bouton **Renouveler** sur un matériel affecté : le salarié est reconnu automatiquement) ou **Utilisateurs** (bouton **Renouveler** d'un salarié en poste).
+2. À gauche, **cochez le matériel à récupérer** et choisissez son **devenir** : *Rendu* (à traiter ensuite), *Retour en stock* ou *À réformer*. À droite, **cochez le nouveau matériel** en stock (recherche par type, marque, modèle ou série).
+3. Au besoin : soldez les **besoins ouverts** du salarié, **joignez la charte** (case décochée par défaut : le salarié l'a déjà signée à son arrivée) et indiquez un **motif** (facultatif).
+
+   ![Préparation d'un renouvellement](captures/echange-preparation.png)
+4. **Continuer vers la signature** : l'écran récapitule le matériel remis et le matériel restitué. Le salarié coche la déclaration et **signe sur la tablette**, puis **Valider l'échange**.
+
+   ![Signature d'un échange](captures/echange-signature.png)
+5. Rien ne change tant que l'échange n'est pas validé. À la validation, le nouveau matériel passe **affecté**, l'ancien prend le devenir choisi, et Kikan produit le **PDF scellé** (un seul numéro de document).
+
+   ![Accusé d'échange de matériel](captures/echange-document.png)
+
+Le renouvellement peut être **partiel** : le salarié garde ce que vous ne cochez pas (son smartphone, par exemple), et seule l'affectation entièrement rendue est clôturée. Dans la liste des remises, l'échange apparaît avec le
+badge **échange** et la liste du matériel restitué ; le bouton **PDF scellé** ouvre l'accusé d'échange. Réservé à un salarié **en poste** (statut actif).
+
 ## 6. Contrôler et rendre compte
 
 | Page | Pour quoi faire |
 |---|---|
 | **Rapports** | la photo des **détentions à l'instant T** (qui détient quoi), filtrable par entité et service, exportable en **CSV, Excel ou PDF** |
 | **Statistiques** | répartition du parc par entité, service, modèle ; **renouvellements à venir** ; filtres par **entité** et par **période** (mouvements remis, restitués, achetés) ; export **CSV, Excel et PDF** (section 6.3) |
+| **Renouvellements** (informatique) | matériel **à renouveler** (échéance dépassée ou proche) avec son détenteur ; boutons **Renouveler** et **Reporter** (section 6.4) |
 | **Prévisions** | **échéances de renouvellement** et **budget estimé** par mois, année, type et entité, sur la période de votre choix (12 mois par défaut) ; export **CSV, Excel et PDF** (section 6.2) |
 | **Revue des accès** | anomalies d'accès, rapport « qui a accès à quoi » et **campagnes de revue** (section 6.1) |
 | **À propos** (lien en bas du menu, tous les comptes) | version de Kikan et date de publication, licence, auteur, composants et licences tierces |
@@ -173,7 +194,19 @@ renouvellements. Les boutons **Exporter CSV, Excel ou PDF** reprennent ce qui es
 
 ![Statistiques filtrées par période](captures/statistiques-filtres.png)
 
-### 6.4 À propos
+### 6.4 Renouvellements (informatique)
+
+La page **Renouvellements** liste le matériel **en stock ou affecté** dont l'échéance de renouvellement est **dépassée** ou proche, avec son **détenteur** : un tableau de bord de décision pour l'informatique, qui est **seule à décider** du renouvellement. Choisissez un **horizon**
+(échéances dépassées seulement, 1, 3, 6 ou 12 mois) et, si besoin, une entité. La tuile **« Échéances de renouvellement dépassées »** du tableau de bord y mène.
+
+![Page Renouvellements](captures/renouvellements.png)
+
+- **Renouveler** (matériel détenu) ouvre l'échange (section 5.7) : le nouveau matériel est remis et l'ancien récupéré en une seule opération, avec un seul document signé.
+- **Reporter** : l'échéance n'est qu'un repère. Vous pouvez la **repousser** (le matériel peut encore servir) ou l'**avancer**, avec une nouvelle date (aujourd'hui ou plus tard) et, si vous le souhaitez, un **motif**. *Aucun renouvellement prévu* supprime l'échéance.
+  Le dernier report et son motif restent affichés sous l'échéance ; le journal d'audit ne garde que les dates.
+- Un matériel **rendu ou réformé** n'apparaît plus : il n'est plus à renouveler, et il sort aussi des prévisions et des rappels.
+
+### 6.5 À propos
 
 Le lien **À propos**, en bas du menu, donne la **version** de Kikan et sa date de publication (avec un lien vers les notes de la version), la **licence** (GPL v3), l'auteur, le lien
 du code source et du signalement d'un problème, ainsi que les **composants** utilisés avec leur version et leur licence. Une installation construite en local indique « version de
@@ -236,6 +269,7 @@ L'icône de la page de connexion est lisible **sans être connecté** : n'y mett
 | enregistrer l'arrivée d'un salarié | Utilisateurs, formulaire d'entrée | RH |
 | signaler qu'il lui faut un PC ou un téléphone | cases « Matériel souhaité » et gamme, au formulaire d'entrée | RH |
 | remettre un PC et le faire signer | Remises, puis Signer | informatique |
+| renouveler le matériel d'un salarié (remettre du neuf, récupérer l'ancien) | Matériel ou Utilisateurs, bouton Renouveler | informatique |
 | retrouver le PDF d'une remise | Remises, bouton « PDF scellé » | informatique, RH, lecture |
 | déclarer un départ | Sorties, Déclarer un départ | RH, informatique |
 | récupérer le matériel d'un partant | Sorties, Restituer et signer | RH, informatique |

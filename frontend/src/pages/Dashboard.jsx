@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [assets, setAssets] = useState([]);
   const [besoins, setBesoins] = useState(0);
   const [anomalies, setAnomalies] = useState(0);
+  const [retard, setRetard] = useState(0);
   const [err, setErr] = useState(null);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function Dashboard() {
       .catch((e) => setErr(e.message));
     if (user.role === "informatique") api.get("/backup/status").then(setBackup).catch(() => {});
     api.get("/stats").then((s) => setBesoins(s.besoins_a_traiter || 0)).catch(() => {});
+    if (user.role === "informatique") api.get("/renouvellements?horizon_mois=0").then((r) => setRetard(r.totaux.en_retard)).catch(() => {});
     api.get("/revues/anomalies").then((r) => setAnomalies(r.count || 0)).catch(() => {});
   }, []);
 
@@ -61,6 +63,7 @@ export default function Dashboard() {
         <div className="card tile"><div className="n">{byStatus("stock")}</div><div className="l">En stock</div></div>
         {user.role !== "rh" && <Link to="/besoins" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n">{besoins}</div><div className="l">Besoins a traiter</div></Link>}
         <Link to="/revues" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n" style={anomalies ? { color: "#9b1c1c" } : undefined}>{anomalies}</div><div className="l">Anomalies d'acces</div></Link>
+        {user.role === "informatique" && <Link to="/renouvellements" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n" style={retard ? { color: "#9b1c1c" } : undefined}>{retard}</div><div className="l">Echeances de renouvellement depassees</div></Link>}
       </div>
 
       <div className="card">

@@ -519,11 +519,12 @@ def signature_meta(session, sig) -> dict:
     except StorageError:
         key = ""
     name = key.rsplit("/", 1)[-1]
-    kind = "Restitution" if name.startswith("restitution") else "Remise"
+    known = (sig.audit_json or {}).get("type")   # le type est dans le faisceau de preuves ; le nom de fichier ne sert que de repli
+    kind = {"restitution": "Restitution", "echange": "Echange", "remise": "Remise"}.get(known) or ("Restitution" if name.startswith("restitution") else "Remise")
     year = key.split("/")[0] if "/" in key else ""
     user = None
     numero = None
-    if kind == "Remise":
+    if kind != "Restitution":
         assignment = session.get(Assignment, sig.assignment_id)
         numero = sig.assignment_id
         user = session.get(User, assignment.user_id) if assignment else None

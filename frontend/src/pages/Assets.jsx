@@ -174,6 +174,7 @@ export default function Assets() {
                   <td>
                     <div className="row">
                       <button className="ghost" onClick={() => startEdit(a)}>Modifier</button>
+                      {a.statut === "affecte" && <Link to={`/renouveler?asset=${a.id}`} className="ghost" style={{ padding: "6px 10px" }}>Renouveler</Link>}
                       <ConfirmButton onConfirm={() => remove(a)}>Supprimer</ConfirmButton>
                     </div>
                   </td>

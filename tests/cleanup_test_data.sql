@@ -15,10 +15,13 @@ CREATE TEMP TABLE tu AS SELECT id FROM users WHERE matricule LIKE 'ZZ%' OR preno
 CREATE TEMP TABLE ta AS SELECT id FROM assignments WHERE user_id IN (SELECT id FROM tu);
 DELETE FROM besoins WHERE user_id IN (SELECT id FROM tu) OR assignment_id IN (SELECT id FROM ta);
 DELETE FROM signatures WHERE assignment_id IN (SELECT id FROM ta);
+DELETE FROM echange_retours WHERE assignment_id IN (SELECT id FROM ta);
 DELETE FROM assignment_assets WHERE assignment_id IN (SELECT id FROM ta);
 DELETE FROM assignments WHERE id IN (SELECT id FROM ta);
 DELETE FROM user_applications WHERE user_id IN (SELECT id FROM tu);
 DELETE FROM users WHERE id IN (SELECT id FROM tu);
+DELETE FROM echeance_reports WHERE asset_id IN (SELECT id FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%');
+DELETE FROM echange_retours WHERE asset_id IN (SELECT id FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%');
 DELETE FROM assignment_assets WHERE asset_id IN (SELECT id FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%');
 DELETE FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%';
 DELETE FROM user_applications WHERE application_id IN (SELECT id FROM applications WHERE nom LIKE 'ZZ%');

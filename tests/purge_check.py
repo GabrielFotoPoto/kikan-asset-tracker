@@ -246,5 +246,27 @@ with Session(engine) as ss:
 s, mc = j("GET", "/mail/config")
 show("reglage du rappel visible dans la configuration des e-mails", mc["config"].get("purge") is True and mc["config"].get("purge_sem") == 1, mc.get("config", {}).get("purge"))
 
+print("== Purge d'un salarie qui a eu un echange de materiel ==")
+n_user[0] += 1
+ne = n_user[0]
+s, ue = j("POST", "/users", {"nom": "ZZPG", "prenom": f"Echange{ne}", "matricule": f"ZZPG{ne}", "statut": "actif"})
+s, a_old = j("POST", "/assets", {"type": "PC", "marque": "ZZPG-HP", "numero_serie": f"ZZPG-EO{ne}", "statut": "stock"})
+s, a_new = j("POST", "/assets", {"type": "PC", "marque": "ZZPG-HP", "numero_serie": f"ZZPG-EN{ne}", "statut": "stock"})
+s, asg = j("POST", "/assignments", {"user_id": ue["id"], "asset_ids": [a_old["id"]]})
+s, sg = j("POST", f"/assignments/{asg['id']}/sign", SIGN)
+s, ex = j("POST", "/assignments/echange", {"user_id": ue["id"], "nouveaux_ids": [a_new["id"]],
+                                           "anciens": [{"asset_id": a_old["id"], "destination": "rendu"}], **SIGN})
+show("echange accepte", s == 201, ex)
+j("POST", f"/lifecycle/depart/{ue['id']}", {"date_sortie": "2019-01-01"})
+s, rs = j("POST", "/lifecycle/restituer", {"user_id": ue["id"], **SIGN})
+show("restitution du materiel restant", s == 201, rs)
+s, r = j("POST", "/rgpd/purge", {"ids": [ue["id"]]})
+show("purge du salarie : remise, echange et restitution (3 documents)", s == 200 and r["count"] == 1 and r["documents"] == 3, r)
+s, got = j("GET", f"/users/{ue['id']}")
+show("salarie supprime malgre les liens d'echange", s == 404)
+from app.models import EchangeRetour  # noqa: E402
+with Session(engine) as ss:
+    show("plus aucun retour d'echange en base", not ss.exec(select(EchangeRetour).where(EchangeRetour.asset_id == a_old["id"])).all())
+
 print(f"\n{'ECHEC' if fails else 'OK'} : {fails} test(s) en echec")
 sys.exit(1 if fails else 0)

@@ -159,7 +159,7 @@ def collect(session: Session, cfg: MailConfig, today: date) -> dict[str, list[di
         horizon = today + timedelta(days=cfg.renouv_jours)
         for a in session.exec(select(Asset).where(Asset.echeance_renouvellement.is_not(None),
                                                   Asset.echeance_renouvellement <= horizon,
-                                                  Asset.statut != AssetStatus.reforme)).all():
+                                                  Asset.statut.in_((AssetStatus.stock, AssetStatus.affecte)))).all():
             late = a.echeance_renouvellement < today
             out["renouv"].append({"cle": "asset:%d" % a.id, "entite_id": a.entite_id, "ligne": "- %s : echeance %s%s" % (
                 _asset_label(a), _fmt(a.echeance_renouvellement), " (depassee)" if late else "")})

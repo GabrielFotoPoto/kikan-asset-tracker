@@ -132,11 +132,14 @@ def effacer():
           "(SELECT id FROM assignments WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%'))")
         q("DELETE FROM signatures WHERE assignment_id IN "
           "(SELECT id FROM assignments WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%'))")
+        q("DELETE FROM echange_retours WHERE assignment_id IN (SELECT id FROM assignments WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%'))")
         q("DELETE FROM assignment_assets WHERE assignment_id IN "
           "(SELECT id FROM assignments WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%'))")
         q("DELETE FROM assignments WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%')")
         q("DELETE FROM user_applications WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%')")
         q("DELETE FROM users WHERE matricule LIKE 'DEMO-%'")
+        q("DELETE FROM echeance_reports WHERE asset_id IN (SELECT id FROM assets WHERE identifiant_interne LIKE 'DEMO-%')")
+        q("DELETE FROM echange_retours WHERE asset_id IN (SELECT id FROM assets WHERE identifiant_interne LIKE 'DEMO-%')")
         q("DELETE FROM assignment_assets WHERE asset_id IN (SELECT id FROM assets WHERE identifiant_interne LIKE 'DEMO-%')")
         q("DELETE FROM assets WHERE identifiant_interne LIKE 'DEMO-%'")
         q("DELETE FROM user_applications WHERE application_id IN "
