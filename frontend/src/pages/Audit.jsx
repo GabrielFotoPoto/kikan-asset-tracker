@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 export default function Audit() {
   const { user } = useAuth();
@@ -43,7 +44,7 @@ export default function Audit() {
   return (
     <div>
       <h2>Journal d'audit</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
       <div className="card">
         <div className="row">
           <label>Compte<input value={actor} onChange={(e) => setActor(e.target.value)} /></label>

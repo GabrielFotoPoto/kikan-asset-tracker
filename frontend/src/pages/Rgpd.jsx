@@ -20,6 +20,8 @@
 import { useEffect, useState } from "react";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
+import { Feedback } from "../components/Notifications.jsx";
+import { useConfirm } from "../components/ConfirmDialog.jsx";
 
 const row = { display: "flex", flexDirection: "row", alignItems: "center", gap: 8 };
 const num = { width: 90 };
@@ -27,6 +29,7 @@ const num = { width: 90 };
 // Purge RGPD : duree de conservation et delai de grace (reglages), salaries a purger, quarantaine des PDF du partage, liste pour la GED.
 export default function Rgpd() {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const writable = canWrite(user.role, "entites"); // informatique
   const [reg, setReg] = useState({ mois: 12, delai_grace_jours: 30 });
   const [etat, setEtat] = useState(null);
@@ -50,22 +53,48 @@ export default function Rgpd() {
     () => api.put("/rgpd/retention", { mois: Number(reg.mois), delai_grace_jours: Number(reg.delai_grace_jours) }),
     () => "Reglages enregistres.");
   const doPreview = () => run(async () => { setPreview(await api.get("/rgpd/purge-preview")); });
-  const doPurge = () => {
+  const doPurge = async () => {
     if (!preview || preview.count === 0) return;
-    if (!window.confirm(`Purger ${preview.count} salarie(s) sorti(s) ? Leurs donnees sont supprimees de Kikan (irreversible). `
-      + `Les PDF du partage vont en quarantaine ${reg.delai_grace_jours} jour(s) ; ceux de la GED sont a faire supprimer par l'equipe de la GED.`)) return;
+    const ok = await confirm({
+      title: `Purger ${preview.count} salarie(s) sorti(s) ?`,
+      message: (
+        <>
+          Leurs donnees seront supprimees de Kikan. <strong>Cette action est irreversible.</strong>{" "}
+          Les PDF du partage passent en quarantaine {reg.delai_grace_jours} jour(s) ; ceux de la GED sont a faire supprimer par l'equipe de la GED.
+        </>
+      ),
+      details: (
+        <ul className="confirm-list">
+          {preview.candidats.map((c) => (
+            <li key={c.id}><strong>{c.prenom} {c.nom}</strong><span className="muted">Sorti le {c.date_sortie}</span></li>
+          ))}
+        </ul>
+      ),
+      confirmLabel: "Purger definitivement", danger: true, requireText: "PURGER",
+    });
+    if (!ok) return;
     run(async () => { const r = await api.post("/rgpd/purge", { ids: preview.candidats.map((c) => c.id) }); setPreview(null); return r; },
       (r) => `${r.count} salarie(s) purge(s), ${r.documents} document(s) suivi(s)` + (r.en_attente ? `, ${r.en_attente} a reessayer (partage indisponible).` : "."));
   };
   const retry = () => run(() => api.post("/rgpd/purge", { ids: [] }), (r) => `${r.deplaces} document(s) range(s) en quarantaine, ${r.en_attente} encore en attente.`);
-  const suppr = () => {
-    if (!window.confirm("Supprimer definitivement les PDF dont le delai de grace est ecoule ? Irreversible.")) return;
+  const suppr = async () => {
+    const ok = await confirm({
+      title: "Supprimer definitivement les PDF en quarantaine ?",
+      message: <>Seuls les PDF dont le delai de grace est ecoule sont supprimes. <strong>Cette action est irreversible.</strong></>,
+      confirmLabel: "Supprimer definitivement", danger: true,
+    });
+    if (!ok) return;
     run(() => api.post("/rgpd/quarantaine/supprimer", {}), (r) => `${r.supprimes} document(s) supprime(s)` + (r.echecs ? `, ${r.echecs} echec(s)` : "") + ".");
   };
   const restore = (d) => run(() => api.post("/rgpd/quarantaine/restaurer", { ids: [d.id] }), () => "Document remis a son emplacement d'origine.");
-  const confirmGed = () => {
+  const confirmGed = async () => {
     const ids = ged.map((d) => d.id);
-    if (!window.confirm(`Confirmer que l'equipe de la GED a supprime ces ${ids.length} document(s) ?`)) return;
+    const ok = await confirm({
+      title: `Confirmer la suppression de ${ids.length} document(s) de la GED ?`,
+      message: "Confirmez seulement si l'equipe de la GED a bien supprime ces documents de son cote.",
+      confirmLabel: "Oui, ils sont supprimes",
+    });
+    if (!ok) return;
     run(() => api.post("/rgpd/ged/confirmer", { ids }), (r) => `${r.confirmes} document(s) confirme(s).`);
   };
   const copy = () => navigator.clipboard?.writeText(ged.map((d) => `${d.moteur}\t${d.reference}\t${d.echeance}`).join("\n")).then(() => setMsg("Liste copiee."));
@@ -85,8 +114,7 @@ export default function Rgpd() {
         vont dans le dossier A_PURGER du partage (quarantaine) puis sont supprimes apres le delai de grace. SharePoint et DocuWare : Kikan liste les
         documents, l'equipe de la GED les supprime.
       </p>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
 
       <div className="card">
         <h3>Reglages</h3>

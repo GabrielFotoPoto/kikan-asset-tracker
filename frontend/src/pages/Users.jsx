@@ -18,11 +18,13 @@
  */
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import Autocomplete from "../components/Autocomplete.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback } from "../components/Notifications.jsx";
+import { useConfirm } from "../components/ConfirmDialog.jsx";
 
 // Le depart (en_depart, sorti) se declare depuis la page Sorties, avec restitution du materiel.
 const STATUTS = ["prevu", "actif"];
@@ -35,6 +37,7 @@ const cle = (v) => (v || "").trim().toLowerCase();
 
 export default function Users() {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const writable = canWrite(user.role, "users");
   const canDelete = user.role === "informatique";
   const [items, setItems] = useState([]);
@@ -42,7 +45,10 @@ export default function Users() {
   const [services, setServices] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
-  const [q, setQ] = useState("");
+  // ?q= : la palette de recherche mene ici avec le salarie cherche deja filtre.
+  const [params] = useSearchParams();
+  const [q, setQ] = useState(params.get("q") || "");
+  useEffect(() => { const p = params.get("q"); if (p !== null) setQ(p); }, [params]);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
   const [choix, setChoix] = useState([]);      // categories de besoin actives, avec leurs gammes
@@ -93,7 +99,11 @@ export default function Users() {
         setMsg(`Fiche de ${form.prenom} ${form.nom} modifiee.`);
       } else {
         const homonyme = items.find((u) => cle(u.nom) === cle(form.nom) && cle(u.prenom) === cle(form.prenom));
-        if (homonyme && !window.confirm(`Un salarie ${homonyme.prenom} ${homonyme.nom} existe deja (${entiteNom(homonyme.entite_id)}). Creer quand meme ? (homonyme : pensez a differencier l'acronyme)`)) return;
+        if (homonyme && !(await confirm({
+          title: "Un salarie du meme nom existe deja",
+          message: `${homonyme.prenom} ${homonyme.nom} existe deja (${entiteNom(homonyme.entite_id)}). Creer quand meme ? Dans ce cas, pensez a differencier l'acronyme.`,
+          confirmLabel: "Creer quand meme",
+        }))) return;
         const created = await api.post("/users", payload);
         const failed = [];
         const souhaits = Object.entries(besoins);
@@ -122,8 +132,7 @@ export default function Users() {
   return (
     <div>
       <h2>Utilisateurs</h2>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
       {writable && (
       <div className="card">
         <h3>{editing ? `Modifier : ${editing.prenom} ${editing.nom}` : "Ajouter (formulaire d'entree)"}</h3>
@@ -203,6 +212,7 @@ export default function Users() {
                   <td>
                     <div className="row">
                       <button className="ghost" onClick={() => startEdit(u)}>Modifier</button>
+                      {(u.statut === "prevu" || u.statut === "actif") && <Link to={`/arrivee/${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Parcours</Link>}
                       {user.role !== "rh" && <Link to={`/besoins?user=${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Besoins</Link>}
                       {user.role === "informatique" && u.statut === "actif" && <Link to={`/renouveler?user=${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Renouveler</Link>}
                       {canDelete && <ConfirmButton onConfirm={() => remove(u)}>Supprimer</ConfirmButton>}

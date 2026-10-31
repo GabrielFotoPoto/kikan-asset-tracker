@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, downloadFile, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 // Les dates du serveur sont en UTC sans fuseau : on les affiche a l'heure locale de l'utilisateur.
 const dateHeure = (iso) => {
@@ -97,7 +98,7 @@ export default function Assignments() {
   return (
     <div>
       <h2>Remises de materiel</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
       {msg && <p className="muted">{msg}</p>}
 
       {writable && (

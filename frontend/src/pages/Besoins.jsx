@@ -22,6 +22,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback } from "../components/Notifications.jsx";
+import { Empty } from "../components/State.jsx";
 
 const STATUTS = { demande: "Demande", en_preparation: "En preparation", satisfait: "Satisfait", annule: "Annule" };
 const BADGE = { demande: "badge", en_preparation: "badge", satisfait: "badge ok", annule: "badge bad" };
@@ -90,8 +92,7 @@ export default function Besoins() {
         Les RH expriment un souhait a l'arrivee d'un salarie (categorie de materiel et gamme) depuis le formulaire d'entree ; l'informatique
         choisit le materiel precis, le prepare puis le remet depuis la page Remises, ce qui solde automatiquement le besoin.
       </p>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
 
       {writable && (
         <div className="card">
@@ -149,7 +150,7 @@ export default function Besoins() {
           </label>
           {forUser && <button className="ghost" onClick={() => setForUser("")}>Voir tous les salaries</button>}
         </div>
-        {items.length === 0 ? <p className="muted">Aucun besoin pour ce filtre.</p> : (
+        {items.length === 0 ? <Empty title="Aucun besoin pour ce filtre" hint="Les demandes de materiel saisies par les RH apparaitront ici." /> : (
           <table>
             <thead><tr><th>Salarie</th><th>Arrivee</th><th>Materiel</th><th>Souhaite le</th><th>Precisions</th><th>Statut</th>{writable && <th></th>}</tr></thead>
             <tbody>

@@ -19,6 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { api, errorText } from "../api.js";
+import { Feedback } from "../components/Notifications.jsx";
 
 const fmt = (d) => (d ? String(d).replace("T", " ").slice(0, 16) + " (UTC)" : "jamais");
 const size = (n) => (n == null ? "-" : n > 1048576 ? `${(n / 1048576).toFixed(1)} Mio` : `${Math.max(1, Math.round(n / 1024))} Kio`);
@@ -32,7 +33,7 @@ export default function Sauvegarde() {
   return (
     <div>
       <h2>Sauvegarde</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
       {s && (
         <div className="card">
           <h3>Derniere sauvegarde {s.alerte ? <span className="badge bad">a verifier</span> : <span className="badge ok">a jour</span>}</h3>
