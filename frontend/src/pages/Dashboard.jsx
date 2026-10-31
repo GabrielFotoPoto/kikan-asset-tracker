@@ -62,8 +62,8 @@ export default function Dashboard() {
         <div className="card tile"><div className="n">{byStatus("affecte")}</div><div className="l">Affectes</div></div>
         <div className="card tile"><div className="n">{byStatus("stock")}</div><div className="l">En stock</div></div>
         {user.role !== "rh" && <Link to="/besoins" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n">{besoins}</div><div className="l">Besoins a traiter</div></Link>}
-        <Link to="/revues" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n" style={anomalies ? { color: "#9b1c1c" } : undefined}>{anomalies}</div><div className="l">Anomalies d'acces</div></Link>
-        {user.role === "informatique" && <Link to="/renouvellements" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n" style={retard ? { color: "#9b1c1c" } : undefined}>{retard}</div><div className="l">Echeances de renouvellement depassees</div></Link>}
+        <Link to="/revues" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n" style={anomalies ? { color: "var(--danger)" } : undefined}>{anomalies}</div><div className="l">Anomalies d'acces</div></Link>
+        {user.role === "informatique" && <Link to="/renouvellements" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n" style={retard ? { color: "var(--danger)" } : undefined}>{retard}</div><div className="l">Echeances de renouvellement depassees</div></Link>}
       </div>
 
       <div className="card">

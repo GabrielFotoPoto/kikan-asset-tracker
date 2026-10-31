@@ -93,6 +93,7 @@ export default function App() {
   return (
     <AuthContext.Provider value={{ user }}>
       <div className="layout">
+        <a className="skip-link" href="#contenu">Aller au contenu</a>
         <aside className="sidebar">
           <div className="brand">
             <img className="brand-icon" src={icone} alt="" />
@@ -101,7 +102,7 @@ export default function App() {
               <div className="sub">Suivi des actifs</div>
             </div>
           </div>
-          <nav>
+          <nav aria-label="Navigation principale">
             <NavLink to="/" end>Tableau de bord</NavLink>
             <NavLink to="/entites">Entites</NavLink>
             <NavLink to="/utilisateurs">Utilisateurs</NavLink>
@@ -135,7 +136,7 @@ export default function App() {
             <NavLink className="about-link" to="/a-propos">A propos</NavLink>
           </div>
         </aside>
-        <main className="main">
+        <main className="main" id="contenu" tabIndex={-1}>
           {portee?.vide && (
             <div className="card" role="alert">
               <strong>Aucun perimetre n'est defini pour votre compte.</strong>{" "}

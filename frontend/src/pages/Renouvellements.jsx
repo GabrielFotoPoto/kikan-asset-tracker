@@ -84,7 +84,7 @@ export default function Renouvellements() {
 
       {t && (
         <div className="tiles">
-          <div className="card tile"><div className="n" style={t.en_retard ? { color: "#9b1c1c" } : undefined}>{t.en_retard}</div><div className="l">Echeances depassees</div></div>
+          <div className="card tile"><div className="n" style={t.en_retard ? { color: "var(--danger)" } : undefined}>{t.en_retard}</div><div className="l">Echeances depassees</div></div>
           <div className="card tile"><div className="n">{t.ce_mois}</div><div className="l">Ce mois-ci</div></div>
           <div className="card tile"><div className="n">{t.a_venir}</div><div className="l">A venir (dans l'horizon)</div></div>
         </div>

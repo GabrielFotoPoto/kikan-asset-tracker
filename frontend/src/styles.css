@@ -25,7 +25,11 @@
   --brand: #1d428a; /* bleu du logo Kikan */
   --line: #dde3ea;
   --ok: #1f7a4d;
-  --warn: #b26a00;
+  --warn: #8a5100; /* 6,4:1 sur blanc (l'ancien #b26a00 n'en faisait que 4,2) */
+  --danger: #9b1c1c;
+  --danger-bg: #fde8e8;
+  --field: #7b8a9e; /* bordure des champs : 3,5:1, seuil WCAG 1.4.11 */
+  --focus: #1d428a;
 }
 * { box-sizing: border-box; }
 body {
@@ -74,10 +78,22 @@ form.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); gap: 4px; }
 input, select, textarea {
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--field);
   border-radius: 8px;
   font: inherit;
   background: #fff;
+}
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.sidebar :focus-visible { outline-color: #fff; }
+.skip-link {
+  position: absolute; left: -9999px; top: 8px; z-index: 100;
+  padding: 10px 14px; border-radius: 8px; background: #fff; color: var(--brand); font-weight: 600;
+}
+.skip-link:focus { left: 8px; }
+#contenu:focus { outline: none; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (pointer: coarse) {
+  button, input, select, textarea { min-height: 44px; }
 }
 button {
   background: var(--brand);
@@ -91,7 +107,7 @@ button {
 button.ghost { background: #eef2f7; color: var(--brand); }
 button:hover { opacity: 0.92; }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.err { color: #b32020; font-size: 13px; }
+.err { color: var(--danger); font-size: 13px; }
 .muted { color: var(--muted); font-size: 13px; }
 
 .account { margin-top: 28px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.2); }
@@ -134,7 +150,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .badge.ok { background: #e3f4e8; color: #17603a; }
 .warn { background: #fff7e0; border: 1px solid #ecd48a; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
 .ok-msg { color: #17603a; font-size: 13px; }
-.badge.bad { background: #fde8e8; color: #9b1c1c; }
+.badge.bad { background: var(--danger-bg); color: var(--danger); }
 .danger { background: #b32020; color: #fff; }
 .danger:hover { background: #8f1818; }
 .ac-wrap { position: relative; display: flex; flex-direction: column; gap: 2px; }
