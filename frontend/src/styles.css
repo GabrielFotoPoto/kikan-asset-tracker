@@ -286,3 +286,39 @@ dialog.palette::backdrop { background: rgba(20, 27, 38, 0.5); }
 .theme-switch button { flex: 1; padding: 6px 4px; border-radius: 0; background: transparent; color: #e8eef7; font-size: 12px; }
 .theme-switch button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.22); font-weight: 700; color: #fff; }
 .theme-switch button:hover { opacity: 1; background: rgba(255, 255, 255, 0.12); }
+
+/* Petit ecran : barre du haut avec menu, cartes (components/BarreMobile.jsx, pages/Assets.jsx) */
+.sidebar-tete { display: block; }
+.sidebar-actions { display: none; gap: 6px; }
+.icone { width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.14); color: #fff; border-radius: 10px; }
+.cartes { display: none; }
+.barre-signature { display: none; }
+@media (max-width: 720px) {
+  .sidebar { position: sticky; top: 0; z-index: 50; max-height: 100vh; overflow-y: auto; padding: 10px 14px; }
+  .sidebar-tete { display: flex; justify-content: space-between; align-items: center; }
+  .sidebar .brand { margin-bottom: 0; }
+  .sidebar-actions { display: flex; }
+  .sidebar-corps { display: none; padding-top: 12px; }
+  .sidebar.ouvert .sidebar-corps { display: block; }
+  .main { padding: 16px; max-width: none; }
+  .main table { display: block; overflow-x: auto; max-width: 100%; }
+  .vue-tableau { display: none; }
+  .cartes { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0; padding: 0; }
+  .carte { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .carte-tete { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .carte-serie { font-size: 12px; color: var(--muted); }
+  .toasts { left: 12px; right: 12px; bottom: 12px; width: auto; }
+}
+
+/* Mode tablette de la signature (App.jsx) : sans menu, grandes zones tactiles */
+.mode-signature { flex-direction: column; }
+.mode-signature .sidebar, .mode-signature .fil { display: none; }
+.mode-signature .barre-signature { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: var(--card); border-bottom: 1px solid var(--line); }
+.barre-signature .brand { display: flex; align-items: center; gap: 10px; }
+.barre-signature .brand-icon { background: transparent; }
+.barre-signature a { min-height: 44px; display: inline-flex; align-items: center; font-weight: 600; }
+.mode-signature .main { width: 100%; max-width: 960px; margin: 0 auto; padding: 24px; }
+.mode-signature button { min-height: 56px; padding: 0 28px; font-size: 17px; }
+.mode-signature .check { font-size: 17px; line-height: 1.4; }
+.mode-signature .check input { width: 28px; height: 28px; flex: 0 0 28px; }
+.mode-signature .sigpad { min-height: 260px; }

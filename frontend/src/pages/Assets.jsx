@@ -165,6 +165,15 @@ export default function Assets() {
     filtreEntite && { cle: "entite", texte: `Entite : ${entites.find((e) => String(e.id) === filtreEntite)?.nom || filtreEntite}` },
   ].filter(Boolean);
 
+  // Actions d'une ligne : memes boutons dans le tableau et dans les cartes.
+  const actionsDe = (a) => (
+    <div className="row">
+      <button className="ghost" onClick={() => startEdit(a)}>Modifier</button>
+      {a.statut === "affecte" && <Link to={`/renouveler?asset=${a.id}`} className="ghost" style={{ padding: "6px 10px" }}>Renouveler</Link>}
+      <ConfirmButton onConfirm={() => remove(a)}>Supprimer</ConfirmButton>
+    </div>
+  );
+
   // Lien profond ?asset=ID : un compte qui peut ecrire ouvre l'actif en modification, les autres le voient repere dans la liste.
   const cibleTraitee = useRef(false);
   useEffect(() => {
@@ -273,7 +282,8 @@ export default function Assets() {
               <button type="button" className="ghost" onClick={clearFilters}>Effacer les filtres</button>
             </Empty>
           ) : (
-        <div className="table-scroll">
+        <>
+        <div className="table-scroll vue-tableau">
         <table>
           <thead><tr><th>Id interne</th><th>Type</th><th>Marque</th><th>Modele</th><th>N serie</th><th>Statut</th>{writable && <th></th>}</tr></thead>
           <tbody>
@@ -285,20 +295,27 @@ export default function Assets() {
                 <td>{a.modele || "-"}</td>
                 <td>{a.numero_serie || "-"}</td>
                 <td><span className="badge">{a.statut}</span></td>
-                {writable && (
-                  <td>
-                    <div className="row">
-                      <button className="ghost" onClick={() => startEdit(a)}>Modifier</button>
-                      {a.statut === "affecte" && <Link to={`/renouveler?asset=${a.id}`} className="ghost" style={{ padding: "6px 10px" }}>Renouveler</Link>}
-                      <ConfirmButton onConfirm={() => remove(a)}>Supprimer</ConfirmButton>
-                    </div>
-                  </td>
-                )}
+                {writable && <td>{actionsDe(a)}</td>}
               </tr>
             ))}
           </tbody>
         </table>
         </div>
+        {/* Meme liste en cartes sur petit ecran (le tableau est alors masque par le CSS). */}
+        <ul className="cartes">
+          {visibles.map((a) => (
+            <li key={a.id} className={a.id === idCible ? "carte row-cible" : "carte"}>
+              <div className="carte-tete">
+                <strong>{[a.marque, a.modele].filter(Boolean).join(" ") || a.type || "Materiel"}</strong>
+                <span className="badge">{a.statut}</span>
+              </div>
+              <div className="muted">{[a.type, a.identifiant_interne].filter(Boolean).join(" - ")}</div>
+              {a.numero_serie && <code className="carte-serie">{a.numero_serie}</code>}
+              {writable && actionsDe(a)}
+            </li>
+          ))}
+        </ul>
+        </>
           )}
       </div>
     </div>

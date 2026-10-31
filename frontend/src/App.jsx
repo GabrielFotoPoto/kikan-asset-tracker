@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api, endSession, hasSession, setSession } from "./api.js";
 import { AuthContext } from "./auth.jsx";
 import { NotificationsProvider } from "./components/Notifications.jsx";
@@ -27,6 +27,7 @@ import { PaletteProvider } from "./components/Palette.jsx";
 import NavPrincipale from "./components/NavPrincipale.jsx";
 import Breadcrumb from "./components/Breadcrumb.jsx";
 import ThemeSwitch from "./components/ThemeSwitch.jsx";
+import BarreMobile from "./components/BarreMobile.jsx";
 import Login from "./pages/Login.jsx";
 import ForcePassword from "./pages/ForcePassword.jsx";
 import SsoReturn from "./pages/SsoReturn.jsx";
@@ -63,6 +64,11 @@ export default function App() {
   const [checking, setChecking] = useState(true);
   const [portee, setPortee] = useState(null);
   const icone = useBranding();
+  const { pathname } = useLocation();
+  const [menuOuvert, setMenuOuvert] = useState(false);
+  useEffect(() => { setMenuOuvert(false); }, [pathname]);
+  // Page de signature : mode tablette (sans menu, grandes zones tactiles) pour faire signer l'employe en face.
+  const enSignature = pathname.startsWith("/signer");
 
   useEffect(() => {
     const onUnauth = () => setUser(null);
@@ -101,16 +107,29 @@ export default function App() {
      <NotificationsProvider>
       <ConfirmProvider>
       <PaletteProvider>
-      <div className="layout">
+      <div className={enSignature ? "layout mode-signature" : "layout"}>
         <a className="skip-link" href="#contenu">Aller au contenu</a>
-        <aside className="sidebar">
-          <div className="brand">
-            <img className="brand-icon" src={icone} alt="" />
-            <div>
-              <h1>Kikan</h1>
-              <div className="sub">Suivi des actifs</div>
+        {enSignature && (
+          <header className="barre-signature">
+            <div className="brand">
+              <img className="brand-icon" src={icone} alt="" />
+              <strong>Kikan</strong>
             </div>
+            <Link to={pathname.startsWith("/signer/restitution") ? "/sorties" : "/remises"}>Quitter</Link>
+          </header>
+        )}
+        <aside className={"sidebar" + (menuOuvert ? " ouvert" : "")}>
+          <div className="sidebar-tete">
+            <div className="brand">
+              <img className="brand-icon" src={icone} alt="" />
+              <div>
+                <h1>Kikan</h1>
+                <div className="sub">Suivi des actifs</div>
+              </div>
+            </div>
+            <BarreMobile ouvert={menuOuvert} onBasculer={() => setMenuOuvert((o) => !o)} />
           </div>
+          <div id="menu-principal" className="sidebar-corps">
           <NavPrincipale role={user.role} />
           <div className="account">
             <div className="who">{user.username}</div>
@@ -121,6 +140,7 @@ export default function App() {
             <ThemeSwitch />
             <button className="ghost" onClick={logout}>Se deconnecter</button>
             <NavLink className="about-link" to="/a-propos">A propos</NavLink>
+          </div>
           </div>
         </aside>
         <main className="main" id="contenu" tabIndex={-1}>
