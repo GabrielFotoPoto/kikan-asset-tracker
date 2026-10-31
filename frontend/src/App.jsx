@@ -26,6 +26,7 @@ import { ConfirmProvider } from "./components/ConfirmDialog.jsx";
 import { PaletteProvider } from "./components/Palette.jsx";
 import NavPrincipale from "./components/NavPrincipale.jsx";
 import Breadcrumb from "./components/Breadcrumb.jsx";
+import ThemeSwitch from "./components/ThemeSwitch.jsx";
 import Login from "./pages/Login.jsx";
 import ForcePassword from "./pages/ForcePassword.jsx";
 import SsoReturn from "./pages/SsoReturn.jsx";
@@ -117,6 +118,7 @@ export default function App() {
             {user.role !== "informatique" && portee && !portee.vide && (
               <div className="role" title="Perimetre de votre compte">{portee.globale ? "toute l'organisation" : "perimetre limite"}</div>
             )}
+            <ThemeSwitch />
             <button className="ghost" onClick={logout}>Se deconnecter</button>
             <NavLink className="about-link" to="/a-propos">A propos</NavLink>
           </div>

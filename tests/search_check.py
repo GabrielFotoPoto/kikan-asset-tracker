@@ -107,7 +107,7 @@ show("4 entites creees", len(ent) == 4)
 
 assets, users = {}, {}
 for key, eid in [("A", EA), ("A1", EA1), ("B", EB), ("N", None)]:
-    s, r = j("POST", "/assets", {"type": "ZZSR type", "marque": "ZZSR Marqué", "modele": "Mod" + key,
+    s, r = j("POST", "/assets", {"type": "ZZSR type", "marque": "ZZSR Marqu" + chr(233), "modele": "Mod" + key,
                                    "numero_serie": "ZZSR-SN-" + key, "identifiant_interne": "ZZSR-ID-" + key,
                                    "notes": "ZZSR note confidentielle", "entite_id": eid})
     assets[key] = r
