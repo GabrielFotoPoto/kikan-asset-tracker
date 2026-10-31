@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { api, downloadFile, errorText, postForm } from "../api.js";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 // Enregistre un texte (CSV) sur le poste, avec BOM pour une ouverture directe dans Excel.
 function saveCsv(filename, text) {
@@ -93,7 +94,7 @@ export default function Import() {
         Reprise de l'existant. Le fichier est d'abord <b>simule</b> : rien n'est ecrit tant que vous ne confirmez pas.
         L'import ne fait que creer ; un element deja present est ignore. S'il reste une erreur, rien n'est importe.
       </p>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
 
       <div className="card">
         <h3>1. Type de fichier</h3>
@@ -228,8 +229,7 @@ function ImportsRecents({ refresh }) {
     <div className="card">
       <h3>Imports realises</h3>
       <p className="muted">Un import peut etre annule tant que rien de ce qu'il a cree n'est utilise ailleurs (salarie avec du materiel, actif remis, entite utilisee...). L'annulation est tout ou rien.</p>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
       <table>
         <thead><tr><th>Date</th><th>Type</th><th>Lignes creees</th><th>Par</th><th>Etat</th><th></th></tr></thead>
         <tbody>

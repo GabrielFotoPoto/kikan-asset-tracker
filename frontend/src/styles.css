@@ -164,3 +164,35 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .sidebar .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
 .sidebar .brand .sub { margin-bottom: 0; }
 .brand-icon { width: 38px; height: 38px; object-fit: contain; border-radius: 8px; background: rgba(255, 255, 255, 0.92); padding: 3px; flex-shrink: 0; }
+
+/* Notifications (components/Notifications.jsx) */
+.toasts { position: fixed; right: 20px; bottom: 20px; z-index: 200; width: min(380px, calc(100vw - 40px)); display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toasts > div { display: flex; flex-direction: column; gap: 10px; }
+.toast { pointer-events: auto; display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; border-radius: 10px; border: 1px solid #b7dcc6; background: #f1f9f4; color: #14532f; font-size: 14px; line-height: 1.4; box-shadow: 0 6px 18px rgba(10, 16, 28, 0.14); }
+.toast.info { border-color: #c3cfe6; background: #f1f5fc; color: #16346c; }
+.toast.err { border-color: #e3b4b4; background: #fdf3f3; color: #7a1414; }
+.toast-ico { flex: 0 0 22px; height: 22px; border-radius: 50%; background: var(--ok); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+.toast.info .toast-ico { background: var(--brand); }
+.toast.err .toast-ico { background: var(--danger); }
+.toast-text { flex: 1; overflow-wrap: anywhere; }
+.toast-close { background: transparent; color: inherit; padding: 0 8px; font-size: 20px; line-height: 1; min-height: 28px; }
+.toast-close:hover { background: rgba(0, 0, 0, 0.08); opacity: 1; }
+
+/* Fenetre de confirmation (components/ConfirmDialog.jsx) */
+dialog.confirm { border: 0; border-radius: 14px; padding: 0; width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 48px); color: var(--ink); box-shadow: 0 24px 60px rgba(10, 16, 28, 0.4); }
+dialog.confirm::backdrop { background: rgba(20, 27, 38, 0.55); }
+dialog.confirm form { padding: 22px 26px; display: flex; flex-direction: column; gap: 12px; }
+dialog.confirm h2 { margin: 0; font-size: 19px; }
+.confirm-detail { font-size: 14px; line-height: 1.5; color: #3d4a5c; }
+.confirm-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 10px; max-height: 190px; overflow: auto; font-size: 13px; }
+.confirm-list li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); }
+.confirm-list li:first-child { border-top: 0; }
+.confirm-actions { justify-content: flex-end; margin-top: 4px; }
+
+/* Etats de liste (components/State.jsx) */
+.skeleton { display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
+.skeleton-bar { display: block; height: 14px; border-radius: 4px; background: #e6ebf2; width: 100%; }
+.skeleton-bar.w80 { width: 80%; }
+.skeleton-bar.w60 { width: 60%; }
+.state-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 22px 16px; border: 1px dashed var(--field); border-radius: 12px; }
+.state-error { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid #e3b4b4; background: #fdf3f3; border-radius: 10px; color: #7a1414; }

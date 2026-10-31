@@ -21,6 +21,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
+import { Feedback } from "../components/Notifications.jsx";
+import { Empty } from "../components/State.jsx";
 
 export default function Departures() {
   const navigate = useNavigate();
@@ -64,7 +66,7 @@ export default function Departures() {
   return (
     <div>
       <h2>Sorties et restitutions</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
       {msg && <p className="muted">{msg}</p>}
 
       {writable && (
@@ -88,7 +90,7 @@ export default function Departures() {
       <div className="card">
         <h3>Departs en cours - materiel a recuperer</h3>
         {partants.length === 0 ? (
-          <p className="muted">Aucun depart en cours.</p>
+          <Empty title="Aucun depart en cours" hint="Les departs declares apparaitront ici avec le materiel a recuperer." />
         ) : (
           <table>
             <thead><tr><th>Salarie</th><th>Date de sortie</th><th>Materiel detenu</th><th></th></tr></thead>

@@ -22,6 +22,7 @@ import { api, downloadFile, errorText, fetchDataUrl } from "../api.js";
 import { ICONE_DEFAUT, brandingChanged, iconUrl } from "../branding.js";
 import ConfirmButton from "../components/ConfirmButton.jsx";
 import Glpi from "./Glpi.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 const TABS = [
   ["types", "Types d'actifs"],
@@ -938,8 +939,7 @@ export default function Parametres() {
       <div className="row" style={{ marginBottom: 14 }}>
         {TABS.map(([k, label]) => <button key={k} className={tab === k ? "" : "ghost"} onClick={() => go(k)}>{label}</button>)}
       </div>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
       {tab === "types" && (
         <ListEditor kind="types" label="Type" setErr={setErr} setMsg={setMsg}
           help="Types proposes dans le formulaire materiel. La liste s'enrichit aussi a la saisie et a l'import ; renommer un type met a jour tout le materiel concerne." />

@@ -21,6 +21,8 @@ import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, endSession, hasSession, setSession } from "./api.js";
 import { AuthContext } from "./auth.jsx";
+import { NotificationsProvider } from "./components/Notifications.jsx";
+import { ConfirmProvider } from "./components/ConfirmDialog.jsx";
 import Login from "./pages/Login.jsx";
 import ForcePassword from "./pages/ForcePassword.jsx";
 import SsoReturn from "./pages/SsoReturn.jsx";
@@ -92,6 +94,8 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ user }}>
+     <NotificationsProvider>
+      <ConfirmProvider>
       <div className="layout">
         <a className="skip-link" href="#contenu">Aller au contenu</a>
         <aside className="sidebar">
@@ -173,6 +177,8 @@ export default function App() {
           </Routes>
         </main>
       </div>
+      </ConfirmProvider>
+     </NotificationsProvider>
     </AuthContext.Provider>
   );
 }

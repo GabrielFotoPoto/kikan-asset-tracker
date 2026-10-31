@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -48,7 +49,7 @@ export default function Dashboard() {
   return (
     <div>
       <h2>Tableau de bord</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
       {backup?.alerte && (
         <div className="card" role="alert">
           <strong>Sauvegarde a verifier.</strong>{" "}

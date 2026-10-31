@@ -20,6 +20,8 @@
 import { useEffect, useState } from "react";
 import { api, downloadFile } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import { Feedback } from "../components/Notifications.jsx";
+import { ErrorState, Loading } from "../components/State.jsx";
 
 const eur = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
@@ -97,7 +99,7 @@ export default function Previsions() {
 
   if (!p) return (
     <div><h2>Previsions de renouvellement</h2>{filtres}
-      {err ? <p className="err">{err}</p> : <p className="muted">Chargement...</p>}</div>
+      {err ? <ErrorState message={err} onRetry={() => { setErr(null); api.get(query("json")).then(setP).catch((e) => setErr(e.message)); }} /> : <Loading />}</div>
   );
   const t = p.total;
   const maxMois = Math.max(1, ...p.par_mois.map((m) => m.montant));
@@ -105,7 +107,7 @@ export default function Previsions() {
   return (
     <div>
       <h2>Previsions de renouvellement</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
       {filtres}
       <div className="tiles">
         <div className="card tile"><div className="n">{eur.format(t.montant)}</div><div className="l">Budget estime du {p.periode.du} au {p.periode.au}</div></div>

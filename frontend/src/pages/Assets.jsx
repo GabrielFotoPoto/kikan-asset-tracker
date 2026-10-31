@@ -23,6 +23,7 @@ import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import Autocomplete from "../components/Autocomplete.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 const FILTRES = ["stock", "affecte", "rendu", "reforme"];
 // Les statuts affecte et rendu viennent de la remise et de la restitution, jamais d'une saisie manuelle.
@@ -102,8 +103,7 @@ export default function Assets() {
         <h2>Materiel</h2>
         {user.role === "informatique" && <Link to="/import" style={{ fontSize: "0.9em" }}>Importer un fichier</Link>}
       </div>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
       {writable && (
       <div className="card">
         <h3>{editing ? `Modifier : ${editing.type || "materiel"} ${editing.numero_serie || editing.identifiant_interne || ""}` : "Ajouter"}</h3>

@@ -20,6 +20,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, errorText } from "../api.js";
+import { Feedback } from "../components/Notifications.jsx";
 
 const HORIZONS = [[0, "Echeances depassees seulement"], [1, "Jusqu'a 1 mois"], [3, "Jusqu'a 3 mois"], [6, "Jusqu'a 6 mois"], [12, "Jusqu'a 12 mois"]];
 const BADGE = { en_retard: "badge bad", ce_mois: "badge", a_venir: "badge ok" };
@@ -63,8 +64,7 @@ export default function Renouvellements() {
         Vous decidez quand renouveler : l'echeance n'est qu'un repere. Renouvelez avant ou apres, ou reportez l'echeance d'un materiel qui peut encore servir.
         Le renouvellement remet le nouveau materiel et recupere l'ancien en une seule operation, avec un seul document signe.
       </p>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
 
       <div className="card">
         <div className="row">

@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, downloadFile, errorText, postForm } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import PolicyViewer from "../components/PolicyViewer.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 const FORMATS = { pdf: "PDF", markdown: "Markdown", docx: "Word" };
 
@@ -104,8 +105,7 @@ export default function Policies() {
         l'entite du salarie est jointe d'office (sinon celle de l'entite parente, sinon la charte globale). Pour mettre
         a jour une charte, deposez simplement le nouveau fichier : l'ancienne version est archivee et conservee.
       </p>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
 
       {writable && (
         <div className="card">
