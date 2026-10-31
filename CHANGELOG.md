@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- **Page Matériel (rôle lecture ou RH)** : quand aucun matériel n'est visible, le message ne renvoie plus à un formulaire d'ajout que ce rôle n'a pas. Les vues des rôles RH et lecture ont été vérifiées dans le navigateur.
+
 ## [0.4.0-rc.1] - 2026-10-31
 
 Préversion à tester : refonte de l'interface (navigation, recherche globale, retours d'action, thème sombre, petits écrans, mode tablette et parcours d'arrivée). Aucune migration de base de données. Pas encore validés : l'affichage sur un vrai téléphone (la capture mobile est simulée) et les vues des rôles RH et lecture dans le navigateur ; la portée par entité est en revanche couverte par les tests.
