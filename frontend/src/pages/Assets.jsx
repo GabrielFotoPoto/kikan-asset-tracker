@@ -276,7 +276,7 @@ export default function Assets() {
         )}
         {items && <p className="muted" role="status"><strong>{visibles.length} resultat(s)</strong> sur {items.length} actif(s)</p>}
         {items === null ? <Loading label="Chargement du materiel" />
-          : items.length === 0 ? <Empty title="Aucun materiel enregistre" hint="Ajoutez un equipement avec le formulaire ci-dessus ou importez un fichier." />
+          : items.length === 0 ? <Empty title="Aucun materiel enregistre" hint={writable ? "Ajoutez un equipement avec le formulaire ci-dessus ou importez un fichier." : "Le materiel est saisi par l'informatique."} />
           : visibles.length === 0 ? (
             <Empty title="Aucun materiel ne correspond" hint="Verifiez l'orthographe ou retirez un filtre.">
               <button type="button" className="ghost" onClick={clearFilters}>Effacer les filtres</button>
