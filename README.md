@@ -148,6 +148,49 @@ L'import des entités est un lot que l'on retrouve sur la page Import.
 - Pour viser une autre pile : `KIKAN_PREFIX=<nom> bash scripts/demo.sh charger` (par défaut `kikan` ; la pile de test de `tests/run_all.sh` est `kiktest`).
 - Les identifiants de l'administrateur sont lus dans `.env` (`KIKAN_ADMIN_PASSWORD`) ou dans la variable d'environnement du même nom (utile si vous avez changé le mot de passe).
 
+## Interface
+
+![Tableau de bord et navigation par sections](docs/captures/interface-tableau-de-bord.png)
+
+- **Navigation** : cinq sections repliables (Parc, Personnes, Cycle de vie, Pilotage, Administration, repliée par défaut), compteurs à côté des entrées qui demandent
+  une action (besoins à traiter, anomalies d'accès, renouvellements en retard) et fil d'Ariane. Le repli est mémorisé par navigateur ; arriver sur une page d'une section
+  repliée l'ouvre. Chaque tuile du tableau de bord mène à la liste déjà filtrée.
+- **Recherche globale (Ctrl+K, Cmd+K sur Mac)** : matériel et salariés, plus les pages et les actions que votre rôle permet. La recherche ignore la casse et les accents,
+  exige tous les termes et **respecte le périmètre d'entités du compte** (`GET /search`) ; elle ne renvoie ni notes ni e-mails.
+
+![Recherche globale](docs/captures/interface-recherche-globale.png)
+
+- **Matériel** : recherche et filtres (statut, type, entité) **dans l'adresse** : copiez le lien pour retrouver la même vue. `/materiel?asset=<id>` ouvre un actif
+  (en modification pour les comptes qui peuvent écrire, repéré dans la liste pour les autres) : c'est l'adresse prévue pour de futures étiquettes QR.
+
+![Recherche et filtres du matériel](docs/captures/interface-materiel-filtres.png)
+
+- **Retours d'action** : notifications en bas à droite (succès annoncés poliment aux lecteurs d'écran et retirés au bout de 6 s, erreurs conservées jusqu'à leur
+  fermeture) et fenêtre de confirmation à la place des boîtes du navigateur ; la purge RGPD demande de taper `PURGER`.
+
+![Notification d'erreur](docs/captures/interface-notification-erreur.png)
+![Fenêtre de confirmation](docs/captures/interface-confirmation.png)
+
+- **Thème** : clair, sombre ou système (menu latéral, mémorisé par navigateur). Les couleurs sont définies une seule fois avec `light-dark()` dans `frontend/src/styles.css`.
+
+![Thème sombre](docs/captures/interface-theme-sombre.png)
+
+- **Petits écrans** : barre du haut avec recherche et menu, tableaux défilants, matériel en cartes. **Signature sur tablette** : toute page `/signer/...` passe en mode
+  plein écran sans menu, avec de grandes zones tactiles.
+
+![Matériel sur téléphone](docs/captures/interface-mobile.png)
+![Signature en mode tablette](docs/captures/interface-signature-tablette.png)
+
+- **Parcours « Nouvel arrivant »** : bouton **Parcours** de la liste des utilisateurs (salariés prévus ou actifs). Cinq étapes (fiche, besoins, préparation, remise signée, accès),
+  la prochaine action et un journal, **identiques pour les RH et l'informatique** (`GET /arrivee/{id}`) : les RH, qui ne peuvent pas lire le suivi des besoins, y voient
+  l'avancement sans jamais voir le matériel choisi ni un numéro de série. Une remise créée directement, sans besoin saisi, rend les deux premières étapes sans objet.
+
+![Parcours d'arrivée d'un salarié](docs/captures/interface-parcours-arrivee.png)
+
+- **Accessibilité** (objectif WCAG 2.2 AA) : lien d'évitement, anneau de focus visible partout, zones tactiles de 44 px minimum sur écran tactile, contrastes mesurés
+  (bordures de champs et couleur d'avertissement corrigées), repères de page, `aria-current`, `aria-expanded`, zones annoncées (`role="status"`, `role="alert"`) et
+  fenêtres natives `<dialog>`. Aucune dépendance ajoutée pour l'interface.
+
 ## Rôles
 
 | Rôle | Droits |
@@ -556,7 +599,7 @@ backend/              API FastAPI
     reset_admin.py    commande de secours (mot de passe provisoire)
     routers/          endpoints (entites, users, assets, assignments, lifecycle, besoins, revues, import, reports,
                       rgpd, stats, applications, user_apps, parametres, policies, auth, sso, audit_log, mail_admin,
-                      storage_admin, backup_admin, integrations, glpi_admin, api_v1)
+                      storage_admin, backup_admin, integrations, glpi_admin, api_v1, search, arrivee)
 backend/migrations/   migrations Alembic du schema
 converter/            service isole de conversion Word vers PDF (LibreOffice, sans Internet)
 frontend/             application React (Vite + Nginx, HTTPS)

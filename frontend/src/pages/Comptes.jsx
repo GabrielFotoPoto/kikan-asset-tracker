@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { api, errorText } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 const ROLES = [["informatique", "Informatique"], ["rh", "RH"], ["lecture", "Lecture seule"]];
 const empty = { username: "", nom_affiche: "", email: "", role: "rh", portee: { globale: false, ids: [] } };
@@ -133,8 +134,7 @@ export default function Comptes() {
   return (
     <div>
       <h2>Comptes</h2>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
 
       {secret && (
         <div className="warn" style={{ marginBottom: 14 }}>

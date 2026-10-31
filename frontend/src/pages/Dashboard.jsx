@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -44,11 +45,21 @@ export default function Dashboard() {
 
   const byStatus = (s) => assets.filter((a) => a.statut === s).length;
   const sortants = users.filter((u) => u.statut === "en_depart" || u.statut === "sorti");
+  // Chaque tuile mene a la liste deja filtree ; les alertes passent en rouge des qu'elles sont non nulles.
+  const tuiles = [
+    { cle: "users", label: "Utilisateurs", n: users.length, vers: "/utilisateurs", cible: "Ouvre Utilisateurs" },
+    { cle: "actifs", label: "Actifs", n: assets.length, vers: "/materiel", cible: "Ouvre Materiel" },
+    { cle: "affectes", label: "Affectes", n: byStatus("affecte"), vers: "/materiel?statut=affecte", cible: "Materiel, statut affecte" },
+    { cle: "stock", label: "En stock", n: byStatus("stock"), vers: "/materiel?statut=stock", cible: "Materiel, statut stock" },
+    user.role !== "rh" && { cle: "besoins", label: "Besoins a traiter", n: besoins, vers: "/besoins", cible: "Ouvre Besoins" },
+    { cle: "anomalies", label: "Anomalies d'acces", n: anomalies, vers: "/revues", cible: "Ouvre Revue des acces", couleur: anomalies ? "var(--danger)" : null },
+    user.role === "informatique" && { cle: "retard", label: "Echeances de renouvellement depassees", n: retard, vers: "/renouvellements", cible: "Ouvre Renouvellements", couleur: retard ? "var(--danger)" : null },
+  ].filter(Boolean);
 
   return (
     <div>
       <h2>Tableau de bord</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
       {backup?.alerte && (
         <div className="card" role="alert">
           <strong>Sauvegarde a verifier.</strong>{" "}
@@ -57,13 +68,13 @@ export default function Dashboard() {
         </div>
       )}
       <div className="tiles">
-        <div className="card tile"><div className="n">{users.length}</div><div className="l">Utilisateurs</div></div>
-        <div className="card tile"><div className="n">{assets.length}</div><div className="l">Actifs</div></div>
-        <div className="card tile"><div className="n">{byStatus("affecte")}</div><div className="l">Affectes</div></div>
-        <div className="card tile"><div className="n">{byStatus("stock")}</div><div className="l">En stock</div></div>
-        {user.role !== "rh" && <Link to="/besoins" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n">{besoins}</div><div className="l">Besoins a traiter</div></Link>}
-        <Link to="/revues" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n" style={anomalies ? { color: "#9b1c1c" } : undefined}>{anomalies}</div><div className="l">Anomalies d'acces</div></Link>
-        {user.role === "informatique" && <Link to="/renouvellements" className="card tile" style={{ textDecoration: "none", color: "inherit" }}><div className="n" style={retard ? { color: "#9b1c1c" } : undefined}>{retard}</div><div className="l">Echeances de renouvellement depassees</div></Link>}
+        {tuiles.map((t) => (
+          <Link key={t.cle} to={t.vers} className="card tile">
+            <div className="n" style={t.couleur ? { color: t.couleur } : undefined}>{t.n}</div>
+            <div className="l">{t.label}</div>
+            <div className="go">{t.cible}</div>
+          </Link>
+        ))}
       </div>
 
       <div className="card">

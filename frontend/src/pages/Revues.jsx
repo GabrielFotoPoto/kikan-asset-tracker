@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { api, downloadFile, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 const row = { display: "flex", flexDirection: "row", alignItems: "center", gap: 8 };
 const DEC = { a_traiter: "A traiter", maintenu: "Maintenu", a_retirer: "A retirer" };
@@ -46,8 +47,7 @@ export default function Revues() {
       <div className="row" style={{ marginBottom: 14 }}>
         {tabs.map(([k, label]) => <button key={k} className={tab === k ? "" : "ghost"} onClick={() => go(k)}>{label}</button>)}
       </div>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
       {tab === "anomalies" && <Anomalies setErr={setErr} />}
       {tab === "acces" && <AccesRapport setErr={setErr} />}
       {tab === "revues" && <Campagnes it={it} setErr={setErr} setMsg={setMsg} />}

@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 const emptyApp = { nom: "", description: "", entite_id: "", actif: true };
 
@@ -107,8 +108,7 @@ export default function Acces() {
   return (
     <div>
       <h2>Acces applicatifs</h2>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
 
       {isIT && (
         <div className="card">

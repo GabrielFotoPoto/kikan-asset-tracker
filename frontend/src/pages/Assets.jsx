@@ -17,12 +17,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import Autocomplete from "../components/Autocomplete.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback, useNotify } from "../components/Notifications.jsx";
+import { Empty, Loading } from "../components/State.jsx";
+
+// Recherche sans accent ni casse, comme l'autocompletion du catalogue.
+const fold = (v) => (v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 const FILTRES = ["stock", "affecte", "rendu", "reforme"];
 // Les statuts affecte et rendu viennent de la remise et de la restitution, jamais d'une saisie manuelle.
@@ -37,18 +42,25 @@ const empty = {
 export default function Assets() {
   const { user } = useAuth();
   const writable = canWrite(user.role, "materiel");
-  const [items, setItems] = useState([]);
+  const notify = useNotify();
+  // Les filtres vivent dans l'adresse : un lien copie retrouve la meme vue ; ?asset=ID ouvre un actif (lien des etiquettes QR).
+  const [params, setParams] = useSearchParams();
+  const q = params.get("q") || "";
+  const filtre = params.get("statut") || "";
+  const filtreType = params.get("type") || "";
+  const filtreEntite = params.get("entite") || "";
+  const idCible = Number(params.get("asset")) || null;
+  const [items, setItems] = useState(null);
   const [entites, setEntites] = useState([]);
   const [types, setTypes] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
-  const [filtre, setFiltre] = useState("");
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
 
-  const load = () => api.get("/assets" + (filtre ? `?statut=${filtre}` : "")).then(setItems).catch((e) => setErr(errorText(e)));
+  const load = () => api.get("/assets").then(setItems).catch((e) => setErr(errorText(e)));
   useEffect(() => { api.get("/entites").then(setEntites); }, []);
-  useEffect(() => { load(); }, [filtre]);
+  useEffect(() => { load(); }, []);
   useEffect(() => { api.get("/assets/catalogue/types").then(setTypes).catch(() => {}); }, [items]);
 
   const lockedStatus = editing && editing.statut === "affecte";
@@ -96,14 +108,90 @@ export default function Assets() {
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
+  // Forme fonctionnelle : une mise a jour differee (frappe) ne ramene pas un autre filtre a son ancienne valeur.
+  const setParam = (cle, valeur) => setParams((prev) => {
+    const p = new URLSearchParams(prev);
+    if (valeur) p.set(cle, valeur); else p.delete(cle);
+    return p;
+  }, { replace: true });
+
+  // La saisie reste dans un etat local (sinon la valeur du champ suit l'adresse avec du retard et perd des lettres)
+  // et gagne l'adresse apres 250 ms ; l'adresse ne reecrase la saisie que si elle change de l'exterieur.
+  const [saisie, setSaisie] = useState(q);
+  const poussee = useRef(q);
+  useEffect(() => {
+    if (q !== poussee.current) { poussee.current = q; setSaisie(q); }
+  }, [q]);
+  useEffect(() => {
+    if (saisie === poussee.current) return undefined;
+    const t = setTimeout(() => { poussee.current = saisie; setParam("q", saisie); }, 250);
+    return () => clearTimeout(t);
+  }, [saisie]);
+
+  const retirer = (cle) => {
+    if (cle === "q") { poussee.current = ""; setSaisie(""); }
+    setParam(cle, "");
+  };
+  const clearFilters = () => {
+    poussee.current = ""; setSaisie("");
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      ["q", "statut", "type", "entite"].forEach((k) => p.delete(k));
+      return p;
+    }, { replace: true });
+  };
+  const copyLink = () => navigator.clipboard?.writeText(window.location.href)
+    .then(() => notify.ok("Lien copie."))
+    .catch(() => notify.err("Copie impossible : copiez l'adresse dans la barre du navigateur."));
+
+  const typesDispos = useMemo(
+    () => [...new Set((items || []).map((a) => a.type).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr")),
+    [items]);
+  const visibles = useMemo(() => {
+    const termes = fold(saisie).split(/\s+/).filter(Boolean);
+    return (items || []).filter((a) => {
+      if (filtre && a.statut !== filtre) return false;
+      if (filtreType && a.type !== filtreType) return false;
+      if (filtreEntite && String(a.entite_id ?? "") !== filtreEntite) return false;
+      if (!termes.length) return true;
+      const meule = fold([a.identifiant_interne, a.type, a.marque, a.modele, a.numero_serie, a.notes].filter(Boolean).join(" "));
+      return termes.every((t) => meule.includes(t));
+    });
+  }, [items, saisie, filtre, filtreType, filtreEntite]);
+  const chips = [
+    saisie.trim() && { cle: "q", texte: `Recherche : ${saisie.trim()}` },
+    filtre && { cle: "statut", texte: `Statut : ${filtre}` },
+    filtreType && { cle: "type", texte: `Type : ${filtreType}` },
+    filtreEntite && { cle: "entite", texte: `Entite : ${entites.find((e) => String(e.id) === filtreEntite)?.nom || filtreEntite}` },
+  ].filter(Boolean);
+
+  // Actions d'une ligne : memes boutons dans le tableau et dans les cartes.
+  const actionsDe = (a) => (
+    <div className="row">
+      <button className="ghost" onClick={() => startEdit(a)}>Modifier</button>
+      {a.statut === "affecte" && <Link to={`/renouveler?asset=${a.id}`} className="ghost" style={{ padding: "6px 10px" }}>Renouveler</Link>}
+      <ConfirmButton onConfirm={() => remove(a)}>Supprimer</ConfirmButton>
+    </div>
+  );
+
+  // Lien profond ?asset=ID : un compte qui peut ecrire ouvre l'actif en modification, les autres le voient repere dans la liste.
+  const cibleTraitee = useRef(false);
+  useEffect(() => {
+    if (!idCible || !items || cibleTraitee.current) return;
+    cibleTraitee.current = true;
+    const a = items.find((x) => x.id === idCible);
+    if (!a) { setErr("Ce materiel n'existe pas ou n'est pas dans votre perimetre."); return; }
+    if (writable) startEdit(a);
+    else requestAnimationFrame(() => document.getElementById(`actif-${a.id}`)?.scrollIntoView({ block: "center" }));
+  }, [idCible, items]);
+
   return (
     <div>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
         <h2>Materiel</h2>
         {user.role === "informatique" && <Link to="/import" style={{ fontSize: "0.9em" }}>Importer un fichier</Link>}
       </div>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
       {writable && (
       <div className="card">
         <h3>{editing ? `Modifier : ${editing.type || "materiel"} ${editing.numero_serie || editing.identifiant_interne || ""}` : "Ajouter"}</h3>
@@ -151,38 +239,84 @@ export default function Assets() {
       </div>
       )}
       <div className="card">
-        <div className="row" style={{ marginBottom: 12 }}>
-          <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>Filtrer par statut
-            <select value={filtre} onChange={(e) => setFiltre(e.target.value)}>
+        <div className="filtres">
+          <label>Recherche
+            <input type="search" value={saisie} onChange={(e) => setSaisie(e.target.value)} placeholder="N de serie, marque, modele, id interne" />
+          </label>
+          <label>Statut
+            <select value={filtre} onChange={(e) => setParam("statut", e.target.value)}>
               <option value="">tous</option>
               {FILTRES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
+          <label>Type
+            <select value={filtreType} onChange={(e) => setParam("type", e.target.value)}>
+              <option value="">tous</option>
+              {typesDispos.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <label>Filiale / entite
+            <select value={filtreEntite} onChange={(e) => setParam("entite", e.target.value)}>
+              <option value="">toutes</option>
+              {entites.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+            </select>
+          </label>
         </div>
+        {chips.length > 0 && (
+          <div className="row chips">
+            <span className="muted">Filtres actifs :</span>
+            {chips.map((c) => (
+              <button key={c.cle} type="button" className="chip" aria-label={`Retirer le filtre ${c.texte}`} onClick={() => retirer(c.cle)}>
+                {c.texte} <span aria-hidden="true">{"×"}</span>
+              </button>
+            ))}
+            <button type="button" className="ghost" onClick={clearFilters}>Tout effacer</button>
+            <button type="button" className="ghost" onClick={copyLink}>Copier le lien</button>
+          </div>
+        )}
+        {items && <p className="muted" role="status"><strong>{visibles.length} resultat(s)</strong> sur {items.length} actif(s)</p>}
+        {items === null ? <Loading label="Chargement du materiel" />
+          : items.length === 0 ? <Empty title="Aucun materiel enregistre" hint="Ajoutez un equipement avec le formulaire ci-dessus ou importez un fichier." />
+          : visibles.length === 0 ? (
+            <Empty title="Aucun materiel ne correspond" hint="Verifiez l'orthographe ou retirez un filtre.">
+              <button type="button" className="ghost" onClick={clearFilters}>Effacer les filtres</button>
+            </Empty>
+          ) : (
+        <>
+        <div className="table-scroll vue-tableau">
         <table>
           <thead><tr><th>Id interne</th><th>Type</th><th>Marque</th><th>Modele</th><th>N serie</th><th>Statut</th>{writable && <th></th>}</tr></thead>
           <tbody>
-            {items.map((a) => (
-              <tr key={a.id}>
+            {visibles.map((a) => (
+              <tr key={a.id} id={`actif-${a.id}`} className={a.id === idCible ? "row-cible" : undefined} aria-current={a.id === idCible ? "true" : undefined}>
                 <td>{a.identifiant_interne || "-"}</td>
                 <td>{a.type || "-"}</td>
                 <td>{a.marque || "-"}</td>
                 <td>{a.modele || "-"}</td>
                 <td>{a.numero_serie || "-"}</td>
                 <td><span className="badge">{a.statut}</span></td>
-                {writable && (
-                  <td>
-                    <div className="row">
-                      <button className="ghost" onClick={() => startEdit(a)}>Modifier</button>
-                      {a.statut === "affecte" && <Link to={`/renouveler?asset=${a.id}`} className="ghost" style={{ padding: "6px 10px" }}>Renouveler</Link>}
-                      <ConfirmButton onConfirm={() => remove(a)}>Supprimer</ConfirmButton>
-                    </div>
-                  </td>
-                )}
+                {writable && <td>{actionsDe(a)}</td>}
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
+        {/* Meme liste en cartes sur petit ecran (le tableau est alors masque par le CSS). */}
+        <ul className="cartes">
+          {visibles.map((a) => (
+            <li key={a.id} className={a.id === idCible ? "carte row-cible" : "carte"}>
+              <div className="carte-tete">
+                <strong>{[a.marque, a.modele].filter(Boolean).join(" ") || a.type || "Materiel"}</strong>
+                <span className="badge">{a.statut}</span>
+              </div>
+              <div className="muted">{[a.type, a.identifiant_interne].filter(Boolean).join(" - ")}</div>
+              {a.numero_serie && <code className="carte-serie">{a.numero_serie}</code>}
+              {writable && actionsDe(a)}
+            </li>
+          ))}
+        </ul>
+        </>
+          )}
       </div>
     </div>
   );

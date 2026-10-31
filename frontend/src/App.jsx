@@ -18,9 +18,16 @@
  */
 
 import { useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api, endSession, hasSession, setSession } from "./api.js";
 import { AuthContext } from "./auth.jsx";
+import { NotificationsProvider } from "./components/Notifications.jsx";
+import { ConfirmProvider } from "./components/ConfirmDialog.jsx";
+import { PaletteProvider } from "./components/Palette.jsx";
+import NavPrincipale from "./components/NavPrincipale.jsx";
+import Breadcrumb from "./components/Breadcrumb.jsx";
+import ThemeSwitch from "./components/ThemeSwitch.jsx";
+import BarreMobile from "./components/BarreMobile.jsx";
 import Login from "./pages/Login.jsx";
 import ForcePassword from "./pages/ForcePassword.jsx";
 import SsoReturn from "./pages/SsoReturn.jsx";
@@ -51,12 +58,18 @@ import Compte from "./pages/Compte.jsx";
 import Stockage from "./pages/Stockage.jsx";
 import Sauvegarde from "./pages/Sauvegarde.jsx";
 import Sign from "./pages/Sign.jsx";
+import Arrivant from "./pages/Arrivant.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
   const [portee, setPortee] = useState(null);
   const icone = useBranding();
+  const { pathname } = useLocation();
+  const [menuOuvert, setMenuOuvert] = useState(false);
+  useEffect(() => { setMenuOuvert(false); }, [pathname]);
+  // Page de signature : mode tablette (sans menu, grandes zones tactiles) pour faire signer l'employe en face.
+  const enSignature = pathname.startsWith("/signer");
 
   useEffect(() => {
     const onUnauth = () => setUser(null);
@@ -92,56 +105,53 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ user }}>
-      <div className="layout">
-        <aside className="sidebar">
-          <div className="brand">
-            <img className="brand-icon" src={icone} alt="" />
-            <div>
-              <h1>Kikan</h1>
-              <div className="sub">Suivi des actifs</div>
+     <NotificationsProvider>
+      <ConfirmProvider>
+      <PaletteProvider>
+      <div className={enSignature ? "layout mode-signature" : "layout"}>
+        <a className="skip-link" href="#contenu">Aller au contenu</a>
+        {enSignature && (
+          <header className="barre-signature">
+            <div className="brand">
+              <img className="brand-icon" src={icone} alt="" />
+              <strong>Kikan</strong>
             </div>
+            <Link to={pathname.startsWith("/signer/restitution") ? "/sorties" : "/remises"}>Quitter</Link>
+          </header>
+        )}
+        <aside className={"sidebar" + (menuOuvert ? " ouvert" : "")}>
+          <div className="sidebar-tete">
+            <div className="brand">
+              <img className="brand-icon" src={icone} alt="" />
+              <div>
+                <h1>Kikan</h1>
+                <div className="sub">Suivi des actifs</div>
+              </div>
+            </div>
+            <BarreMobile ouvert={menuOuvert} onBasculer={() => setMenuOuvert((o) => !o)} />
           </div>
-          <nav>
-            <NavLink to="/" end>Tableau de bord</NavLink>
-            <NavLink to="/entites">Entites</NavLink>
-            <NavLink to="/utilisateurs">Utilisateurs</NavLink>
-            <NavLink to="/materiel">Materiel</NavLink>
-            <NavLink to="/acces">Acces applicatifs</NavLink>
-            {user.role !== "rh" && <NavLink to="/besoins">Besoins</NavLink>}
-            <NavLink to="/remises">Remises</NavLink>
-            <NavLink to="/chartes">Chartes</NavLink>
-            <NavLink to="/sorties">Sorties</NavLink>
-            <NavLink to="/rapports">Rapports</NavLink>
-            <NavLink to="/statistiques">Statistiques</NavLink>
-            <NavLink to="/previsions">Previsions</NavLink>
-            {user.role === "informatique" && <NavLink to="/renouvellements">Renouvellements</NavLink>}
-            <NavLink to="/revues">Revue des acces</NavLink>
-            {user.role === "informatique" && <NavLink to="/rgpd">RGPD</NavLink>}
-            {user.role === "informatique" && <NavLink to="/import">Import</NavLink>}
-            {user.role === "informatique" && <NavLink to="/parametres">Parametrage</NavLink>}
-            {user.role === "informatique" && <NavLink to="/comptes">Comptes</NavLink>}
-            {user.role === "informatique" && <NavLink to="/stockage">Stockage</NavLink>}
-            {user.role === "informatique" && <NavLink to="/sauvegarde">Sauvegarde</NavLink>}
-            {user.role === "informatique" && <NavLink to="/journal">Journal d'audit</NavLink>}
-            <NavLink to="/compte">Mon compte</NavLink>
-          </nav>
+          <div id="menu-principal" className="sidebar-corps">
+          <NavPrincipale role={user.role} />
           <div className="account">
             <div className="who">{user.username}</div>
             <div className="role">{user.role}</div>
             {user.role !== "informatique" && portee && !portee.vide && (
               <div className="role" title="Perimetre de votre compte">{portee.globale ? "toute l'organisation" : "perimetre limite"}</div>
             )}
+            <ThemeSwitch />
             <button className="ghost" onClick={logout}>Se deconnecter</button>
             <NavLink className="about-link" to="/a-propos">A propos</NavLink>
           </div>
+          </div>
         </aside>
-        <main className="main">
+        <main className="main" id="contenu" tabIndex={-1}>
           {portee?.vide && (
             <div className="card" role="alert">
               <strong>Aucun perimetre n'est defini pour votre compte.</strong>{" "}
               Vous ne voyez aucune donnee : demandez a un administrateur informatique de definir vos entites.
             </div>
           )}
+          <Breadcrumb />
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/entites" element={<Entites />} />
@@ -153,6 +163,7 @@ export default function App() {
             <Route path="/chartes" element={<Policies />} />
             <Route path="/sorties" element={<Departures />} />
             <Route path="/signer/:mode/:id" element={<Sign />} />
+            <Route path="/arrivee/:id" element={<Arrivant />} />
             <Route path="/rapports" element={<Reports />} />
             <Route path="/statistiques" element={<Stats />} />
             <Route path="/previsions" element={<Previsions />} />
@@ -172,6 +183,9 @@ export default function App() {
           </Routes>
         </main>
       </div>
+      </PaletteProvider>
+      </ConfirmProvider>
+     </NotificationsProvider>
     </AuthContext.Provider>
   );
 }

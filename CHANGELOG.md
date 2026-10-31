@@ -5,6 +5,26 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+Refonte de l'interface : navigation, recherche globale, retours d'action, thème sombre, petits écrans, mode tablette et parcours d'arrivée. Aucune migration de base de données.
+
+### Ajouté
+- **Recherche globale (Ctrl+K)** : matériel, salariés, pages et actions selon le rôle. Nouvelle route `GET /search` (tous les rôles) qui **applique la portée par entité**, ignore casse et accents, exige tous les termes et ne renvoie ni notes ni e-mails. Nouvelle suite `tests/search_check.py`, et `/search` rejoint l'inventaire des routes soumises à la portée de `tests/scope_check.py`.
+- **Parcours « Nouvel arrivant »** : page `/arrivee/:id` (bouton **Parcours** de la liste des utilisateurs) avec les cinq étapes (fiche, besoins, préparation, remise signée, accès), la prochaine action selon le rôle et un journal. Nouvelle route `GET /arrivee/{id}` : l'avancement est calculé sans rien écrire, visible des **RH** (qui ne peuvent pas lire le suivi des besoins) comme de l'informatique, sans nom de compte ni numéro de série. Nouvelle suite `tests/arrivee_check.py`.
+- **Thème clair, sombre ou système** (menu latéral, mémorisé par navigateur), appliqué avant l'affichage par `public/theme-init.js` (la politique de sécurité du contenu interdit les scripts en ligne).
+- **Mode tablette de la signature** : toute page `/signer/...` s'affiche sans menu, avec de grandes zones tactiles et un bouton Quitter.
+- **Petits écrans** : barre du haut avec recherche et menu, tableaux défilants, matériel en cartes.
+- **Filtres de la page Matériel dans l'adresse** (recherche, statut, type, entité) et lien profond `/materiel?asset=<id>`. La page Utilisateurs accepte `?q=`.
+- Composants : notifications (`Notifications.jsx`), fenêtre de confirmation (`ConfirmDialog.jsx`), états vide, chargement et erreur (`State.jsx`), palette (`Palette.jsx`), barre latérale par sections (`NavPrincipale.jsx`, structure unique dans `nav.js`) et fil d'Ariane.
+
+### Modifié
+- **Navigation** en cinq sections repliables (Administration repliée par défaut) avec compteurs ; chaque tuile du tableau de bord mène à la liste filtrée.
+- Les messages de succès et d'erreur de 22 pages deviennent des **notifications** (succès annoncés poliment et retirés au bout de 6 s, erreurs conservées) ; les quatre `window.confirm` deviennent une **fenêtre de confirmation** (la purge RGPD demande de taper `PURGER` et liste les salariés concernés).
+- **Accessibilité** : lien d'évitement, anneau de focus visible, zones tactiles de 44 px sur écran tactile, bordures de champs à 3:1 au moins (elles étaient à 1,3:1) et couleur d'avertissement `#8a5100` (6,4:1 au lieu de 4,2).
+- Toutes les couleurs de `styles.css` sont des jetons `light-dark()` : une seule définition par couleur pour les thèmes clair et sombre.
+
+### Documentation
+- Section « Interface » du README avec neuf captures (`docs/captures/interface-*.png`).
+
 ## [0.3.4] - 2026-10-30
 
 Renouvellement du matériel (échange en un seul document signé, page Renouvellements, report d'échéance), bleu du logo partout et licence du logo.

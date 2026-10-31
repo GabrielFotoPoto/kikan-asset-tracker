@@ -22,6 +22,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, downloadFile } from "../api.js";
 import PolicyViewer from "../components/PolicyViewer.jsx";
 import SignaturePad from "../components/SignaturePad.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 const DEVENIRS = { rendu: "Rendu (a traiter ensuite)", stock: "Retour en stock", reforme: "A reformer" };
 
@@ -159,7 +160,7 @@ export default function Renouveler() {
         Le nouveau materiel est remis et l'ancien restitue en une seule operation, avec un seul document signe. L'echeance de renouvellement n'est
         qu'un repere : vous renouvelez quand vous le decidez, avant comme apres.
       </p>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
 
       <div className="card">
         <label>Salarie en poste

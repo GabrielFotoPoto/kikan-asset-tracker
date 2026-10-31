@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 const LABELS = {
   local: "Volume local",
@@ -62,7 +63,7 @@ export default function Stockage() {
   return (
     <div>
       <h2>Stockage des documents</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
 
       {status && (
         <div className="card">

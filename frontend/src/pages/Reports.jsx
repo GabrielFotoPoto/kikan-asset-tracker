@@ -19,6 +19,7 @@
 
 import { useEffect, useState } from "react";
 import { api, downloadFile } from "../api.js";
+import { Feedback } from "../components/Notifications.jsx";
 
 export default function Reports() {
   const [entites, setEntites] = useState([]);
@@ -41,7 +42,7 @@ export default function Reports() {
   return (
     <div>
       <h2>Rapports - detentions a l'instant T</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
       <div className="card">
         <div className="row">
           <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>Filiale / entite

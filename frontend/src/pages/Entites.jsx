@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { Feedback } from "../components/Notifications.jsx";
 
 const empty = { code: "", nom: "", code_parent: "", actif: true };
 
@@ -76,8 +77,7 @@ export default function Entites() {
   return (
     <div>
       <h2>Entites / filiales</h2>
-      {err && <p className="err">{err}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      <Feedback err={err} msg={msg} />
       {writable && (
       <div className="card">
         <h3>{editing ? `Modifier : ${editing.nom}` : "Ajouter"}</h3>

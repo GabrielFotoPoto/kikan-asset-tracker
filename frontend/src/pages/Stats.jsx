@@ -19,6 +19,8 @@
 
 import { useEffect, useState } from "react";
 import { api, downloadFile } from "../api.js";
+import { Feedback } from "../components/Notifications.jsx";
+import { ErrorState, Loading } from "../components/State.jsx";
 
 function Bars({ items, label, value }) {
   const max = Math.max(1, ...items.map((i) => i[value]));
@@ -96,7 +98,7 @@ export default function Stats() {
 
   if (!s) return (
     <div><h2>Statistiques</h2>{filtres}
-      {err ? <p className="err">{err}</p> : <p className="muted">Chargement...</p>}</div>
+      {err ? <ErrorState message={err} onRetry={() => { setErr(null); api.get(query("json")).then(setS).catch((e) => setErr(e.message)); }} /> : <Loading />}</div>
   );
   const ren = s.renouvellements;
   const mv = s.mouvements;
@@ -104,7 +106,7 @@ export default function Stats() {
   return (
     <div>
       <h2>Statistiques du parc</h2>
-      {err && <p className="err">{err}</p>}
+      <Feedback err={err} />
       {filtres}
       <div className="tiles">
         <div className="card tile"><div className="n">{s.actifs_total}</div><div className="l">Actifs au total</div></div>
