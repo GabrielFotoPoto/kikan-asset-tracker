@@ -5,8 +5,12 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.4.0] - 2026-10-31
+
+Version finale de la refonte de l'interface : elle reprend tout le contenu de la préversion 0.4.0-rc.1 (ci-dessous), dont les points qui restaient à valider ont maintenant été vérifiés : affichage sur un vrai téléphone et vues des rôles RH et lecture dans le navigateur. Aucune migration de base de données.
+
 ### Corrigé
-- **Page Matériel (rôle lecture ou RH)** : quand aucun matériel n'est visible, le message ne renvoie plus à un formulaire d'ajout que ce rôle n'a pas. Les vues des rôles RH et lecture ont été vérifiées dans le navigateur.
+- **Page Matériel (rôle lecture ou RH)** : quand aucun matériel n'est visible, le message ne renvoie plus à un formulaire d'ajout que ce rôle n'a pas.
 
 ## [0.4.0-rc.1] - 2026-10-31
 
