@@ -23,6 +23,9 @@ import { api, endSession, hasSession, setSession } from "./api.js";
 import { AuthContext } from "./auth.jsx";
 import { NotificationsProvider } from "./components/Notifications.jsx";
 import { ConfirmProvider } from "./components/ConfirmDialog.jsx";
+import { PaletteProvider } from "./components/Palette.jsx";
+import NavPrincipale from "./components/NavPrincipale.jsx";
+import Breadcrumb from "./components/Breadcrumb.jsx";
 import Login from "./pages/Login.jsx";
 import ForcePassword from "./pages/ForcePassword.jsx";
 import SsoReturn from "./pages/SsoReturn.jsx";
@@ -96,6 +99,7 @@ export default function App() {
     <AuthContext.Provider value={{ user }}>
      <NotificationsProvider>
       <ConfirmProvider>
+      <PaletteProvider>
       <div className="layout">
         <a className="skip-link" href="#contenu">Aller au contenu</a>
         <aside className="sidebar">
@@ -106,30 +110,7 @@ export default function App() {
               <div className="sub">Suivi des actifs</div>
             </div>
           </div>
-          <nav aria-label="Navigation principale">
-            <NavLink to="/" end>Tableau de bord</NavLink>
-            <NavLink to="/entites">Entites</NavLink>
-            <NavLink to="/utilisateurs">Utilisateurs</NavLink>
-            <NavLink to="/materiel">Materiel</NavLink>
-            <NavLink to="/acces">Acces applicatifs</NavLink>
-            {user.role !== "rh" && <NavLink to="/besoins">Besoins</NavLink>}
-            <NavLink to="/remises">Remises</NavLink>
-            <NavLink to="/chartes">Chartes</NavLink>
-            <NavLink to="/sorties">Sorties</NavLink>
-            <NavLink to="/rapports">Rapports</NavLink>
-            <NavLink to="/statistiques">Statistiques</NavLink>
-            <NavLink to="/previsions">Previsions</NavLink>
-            {user.role === "informatique" && <NavLink to="/renouvellements">Renouvellements</NavLink>}
-            <NavLink to="/revues">Revue des acces</NavLink>
-            {user.role === "informatique" && <NavLink to="/rgpd">RGPD</NavLink>}
-            {user.role === "informatique" && <NavLink to="/import">Import</NavLink>}
-            {user.role === "informatique" && <NavLink to="/parametres">Parametrage</NavLink>}
-            {user.role === "informatique" && <NavLink to="/comptes">Comptes</NavLink>}
-            {user.role === "informatique" && <NavLink to="/stockage">Stockage</NavLink>}
-            {user.role === "informatique" && <NavLink to="/sauvegarde">Sauvegarde</NavLink>}
-            {user.role === "informatique" && <NavLink to="/journal">Journal d'audit</NavLink>}
-            <NavLink to="/compte">Mon compte</NavLink>
-          </nav>
+          <NavPrincipale role={user.role} />
           <div className="account">
             <div className="who">{user.username}</div>
             <div className="role">{user.role}</div>
@@ -147,6 +128,7 @@ export default function App() {
               Vous ne voyez aucune donnee : demandez a un administrateur informatique de definir vos entites.
             </div>
           )}
+          <Breadcrumb />
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/entites" element={<Entites />} />
@@ -177,6 +159,7 @@ export default function App() {
           </Routes>
         </main>
       </div>
+      </PaletteProvider>
       </ConfirmProvider>
      </NotificationsProvider>
     </AuthContext.Provider>

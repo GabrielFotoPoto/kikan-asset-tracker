@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import Autocomplete from "../components/Autocomplete.jsx";
@@ -45,7 +45,10 @@ export default function Users() {
   const [services, setServices] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
-  const [q, setQ] = useState("");
+  // ?q= : la palette de recherche mene ici avec le salarie cherche deja filtre.
+  const [params] = useSearchParams();
+  const [q, setQ] = useState(params.get("q") || "");
+  useEffect(() => { const p = params.get("q"); if (p !== null) setQ(p); }, [params]);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
   const [choix, setChoix] = useState([]);      // categories de besoin actives, avec leurs gammes

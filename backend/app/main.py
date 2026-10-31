@@ -57,6 +57,7 @@ from .routers import (
     sso,
     revues,
     rgpd,
+    search,
     stats,
     storage_admin,
     user_apps,
@@ -164,6 +165,7 @@ app.include_router(rgpd.router)
 app.include_router(revues.router)
 app.include_router(user_apps.router)
 app.include_router(stats.router)
+app.include_router(search.router)
 app.include_router(branding.router)
 app.include_router(previsions.router)
 app.include_router(renouvellements.router)
