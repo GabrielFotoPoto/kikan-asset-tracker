@@ -5,7 +5,12 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
-Refonte de l'interface : navigation, recherche globale, retours d'action, thème sombre, petits écrans, mode tablette et parcours d'arrivée. Aucune migration de base de données.
+## [0.4.0-rc.1] - 2026-10-31
+
+Préversion à tester : refonte de l'interface (navigation, recherche globale, retours d'action, thème sombre, petits écrans, mode tablette et parcours d'arrivée). Aucune migration de base de données. Pas encore validés : l'affichage sur un vrai téléphone (la capture mobile est simulée) et les vues des rôles RH et lecture dans le navigateur ; la portée par entité est en revanche couverte par les tests.
+
+### Sécurité
+- `pypdf` passe de 6.21.3 à 6.21.4 (3 vulnérabilités publiées après la 0.3.4).
 
 ### Ajouté
 - **Recherche globale (Ctrl+K)** : matériel, salariés, pages et actions selon le rôle. Nouvelle route `GET /search` (tous les rôles) qui **applique la portée par entité**, ignore casse et accents, exige tous les termes et ne renvoie ni notes ni e-mails. Nouvelle suite `tests/search_check.py`, et `/search` rejoint l'inventaire des routes soumises à la portée de `tests/scope_check.py`.
