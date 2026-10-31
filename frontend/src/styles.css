@@ -322,3 +322,26 @@ dialog.palette::backdrop { background: rgba(20, 27, 38, 0.5); }
 .mode-signature .check { font-size: 17px; line-height: 1.4; }
 .mode-signature .check input { width: 28px; height: 28px; flex: 0 0 28px; }
 .mode-signature .sigpad { min-height: 260px; }
+
+/* Parcours d'arrivee (pages/Arrivant.jsx) */
+.pastille { padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; border: 1px solid transparent; }
+.pastille.attention { background: var(--warn-bg); color: var(--warn); border-color: var(--warn-line); }
+.pastille.ok { background: var(--ok-bg); color: var(--ok-ink); border-color: var(--ok-line); }
+.etapes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 16px 0 20px; padding: 0; list-style: none; }
+.etape { display: flex; flex-direction: column; gap: 4px; padding: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; font-size: 14px; }
+.etape.fait { border-color: var(--ok-line); }
+.etape.courante { border: 2px solid var(--focus); padding: 13px; }
+.etape-puce { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: var(--surface-2); color: var(--ink-2); }
+.etape.fait .etape-puce { background: var(--ok); color: #fff; }
+.etape.courante .etape-puce { background: var(--brand); color: #fff; }
+.etape .muted, .etape-detail { font-size: 12px; }
+.etape-detail { font-weight: 600; color: var(--ink-2); }
+.deux-colonnes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.liste-simple, .journal { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.liste-simple li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.journal li { display: flex; gap: 10px; font-size: 13px; }
+.journal li .muted { flex: 0 0 110px; }
+.action-suivante { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; background: var(--soft); border-color: var(--info-line); color: var(--soft-ink); }
+@media (max-width: 720px) {
+  .etapes, .deux-colonnes { grid-template-columns: 1fr; }
+}

@@ -212,6 +212,7 @@ export default function Users() {
                   <td>
                     <div className="row">
                       <button className="ghost" onClick={() => startEdit(u)}>Modifier</button>
+                      {(u.statut === "prevu" || u.statut === "actif") && <Link to={`/arrivee/${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Parcours</Link>}
                       {user.role !== "rh" && <Link to={`/besoins?user=${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Besoins</Link>}
                       {user.role === "informatique" && u.statut === "actif" && <Link to={`/renouveler?user=${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Renouveler</Link>}
                       {canDelete && <ConfirmButton onConfirm={() => remove(u)}>Supprimer</ConfirmButton>}

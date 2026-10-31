@@ -72,6 +72,7 @@ export function sectionDe(pathname) {
 const AUTRES = [
   ["/signer", [{ label: "Cycle de vie" }, { label: "Remises", to: "/remises" }, { label: "Signature" }]],
   ["/renouveler", [{ label: "Parc" }, { label: "Renouvellements", to: "/renouvellements" }, { label: "Renouveler" }]],
+  ["/arrivee", [{ label: "Personnes" }, { label: "Utilisateurs", to: "/utilisateurs" }, { label: "Parcours d'arrivee" }]],
   ["/compte", [{ label: "Mon compte" }]],
   ["/a-propos", [{ label: "A propos" }]],
 ];
