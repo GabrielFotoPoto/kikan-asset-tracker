@@ -5,6 +5,18 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+Issu de l'audit du 2026-11-01 (lot A, intégrité des données).
+
+### Sécurité
+- **Unicité garantie par la base** : le matricule, le numéro de série, l'identifiant interne (sans tenir compte de la casse, valeurs vides ignorées) et le code d'entité ont maintenant un index unique. Avant, seule l'application le vérifiait : 20 créations simultanées du même numéro de série en laissaient passer 4. La perdante d'une course reçoit un `409` clair (filet commun dans `main.py`). **Migration `0021`** : si des doublons existent déjà, elle s'arrête en listant les valeurs à fusionner ou renommer, sans rien modifier ni supprimer ; il faut les corriger puis relancer.
+- **Longueurs maximales** sur les champs texte des salariés, du matériel, des entités et des applications (par exemple matricule 50, nom 200, numéro de série 100, notes 2 000 caractères) : un champ trop long est refusé en `422`. Avant, un prénom de 200 000 caractères et une note de 1 Mo étaient acceptés. La base reste non bornée, donc une donnée existante plus longue n'empêche pas de la lire.
+
+### Ajouté
+- Suite `tests/integrite_check.py` (créations simultanées, casse, valeurs vides, modification, longueurs).
+
+### Modifié
+- Le contrôle de doublon (`409`) ignore désormais la casse pour le matricule, le numéro de série et l'identifiant interne, comme les imports et les index.
+
 ## [0.4.0] - 2026-10-31
 
 Version finale de la refonte de l'interface : elle reprend tout le contenu de la préversion 0.4.0-rc.1 (ci-dessous), dont les points qui restaient à valider ont maintenant été vérifiés : affichage sur un vrai téléphone et vues des rôles RH et lecture dans le navigateur. Aucune migration de base de données.
