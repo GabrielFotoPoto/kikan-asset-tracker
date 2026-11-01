@@ -35,11 +35,14 @@ def refuse_delete(what: str, usages: dict[str, int], advice: str) -> None:
         raise HTTPException(409, f"Suppression impossible : {what} est utilise(e) par {', '.join(used)}. {advice}")
 
 
-def taken(session: Session, model, field, value, exclude_id: int | None, label: str) -> None:
-    """409 si un autre element porte deja cette valeur (code, matricule, numero de serie...)."""
+def taken(session: Session, model, field, value, exclude_id: int | None, label: str, *, ci: bool = True) -> None:
+    """409 si un autre element porte deja cette valeur (code, matricule, numero de serie...).
+
+    `ci` : insensible a la casse, comme les index uniques de la base (qui garantissent l'unicite meme en cas de
+    requetes simultanees ; ce controle donne seulement un message clair dans le cas courant)."""
     if value is None or value == "":
         return
-    stmt = select(model).where(field == value)
+    stmt = select(model).where(func.lower(field) == value.lower() if ci else field == value)
     if exclude_id is not None:
         stmt = stmt.where(model.id != exclude_id)
     if session.exec(stmt).first():
