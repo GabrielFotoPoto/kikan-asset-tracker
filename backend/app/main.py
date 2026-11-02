@@ -124,15 +124,17 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
     raise exc
 
 
-# Les refus (401/403) sont journalises, mais plafonnes par adresse IP : sans cela, des requetes anonymes
-# en boucle rempliraient la table d'audit. Les ecritures authentifiees restent toujours journalisees.
-_denied = LoginLimiter(max_per_account=10**9, max_per_ip=60, window=60)
+# Les refus (401/403) sont journalises, mais plafonnes pour que des requetes en boucle ne remplissent pas la table
+# d'audit. Le plafond est par couple (adresse IP, appelant) et non par adresse seule : sinon des requetes anonymes
+# (401) en rafale, ou derriere le meme proxy, epuiseraient le budget et masqueraient les refus (403) d'un compte
+# authentifie qui sonde ses droits. Les ecritures authentifiees restent toujours journalisees.
+_denied = LoginLimiter(max_per_account=60, max_per_ip=10**9, window=60)
 
 
-def _denial_loggable(ip: str) -> bool:
-    if _denied.retry_after(ip, ""):
+def _denial_loggable(ip: str, actor: str) -> bool:
+    if _denied.retry_after(ip, actor):
         return False
-    _denied.fail(ip, "")
+    _denied.fail(ip, actor)
     return True
 
 
@@ -144,7 +146,7 @@ async def audit_and_headers(request: Request, call_next):
     # (mots de passe, donnees personnelles). Les connexions sont journalisees dans /auth/login.
     denied = response.status_code in (401, 403)
     if path != "/health" and path != "/auth/login" and (
-        (request.method in MUTATING and not denied) or (denied and _denial_loggable(client_ip(request)))
+        (request.method in MUTATING and not denied) or (denied and _denial_loggable(client_ip(request), actor_from_request(request)))
     ):
         await run_in_threadpool(
             audit, actor_from_request(request), f"{request.method} {path}",
