@@ -20,7 +20,7 @@
 // Tests du tri et de la pagination : node --test frontend/src/tableau.test.js (aucune dependance).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fold, paginer, pagesAffichees, tailleMemorisee, tailleParDefaut, trier } from "./tableau.js";
+import { fold, paginer, pagesAffichees, pagination, tailleMemorisee, tailleParDefaut, trier } from "./tableau.js";
 
 const lot = [
   { id: 1, marque: "Lenovo", modele: "PC-10", numero_serie: null },
@@ -111,4 +111,21 @@ test("fold : sans accent ni casse, valeurs vides tolerees", () => {
   assert.equal(fold("\u00c9cran D\u00c9LL"), "ecran dell");
   assert.equal(fold(null), "");
   assert.equal(fold(undefined), "");
+});
+
+test("pagination() : reperes d'une liste dont seul le total est connu (journal d'audit)", () => {
+  assert.deepEqual(pagination(12345, 1, 20), { total: 12345, pages: 618, page: 1, de: 1, a: 20 });
+  assert.deepEqual(pagination(12345, 618, 20), { total: 12345, pages: 618, page: 618, de: 12341, a: 12345 });
+  assert.deepEqual(pagination(40, 2, 20), { total: 40, pages: 2, page: 2, de: 21, a: 40 });
+  assert.equal(pagination(40, 9, 20).page, 2); // page hors limites ramenee a la derniere
+  assert.deepEqual(pagination(0, 3, 20), { total: 0, pages: 1, page: 1, de: 0, a: 0 });
+});
+
+test("pagination() et paginer() donnent les memes reperes", () => {
+  const liste = Array.from({ length: 105 }, (_, i) => ({ id: i }));
+  for (const page of [1, 3, 6, 9]) {
+    const { tranche, ...repere } = paginer(liste, page, 20);
+    assert.deepEqual(repere, pagination(105, page, 20));
+    assert.equal(tranche.length, repere.a - (repere.de ? repere.de - 1 : 0));
+  }
 });

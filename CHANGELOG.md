@@ -5,6 +5,11 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **Journal d'audit : pagination et tri faits par le serveur.** La page ne chargeait que les 300 dernières entrées, et les plus anciennes étaient inaccessibles alors que le journal ne fait que grossir. Elle affiche maintenant 10, 20 ou 50 lignes à la fois, avec précédent / numéros / suivant, et toutes les entrées sont consultables. Tri par clic sur Date, Compte, Action, Statut ou IP (les valeurs vides toujours en fin de liste). Les filtres Compte et Action, le tri, la taille et la page sont dans l'adresse ; le filtre s'applique aussi avec la touche Entrée.
+- **API** : `GET /audit` accepte `offset`, `tri` (`id`, `ts`, `actor`, `action`, `status`, `ip`) et `sens` (`asc`, `desc`), et renvoie le nombre total d'entrées correspondant aux filtres dans l'en-tête `X-Total-Count`. Un tri inconnu, un `offset` négatif ou non numérique sont refusés (422). **Compatible** : la réponse reste une liste, et sans nouveau paramètre le résultat est identique (les `limit` entre 1 et 1000 comme avant, les plus récentes d'abord).
+- Nouvelle suite `tests/audit_pagination_check.py` (29 vérifications : pages bout à bout sans trou ni doublon, total, tri, refus des paramètres invalides, injection dans le tri), ajoutée à `tests/run_all.sh`. `pagination()` dans `tableau.js` (2 tests de plus).
+
 ### Modifié
 - Intégration continue : le travail « Compilation du front » rejoue aussi les tests de la logique de tri et de pagination des listes (`node --test src/*.test.js`). Aucun changement pour l'application.
 
