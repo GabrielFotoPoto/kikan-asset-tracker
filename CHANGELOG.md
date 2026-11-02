@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- Tests : `tests/run_all.sh` recrée l'API au démarrage de chaque passage. Les limiteurs en mémoire (connexion, refus journalisés, réinitialisation de mot de passe) gardaient les budgets du passage précédent, et relancer `security_check` dans la minute faisait échouer des vérifications sans rapport avec le code. La vérification de la rafale anonyme accepte aussi 0 entrée. Aucun changement pour l'application.
+
 ### Sécurité
 - **Journal d'audit : une rafale de requêtes anonymes ne masque plus les refus d'un compte.** Les refus 401 et 403 partageaient un même plafond par adresse IP (60 par minute). Un client (ou tout un site derrière le même proxy) qui envoyait 60 requêtes anonymes épuisait ce plafond, et les refus 403 d'un compte connecté qui sondait ses droits n'étaient plus journalisés pendant la minute. Le plafond est maintenant par couple (adresse IP, appelant) : les requêtes anonymes ont leur budget, chaque compte a le sien. Le plafond d'un compte reste atteignable par ce compte lui-même (60 refus par minute) ; il faut surveiller les rafales de 403 dans le journal. Aucune migration, aucun changement d'API.
 
