@@ -37,7 +37,7 @@ from .filestore import (
     DOCUMENT_ONLY, StorageError, delete_document, mettre_en_quarantaine, parse_reference, sortir_de_quarantaine,
 )
 from .models import (
-    Assignment, AssignmentAsset, Besoin, EchangeRetour, EmployeeStatus, PurgeDocument, RevueLigne, Signature, User, UserApplication,
+    Assignment, AssignmentAsset, Besoin, EchangeRetour, EmployeeStatus, ExternalLink, PurgeDocument, RevueLigne, Signature, User, UserApplication,
 )
 
 log = logging.getLogger("kikan.purge")
@@ -117,6 +117,8 @@ def purger(session: Session, actor: str, ids: list[int] | None = None, today: da
             session.delete(ua)
         for ligne in session.exec(select(RevueLigne).where(RevueLigne.user_id == user.id)).all():
             session.delete(ligne)  # lignes de revue des droits d'acces (le rapport scelle ne contient que le matricule)
+        for lien in session.exec(select(ExternalLink).where(ExternalLink.objet == "user", ExternalLink.kikan_id == user.id)).all():
+            session.delete(lien)  # correspondance avec un systeme externe (GLPI...) : ne survit pas au salarie
         session.flush()
         session.delete(user)
     session.commit()

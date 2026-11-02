@@ -27,6 +27,7 @@ from sqlmodel import Session, select
 
 from ..audit import audit
 from ..auth import (
+    acteur_saisi,
     check_password_policy,
     clear_session_cookie,
     client_ip,
@@ -177,20 +178,20 @@ def login(data: LoginRequest, request: Request, response: Response, session: Ses
     ip = client_ip(request)
     # Identifiant normalise une seule fois : meme cle pour le limiteur, le journal et la recherche du compte.
     username = data.username.strip().lower()
-    wait = login_limiter.retry_after(ip, username)
-    if wait:
-        audit(username[:100], "login_bloque", ip=ip, status=429)
-        raise HTTPException(429, "Trop de tentatives, reessayez plus tard",
-                            headers={"Retry-After": str(wait)})
-
     account = session.exec(
         select(Account).where(func.lower(Account.username) == username)
     ).first()
+    wait = login_limiter.retry_after(ip, username)
+    if wait:
+        audit(acteur_saisi(account, username), "login_bloque", ip=ip, status=429)
+        raise HTTPException(429, "Trop de tentatives, reessayez plus tard",
+                            headers={"Retry-After": str(wait)})
+
     hashed = account.hashed_password if account else _DUMMY_HASH
     valid = verify_password(data.password, hashed)
     if not account or not account.actif or not valid:
         login_limiter.fail(ip, username)
-        audit(username[:100], "login_echec", ip=ip, status=401)
+        audit(acteur_saisi(account, username), "login_echec", ip=ip, status=401)
         raise HTTPException(401, "Identifiants invalides")
 
     if not sso_policy.local_login_allowed(session, account):
@@ -289,7 +290,7 @@ def forgot_password(data: ForgotRequest, request: Request, background: Backgroun
         background.add_task(_send_reset_mail, address, f"{mailer.public_url()}/reinitialisation?token={token}")
     else:
         session.commit()
-        audit(data.identifiant.strip()[:100], "reset_demande_ignoree", ip=ip, status=202)
+        audit(acteur_saisi(account, ident), "reset_demande_ignoree", ip=ip, status=202)
     return _RESET_REPONSE
 
 
