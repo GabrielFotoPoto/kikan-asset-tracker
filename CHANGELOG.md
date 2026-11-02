@@ -17,6 +17,16 @@ Issu de l'audit du 2026-11-01 (lot A, intégrité des données).
 ### Modifié
 - Le contrôle de doublon (`409`) ignore désormais la casse pour le matricule, le numéro de série et l'identifiant interne, comme les imports et les index.
 
+Issu de l'audit du 2026-11-01 (lot B, RGPD).
+
+### Corrigé (RGPD)
+- **Purge : les liens vers les systèmes externes disparaissent avec le salarié.** La purge supprimait le salarié mais laissait sa ligne de correspondance (`external_links`, GLPI par exemple) : un identifiant externe orphelin restait lié à une personne effacée. Elle est maintenant supprimée dans la même transaction. Les liens du matériel sont conservés (le matériel n'est pas une donnée personnelle).
+- **Journal d'audit : la saisie d'un compte inconnu n'est plus conservée.** Un échec de connexion, un verrouillage ou une demande de réinitialisation ignorée enregistrait ce qui avait été tapé, parfois une adresse e-mail de tiers ou un mot de passe saisi dans le mauvais champ. Pour un compte inconnu, le journal garde désormais `inconnu:` suivi d'une empreinte (HMAC avec la clé secrète du serveur) : les tentatives répétées d'une même saisie restent corrélables, sans donnée personnelle. Pour un compte existant, l'identifiant reste journalisé comme avant.
+
+Les cinq questions : donnée = identifiant saisi (inconnu) et lien externe du salarié ; pourquoi = détecter les attaques, rapprocher les systèmes ; qui la voit = les administrateurs du journal ; combien de temps = empreinte non réversible, lien supprimé à la purge ; effacement = purge RGPD existante.
+
+Aucune migration, aucun changement d'API. Les entrées déjà présentes dans le journal ne sont pas réécrites.
+
 ## [0.4.2] - 2026-11-02
 
 Journal d'audit paginé et triable, faits par le serveur : toutes les entrées deviennent consultables. Aucune migration de base de données ; l'API change de façon compatible (nouveaux paramètres facultatifs).

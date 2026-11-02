@@ -282,6 +282,9 @@ if PROD:
 else:
     print(f"INFO /docs expose (HTTP {s}) : normal en developpement, masque avec KIKAN_ENV=production")
 
+SAISIE_INCONNUE = "Zz.Saisie.Inconnue@exemple.test"
+call("POST", "/auth/login", {"username": SAISIE_INCONNUE, "password": "mauvais-zz"})
+call("POST", "/auth/forgot", {"identifiant": SAISIE_INCONNUE})
 print("== 12. Journal d'audit ==")
 adm = login(ADMIN_USER, ADMIN_PW)
 s, b, _ = call("GET", "/audit?limit=500", token=adm)
@@ -295,6 +298,16 @@ show("ecritures journalisees avec l'auteur",
 show("refus d'acces journalises", any(x["status"] == 403 for x in logs))
 blob = json.dumps(logs)
 show("aucun mot de passe dans le journal", TEST_PW not in blob and ADMIN_PW not in blob)
+show("saisie d'un compte inconnu absente du journal (ni en clair ni en minuscules)",
+     SAISIE_INCONNUE.lower() not in blob.lower() and "zz.saisie" not in blob.lower())
+show("echec sur compte inconnu journalise sous une empreinte",
+     any(x["action"] == "login_echec" and x["actor"].startswith("inconnu:") for x in logs))
+show("demande de reinitialisation ignoree journalisee sous une empreinte",
+     any(x["action"] == "reset_demande_ignoree" and x["actor"].startswith("inconnu:") for x in logs))
+_emp_login = {x["actor"] for x in logs if x["action"] == "login_echec" and x["actor"].startswith("inconnu:")}
+_emp_reset = {x["actor"] for x in logs if x["action"] == "reset_demande_ignoree" and x["actor"].startswith("inconnu:")}
+show("la meme saisie donne la meme empreinte (tentatives correlables)", bool(_emp_login & _emp_reset),
+     f"{len(_emp_login)} / {len(_emp_reset)} empreinte(s)")
 
 # Nettoyage : comptes de test desactives
 for acc_id in (id_rh, id_lect):

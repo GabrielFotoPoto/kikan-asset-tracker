@@ -268,5 +268,22 @@ from app.models import EchangeRetour  # noqa: E402
 with Session(engine) as ss:
     show("plus aucun retour d'echange en base", not ss.exec(select(EchangeRetour).where(EchangeRetour.asset_id == a_old["id"])).all())
 
+
+print("== Purge d'un salarie qui a un lien vers un systeme externe ==")
+ul, _refs, _emp = salarie_sorti()
+n_user[0] += 1
+s, al = j("POST", "/assets", {"type": "PC", "marque": "ZZPG-HP", "numero_serie": f"ZZPG-LN{n_user[0]}", "statut": "stock"})
+from app.models import ExternalLink  # noqa: E402
+with Session(engine) as ss:
+    ss.add(ExternalLink(systeme="zzpg", objet="user", kikan_id=ul["id"], externe_id=f"ZZPG-EXT-U{ul['id']}"))
+    ss.add(ExternalLink(systeme="zzpg", objet="asset", kikan_id=al["id"], externe_id=f"ZZPG-EXT-A{al['id']}"))
+    ss.commit()
+s, r = j("POST", "/rgpd/purge", {"ids": [ul["id"]]})
+show("purge du salarie lie a un systeme externe", s == 200 and r["count"] == 1, r)
+with Session(engine) as ss:
+    show("lien externe du salarie supprime avec lui",
+         not ss.exec(select(ExternalLink).where(ExternalLink.objet == "user", ExternalLink.kikan_id == ul["id"])).all())
+    show("lien externe du materiel conserve (le materiel n'est pas personnel)",
+         len(ss.exec(select(ExternalLink).where(ExternalLink.objet == "asset", ExternalLink.kikan_id == al["id"])).all()) == 1)
 print(f"\n{'ECHEC' if fails else 'OK'} : {fails} test(s) en echec")
 sys.exit(1 if fails else 0)

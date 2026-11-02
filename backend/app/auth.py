@@ -17,6 +17,8 @@
 
 """Authentification (JWT), politique de mots de passe, limitation des tentatives."""
 import datetime
+import hashlib
+import hmac
 import logging
 import os
 import secrets
@@ -165,6 +167,19 @@ def _ttl_minutes() -> int:
     except Exception:  # noqa: BLE001  (base indisponible ou valeur invalide : on retombe sur la valeur par defaut)
         pass
     return TOKEN_TTL_MIN
+
+
+def acteur_saisi(account: "Account | None", saisi: str) -> str:
+    """Libelle d'audit d'un identifiant saisi a la connexion.
+
+    Compte connu : son identifiant. Inconnu : une empreinte HMAC, jamais la saisie (ce peut etre un mot de passe
+    tape dans le mauvais champ ou l'adresse d'un tiers) ; la meme saisie donne la meme empreinte, donc les
+    tentatives restent correlables sans conserver de donnee personnelle.
+    """
+    if account:
+        return account.username
+    digest = hmac.new(SECRET.encode(), saisi.strip().lower().encode(), hashlib.sha256).hexdigest()
+    return f"inconnu:{digest[:10]}"
 
 
 def create_access_token(username: str, role: str, epoch: int = 0) -> str:
