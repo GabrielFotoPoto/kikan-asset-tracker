@@ -17,11 +17,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, downloadFile, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import { Feedback } from "../components/Notifications.jsx";
+import Pagination from "../components/Pagination.jsx";
+import SelectionMateriel from "../components/SelectionMateriel.jsx";
+import ThTri from "../components/ThTri.jsx";
+import { paginer, trier } from "../tableau.js";
+import { useTableau } from "../useTableau.js";
 
 // Les dates du serveur sont en UTC sans fuseau : on les affiche a l'heure locale de l'utilisateur.
 const dateHeure = (iso) => {
@@ -30,9 +35,13 @@ const dateHeure = (iso) => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "medium" });
 };
 
+// Colonnes triables (salarie et remise sont calculees plus bas). Sans tri choisi : la remise la plus recente d'abord.
+const COLONNES = [["id", "#"], ["salarie", "Salarie"], ["statut", "Statut"], ["remise", "Remise (signature)"]];
+
 export default function Assignments() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const { tri, sens, taille, page, changerTri, changerTaille, changerPage } = useTableau(params, setParams, COLONNES);
   const { user } = useAuth();
   const writable = canWrite(user.role, "remises");
   const [users, setUsers] = useState([]);
@@ -60,6 +69,14 @@ export default function Assignments() {
     const u = users.find((x) => x.id === id);
     return u ? `${u.prenom} ${u.nom}` : `#${id}`;
   };
+
+  // Date de signature, a defaut date de remise ; "recent" y ajoute l'identifiant pour departager comme avant (plus recent d'abord).
+  const lignes = useMemo(() => items.map((a) => {
+    const remise = a.date_signature || a.date_remise || "";
+    return { ...a, salarie: userName(a.user_id), remise, recent: `${remise}#${String(a.id).padStart(9, "0")}` };
+  }), [items, users]);
+  const triees = useMemo(() => (tri ? trier(lignes, tri, sens) : trier(lignes, "recent", "desc")), [lignes, tri, sens]);
+  const pag = useMemo(() => paginer(triees, page, taille), [triees, page, taille]);
 
   // Charte qui sera jointe d'office pour le salarie choisi (entite, entites parentes, puis charte globale).
   useEffect(() => {
@@ -137,13 +154,7 @@ export default function Assignments() {
             </div>
           )}
           <p className="muted" style={{ marginBottom: 6 }}>Materiel en stock a remettre :</p>
-          {stock.length === 0 && <p className="muted">Aucun actif en stock.</p>}
-          {stock.map((a) => (
-            <label key={a.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={picked.includes(a.id)} onChange={() => toggle(a.id)} />
-              {a.type} {a.marque} {a.modele} ({a.numero_serie || a.identifiant_interne || a.id})
-            </label>
-          ))}
+          <SelectionMateriel items={stock} choisis={picked} onBasculer={toggle} onVider={() => setPicked([])} />
           <div style={{ marginTop: 12 }}><button type="submit">Creer l'affectation</button></div>
         </form>
       </div>
@@ -152,9 +163,12 @@ export default function Assignments() {
       <div className="card">
         <h3>Affectations</h3>
         <table>
-          <thead><tr><th>#</th><th>Salarie</th><th>Statut</th><th>Remise (signature)</th><th>Document</th></tr></thead>
+          <thead><tr>
+            {COLONNES.map(([c, libelle]) => <ThTri key={c} cle={c} tri={tri} sens={sens} onTri={changerTri}>{libelle}</ThTri>)}
+            <th>Document</th>
+          </tr></thead>
           <tbody>
-            {[...items].sort((x, y) => (y.date_signature || y.date_remise || "").localeCompare(x.date_signature || x.date_remise || "") || y.id - x.id).map((a) => (
+            {pag.tranche.map((a) => (
               <tr key={a.id}>
                 <td>{a.id}</td>
                 <td>{userName(a.user_id)}</td>
@@ -176,6 +190,7 @@ export default function Assignments() {
             ))}
           </tbody>
         </table>
+        <Pagination pag={pag} taille={taille} objet="affectation(s)" onTaille={changerTaille} onPage={changerPage} />
       </div>
     </div>
   );
