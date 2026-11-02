@@ -235,6 +235,23 @@ dialog.confirm h2 { margin: 0; font-size: 19px; }
 .chip { background: var(--soft); color: var(--soft-ink); border: 1px solid var(--info-line); border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 500; }
 .chip:hover { background: var(--soft-2); opacity: 1; }
 .row-cible { background: var(--soft); }
+
+/* Tri par colonne : l'en-tete est un bouton discret, la fleche indique le sens (aria-sort porte la meme information). */
+.th-tri { background: none; color: inherit; padding: 2px 4px; margin: -2px -4px; border-radius: 6px; font: inherit; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.th-tri:hover { opacity: 1; background: var(--soft); color: var(--soft-ink); }
+.th-fleche { font-size: 11px; opacity: 0.45; }
+th[aria-sort="ascending"] .th-fleche, th[aria-sort="descending"] .th-fleche { opacity: 1; color: var(--brand); }
+th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--ink); }
+
+/* Pagination : plage affichee, lignes par page, precedent / numeros / suivant. */
+.pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-top: 14px; }
+.pagination p { margin: 0; }
+.pagination-taille { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.pagination-taille select { width: auto; }
+.pagination nav ul { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; align-items: center; }
+.pagination nav button { min-width: 38px; padding: 7px 10px; }
+.pagination-trou { padding: 0 4px; color: var(--muted); }
+.tri-cartes { display: none; }
 @media (max-width: 720px) {
   .filtres { grid-template-columns: 1fr; }
 }
@@ -303,6 +320,10 @@ dialog.palette::backdrop { background: rgba(20, 27, 38, 0.5); }
   .main { padding: 16px; max-width: none; }
   .main table { display: block; overflow-x: auto; max-width: 100%; }
   .vue-tableau { display: none; }
+  .tri-cartes { display: flex; align-items: end; gap: 10px; margin-bottom: 10px; }
+  .tri-cartes label { flex: 1; }
+  .pagination { flex-direction: column; align-items: stretch; }
+  .pagination nav ul { justify-content: center; }
   .cartes { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0; padding: 0; }
   .carte { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
   .carte-tete { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

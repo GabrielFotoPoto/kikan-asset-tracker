@@ -24,16 +24,22 @@ import { canWrite, useAuth } from "../auth.jsx";
 import Autocomplete from "../components/Autocomplete.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
 import { Feedback, useNotify } from "../components/Notifications.jsx";
+import Pagination from "../components/Pagination.jsx";
 import { Empty, Loading } from "../components/State.jsx";
-
-// Recherche sans accent ni casse, comme l'autocompletion du catalogue.
-const fold = (v) => (v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+import ThTri from "../components/ThTri.jsx";
+import { fold, paginer, trier } from "../tableau.js";
+import { useTableau } from "../useTableau.js";
 
 const FILTRES = ["stock", "affecte", "rendu", "reforme"];
 // Les statuts affecte et rendu viennent de la remise et de la restitution, jamais d'une saisie manuelle.
 const SAISISSABLES = ["stock", "reforme"];
 const DATES = ["date_achat", "fin_garantie", "echeance_renouvellement"];
 const TEXTES = ["identifiant_interne", "type", "marque", "modele", "numero_serie", "notes"];
+// Colonnes triables, dans l'ordre du tableau. Sans tri choisi : les derniers ajoutes d'abord (id decroissant).
+const COLONNES = [
+  ["identifiant_interne", "Id interne"], ["type", "Type"], ["marque", "Marque"],
+  ["modele", "Modele"], ["numero_serie", "N serie"], ["statut", "Statut"],
+];
 const empty = {
   identifiant_interne: "", type: "", marque: "", modele: "", numero_serie: "",
   date_achat: "", fin_garantie: "", echeance_renouvellement: "", statut: "stock", entite_id: "", notes: "",
@@ -50,6 +56,9 @@ export default function Assets() {
   const filtreType = params.get("type") || "";
   const filtreEntite = params.get("entite") || "";
   const idCible = Number(params.get("asset")) || null;
+  // Tri, sens, nombre de lignes et page vivent dans l'adresse (voir useTableau.js) ; les filtres ci-dessus aussi.
+  const { tri, sens, taille, page, setParam, changerTri, choisirTri, inverserSens, changerTaille, changerPage } =
+    useTableau(params, setParams, COLONNES);
   const [items, setItems] = useState(null);
   const [entites, setEntites] = useState([]);
   const [types, setTypes] = useState([]);
@@ -108,12 +117,6 @@ export default function Assets() {
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  // Forme fonctionnelle : une mise a jour differee (frappe) ne ramene pas un autre filtre a son ancienne valeur.
-  const setParam = (cle, valeur) => setParams((prev) => {
-    const p = new URLSearchParams(prev);
-    if (valeur) p.set(cle, valeur); else p.delete(cle);
-    return p;
-  }, { replace: true });
 
   // La saisie reste dans un etat local (sinon la valeur du champ suit l'adresse avec du retard et perd des lettres)
   // et gagne l'adresse apres 250 ms ; l'adresse ne reecrase la saisie que si elle change de l'exterieur.
@@ -136,7 +139,7 @@ export default function Assets() {
     poussee.current = ""; setSaisie("");
     setParams((prev) => {
       const p = new URLSearchParams(prev);
-      ["q", "statut", "type", "entite"].forEach((k) => p.delete(k));
+      ["q", "statut", "type", "entite", "page"].forEach((k) => p.delete(k));
       return p;
     }, { replace: true });
   };
@@ -158,6 +161,10 @@ export default function Assets() {
       return termes.every((t) => meule.includes(t));
     });
   }, [items, saisie, filtre, filtreType, filtreEntite]);
+  // Tri puis decoupage en pages : seules les lignes de la page affichee sont rendues (la recherche et les filtres,
+  // eux, portent sur toute la liste). Le tri par defaut montre les derniers ajoutes en premier.
+  const triees = useMemo(() => (tri ? trier(visibles, tri, sens) : trier(visibles, "id", "desc")), [visibles, tri, sens]);
+  const pag = useMemo(() => paginer(triees, page, taille), [triees, page, taille]);
   const chips = [
     saisie.trim() && { cle: "q", texte: `Recherche : ${saisie.trim()}` },
     filtre && { cle: "statut", texte: `Statut : ${filtre}` },
@@ -175,15 +182,26 @@ export default function Assets() {
   );
 
   // Lien profond ?asset=ID : un compte qui peut ecrire ouvre l'actif en modification, les autres le voient repere dans la liste.
+  // Avec la pagination, l'actif vise peut etre sur une autre page : on affiche d'abord la page qui le contient.
   const cibleTraitee = useRef(false);
+  const adefiler = useRef(null);
   useEffect(() => {
     if (!idCible || !items || cibleTraitee.current) return;
     cibleTraitee.current = true;
     const a = items.find((x) => x.id === idCible);
     if (!a) { setErr("Ce materiel n'existe pas ou n'est pas dans votre perimetre."); return; }
-    if (writable) startEdit(a);
-    else requestAnimationFrame(() => document.getElementById(`actif-${a.id}`)?.scrollIntoView({ block: "center" }));
+    if (writable) { startEdit(a); return; }
+    const rang = triees.findIndex((x) => x.id === a.id);
+    if (rang >= 0) setParam("page", String(Math.floor(rang / taille) + 1));
+    adefiler.current = a.id;
   }, [idCible, items]);
+  useEffect(() => {
+    if (adefiler.current === null) return;
+    const ligne = document.getElementById(`actif-${adefiler.current}`);
+    if (!ligne) return;
+    adefiler.current = null;
+    requestAnimationFrame(() => ligne.scrollIntoView({ block: "center" }));
+  }, [pag.page, items]);
 
   return (
     <div>
@@ -285,9 +303,12 @@ export default function Assets() {
         <>
         <div className="table-scroll vue-tableau">
         <table>
-          <thead><tr><th>Id interne</th><th>Type</th><th>Marque</th><th>Modele</th><th>N serie</th><th>Statut</th>{writable && <th></th>}</tr></thead>
+          <thead><tr>
+            {COLONNES.map(([cle, libelle]) => <ThTri key={cle} cle={cle} tri={tri} sens={sens} onTri={changerTri}>{libelle}</ThTri>)}
+            {writable && <th></th>}
+          </tr></thead>
           <tbody>
-            {visibles.map((a) => (
+            {pag.tranche.map((a) => (
               <tr key={a.id} id={`actif-${a.id}`} className={a.id === idCible ? "row-cible" : undefined} aria-current={a.id === idCible ? "true" : undefined}>
                 <td>{a.identifiant_interne || "-"}</td>
                 <td>{a.type || "-"}</td>
@@ -302,8 +323,22 @@ export default function Assets() {
         </table>
         </div>
         {/* Meme liste en cartes sur petit ecran (le tableau est alors masque par le CSS). */}
+        <div className="tri-cartes">
+          <label>Trier par
+            <select value={tri} onChange={(e) => choisirTri(e.target.value)}>
+              <option value="">Derniers ajoutes</option>
+              {COLONNES.map(([cle, libelle]) => <option key={cle} value={cle}>{libelle}</option>)}
+            </select>
+          </label>
+          {tri && (
+            <button type="button" className="ghost" onClick={inverserSens}
+                    aria-label={sens === "asc" ? "Tri croissant, cliquer pour inverser" : "Tri decroissant, cliquer pour inverser"}>
+              {sens === "asc" ? "\u25B2 Croissant" : "\u25BC Decroissant"}
+            </button>
+          )}
+        </div>
         <ul className="cartes">
-          {visibles.map((a) => (
+          {pag.tranche.map((a) => (
             <li key={a.id} className={a.id === idCible ? "carte row-cible" : "carte"}>
               <div className="carte-tete">
                 <strong>{[a.marque, a.modele].filter(Boolean).join(" ") || a.type || "Materiel"}</strong>
@@ -315,6 +350,8 @@ export default function Assets() {
             </li>
           ))}
         </ul>
+        <Pagination pag={pag} taille={taille} objet="materiel(s)" onTaille={changerTaille}
+                    onPage={changerPage} />
         </>
           )}
       </div>

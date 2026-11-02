@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
@@ -25,6 +25,10 @@ import Autocomplete from "../components/Autocomplete.jsx";
 import ConfirmButton from "../components/ConfirmButton.jsx";
 import { Feedback } from "../components/Notifications.jsx";
 import { useConfirm } from "../components/ConfirmDialog.jsx";
+import Pagination from "../components/Pagination.jsx";
+import ThTri from "../components/ThTri.jsx";
+import { paginer, trier } from "../tableau.js";
+import { useTableau } from "../useTableau.js";
 
 // Le depart (en_depart, sorti) se declare depuis la page Sorties, avec restitution du materiel.
 const STATUTS = ["prevu", "actif"];
@@ -34,6 +38,8 @@ const empty = { matricule: "", acronyme: "", nom: "", prenom: "", entite_id: "",
 const lettres = (v) => (v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z]/g, "");
 const acronymePropose = (prenom, nom) => (lettres(prenom).slice(0, 1) + lettres(nom).slice(0, 2)).padEnd(3, "X").slice(0, 3);
 const cle = (v) => (v || "").trim().toLowerCase();
+// Colonnes triables : "nom_tri" (nom puis prenom) et "filiale" sont calculees plus bas. Sans tri choisi : les derniers ajoutes d'abord.
+const COLONNES = [["matricule", "Matricule"], ["nom_tri", "Nom"], ["filiale", "Filiale"], ["service", "Service"], ["statut", "Statut"], ["date_arrivee", "Arrivee"]];
 
 export default function Users() {
   const { user } = useAuth();
@@ -46,9 +52,11 @@ export default function Users() {
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
   // ?q= : la palette de recherche mene ici avec le salarie cherche deja filtre.
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const { tri, sens, taille, page, setParam, changerTri, changerTaille, changerPage } = useTableau(params, setParams, COLONNES);
   const [q, setQ] = useState(params.get("q") || "");
-  useEffect(() => { const p = params.get("q"); if (p !== null) setQ(p); }, [params]);
+  const qAdresse = params.get("q");
+  useEffect(() => { if (qAdresse !== null) setQ(qAdresse); }, [qAdresse]);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
   const [choix, setChoix] = useState([]);      // categories de besoin actives, avec leurs gammes
@@ -61,6 +69,12 @@ export default function Users() {
   useEffect(() => { load(); }, [q]);
 
   const entiteNom = (id) => entites.find((e) => e.id === id)?.nom || "-";
+  // Tri puis decoupage en pages : seules les lignes de la page affichee sont rendues. La recherche reste faite par le serveur.
+  const lignes = useMemo(() => items.map((u) => ({
+    ...u, nom_tri: `${u.nom || ""} ${u.prenom || ""}`.trim(), filiale: entites.find((e) => e.id === u.entite_id)?.nom || "",
+  })), [items, entites]);
+  const triees = useMemo(() => (tri ? trier(lignes, tri, sens) : trier(lignes, "id", "desc")), [lignes, tri, sens]);
+  const pag = useMemo(() => paginer(triees, page, taille), [triees, page, taille]);
   const locked = editing && ["en_depart", "sorti"].includes(editing.statut);
 
   const startEdit = (u) => {
@@ -195,12 +209,15 @@ export default function Users() {
       )}
       <div className="card">
         <div className="row" style={{ marginBottom: 12 }}>
-          <input placeholder="Rechercher nom / prenom / matricule" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input placeholder="Rechercher nom / prenom / matricule" value={q} onChange={(e) => { setQ(e.target.value); setParam("page", ""); }} />
         </div>
         <table>
-          <thead><tr><th>Matricule</th><th>Nom</th><th>Filiale</th><th>Service</th><th>Statut</th><th>Arrivee</th>{writable && <th></th>}</tr></thead>
+          <thead><tr>
+            {COLONNES.map(([c, libelle]) => <ThTri key={c} cle={c} tri={tri} sens={sens} onTri={changerTri}>{libelle}</ThTri>)}
+            {writable && <th></th>}
+          </tr></thead>
           <tbody>
-            {items.map((u) => (
+            {pag.tranche.map((u) => (
               <tr key={u.id}>
                 <td>{u.matricule || "-"}</td>
                 <td>{u.prenom} {u.nom}</td>
@@ -223,6 +240,7 @@ export default function Users() {
             ))}
           </tbody>
         </table>
+        <Pagination pag={pag} taille={taille} objet="salarie(s)" onTaille={changerTaille} onPage={changerPage} />
       </div>
     </div>
   );

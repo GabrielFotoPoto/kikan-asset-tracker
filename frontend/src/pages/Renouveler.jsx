@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, downloadFile } from "../api.js";
 import PolicyViewer from "../components/PolicyViewer.jsx";
+import SelectionMateriel from "../components/SelectionMateriel.jsx";
 import SignaturePad from "../components/SignaturePad.jsx";
 import { Feedback } from "../components/Notifications.jsx";
 
@@ -59,7 +60,6 @@ export default function Renouveler() {
   const [recap, setRecap] = useState(null);
   const [anciens, setAnciens] = useState({});     // { idActif: devenir }
   const [nouveaux, setNouveaux] = useState([]);   // ids a remettre
-  const [recherche, setRecherche] = useState("");
   const [charte, setCharte] = useState(false);
   const [besoinIds, setBesoinIds] = useState([]);
   const [note, setNote] = useState("");
@@ -97,8 +97,6 @@ export default function Renouveler() {
     return { ...cur, [id]: "rendu" };
   });
   const basculerNouveau = (id) => setNouveaux((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-  const filtre = recherche.trim().toLowerCase();
-  const stockFiltre = stock.filter((a) => !filtre || [a.type, a.marque, a.modele, a.numero_serie, a.identifiant_interne].some((v) => (v || "").toLowerCase().includes(filtre)));
   const prets = Object.keys(anciens).length > 0 && nouveaux.length > 0;
 
   const valider = async () => {
@@ -195,15 +193,7 @@ export default function Renouveler() {
 
             <div className="card" style={{ flex: 1, minWidth: 320 }}>
               <h3>Nouveau materiel a remettre</h3>
-              <input style={{ width: "100%" }} value={recherche} placeholder="Rechercher (type, marque, modele, serie...)" onChange={(e) => setRecherche(e.target.value)} />
-              <div style={{ maxHeight: 280, overflowY: "auto", marginTop: 8 }}>
-                {stockFiltre.length === 0 && <p className="muted">Aucun materiel en stock{filtre ? " pour cette recherche" : ""}.</p>}
-                {stockFiltre.map((a) => (
-                  <label key={a.id} className="check" style={{ marginBottom: 4 }}>
-                    <input type="checkbox" checked={nouveaux.includes(a.id)} onChange={() => basculerNouveau(a.id)} /><span><Materiel a={a} /></span>
-                  </label>
-                ))}
-              </div>
+              <SelectionMateriel items={stock} choisis={nouveaux} onBasculer={basculerNouveau} onVider={() => setNouveaux([])} />
             </div>
           </div>
 
