@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Modifié
+- Intégration continue : le travail « Compilation du front » rejoue aussi les tests de la logique de tri et de pagination des listes (`node --test src/*.test.js`). Aucun changement pour l'application.
+
 ## [0.4.1] - 2026-11-02
 
 Listes paginées et triables (Matériel, Utilisateurs, Remises), et sélection du matériel à remettre limitée à 20 lignes à la fois. Interface seulement : aucune migration, aucun changement d'API.

@@ -89,6 +89,11 @@ jobs:
         run: |
           npm ci
           npm run build
+      # Tri et pagination des listes : fonctions pures, testees avec le lanceur de Node (aucune dependance).
+      # Un motif de fichiers, pas un dossier : avec Node 20, un dossier executerait tous les .js comme des tests.
+      - name: Tests de la logique des listes
+        working-directory: frontend
+        run: node --test src/*.test.js
 
   tests:
     name: Suites de tests (pile complete)
