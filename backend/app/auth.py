@@ -196,7 +196,12 @@ def create_access_token(username: str, role: str, epoch: int = 0) -> str:
 
 def set_session_cookie(request: Request, response: Response, token: str) -> None:
     secure = IS_PROD or request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
-    response.set_cookie(SESSION_COOKIE, token, max_age=_ttl_minutes() * 60, httponly=True, secure=secure,
+    # Duree lue dans le jeton qui vient d'etre emis : evite de relire le parametrage en base une seconde fois.
+    try:
+        max_age = int(jwt.decode(token, SECRET, algorithms=[ALGO])["exp"] - time.time())
+    except Exception:  # noqa: BLE001
+        max_age = _ttl_minutes() * 60
+    response.set_cookie(SESSION_COOKIE, token, max_age=max(max_age, 1), httponly=True, secure=secure,
                         samesite="strict", path=SESSION_COOKIE_PATH)
 
 

@@ -22,3 +22,5 @@ recipient.txt
 
 # Dossier temporaire du test de sauvegarde
 .tmp-backup-test/
+
+.DS_Store
