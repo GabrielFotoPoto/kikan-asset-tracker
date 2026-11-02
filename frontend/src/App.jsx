@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api, endSession, hasSession, setSession } from "./api.js";
 import { AuthContext } from "./auth.jsx";
@@ -64,6 +64,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
   const [portee, setPortee] = useState(null);
+  const porteeChargee = useRef(null);
   const icone = useBranding();
   const { pathname } = useLocation();
   const [menuOuvert, setMenuOuvert] = useState(false);
@@ -76,7 +77,11 @@ export default function App() {
     window.addEventListener("kikan-unauth", onUnauth);
     if (hasSession()) {
       api.get("/auth/me")
-        .then((a) => setUser({ username: a.username, role: a.role, mustChange: a.must_change_password }))
+        .then((a) => {
+          porteeChargee.current = a.username;  // la portee arrive avec cette reponse : pas de second appel
+          setPortee(a.portee);
+          setUser({ username: a.username, role: a.role, mustChange: a.must_change_password });
+        })
         .catch(() => setSession(false))
         .finally(() => setChecking(false));
     } else {
@@ -87,7 +92,8 @@ export default function App() {
 
   // Portee effective du compte (relue apres connexion) : bandeau si aucun perimetre n'est defini.
   useEffect(() => {
-    if (!user) { setPortee(null); return; }
+    if (!user) { setPortee(null); porteeChargee.current = null; return; }
+    if (porteeChargee.current === user.username) return;
     api.get("/auth/me").then((a) => setPortee(a.portee)).catch(() => {});
   }, [user?.username]);
 

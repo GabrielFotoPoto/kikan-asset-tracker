@@ -44,7 +44,7 @@ def ensure_self_signed_cert(org: str = "Kikan Organisation") -> None:
         x509.NameAttribute(NameOID.COMMON_NAME, "Kikan Seal"),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, org),
     ])
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     cert = (
         x509.CertificateBuilder()
         .subject_name(name)
