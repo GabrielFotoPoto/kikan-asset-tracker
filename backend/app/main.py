@@ -23,6 +23,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -112,6 +113,15 @@ app.add_middleware(
 @app.exception_handler(StorageError)
 async def storage_error_handler(request: Request, exc: StorageError):
     return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(request: Request, exc: IntegrityError):
+    """Filet de securite : deux requetes simultanees peuvent passer le controle applicatif ; l'index unique de la base
+    tranche alors, et la perdante recoit un 409 clair au lieu d'une erreur 500. Les autres violations restent des erreurs."""
+    if getattr(exc.orig, "pgcode", None) == "23505":
+        return JSONResponse(status_code=409, content={"detail": "Cette valeur est deja utilisee (un autre enregistrement vient de la prendre)"})
+    raise exc
 
 
 # Les refus (401/403) sont journalises, mais plafonnes par adresse IP : sans cela, des requetes anonymes

@@ -29,6 +29,16 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+# --- Longueurs maximales (validation a la saisie ; la base reste non bornee pour ne jamais rejeter une donnee existante) ---
+
+def _borne(value, champ: str, limites: dict):
+    """Refuse (422) une chaine plus longue que la limite du champ ; None et non-chaines passent."""
+    limite = limites.get(champ)
+    if isinstance(value, str) and limite and len(value) > limite:
+        raise ValueError(f"{champ} : {limite} caracteres maximum")
+    return value
+
+
 # --- Enumerations ---
 
 class EmployeeStatus(str, Enum):
@@ -59,8 +69,14 @@ class EntiteBase(SQLModel):
     code_parent: Optional[str] = None
     actif: bool = True
 
+    @field_validator("code", "nom", "code_parent")
+    @classmethod
+    def _longueurs(cls, v, info):
+        return _borne(v, info.field_name, {"code": 50, "nom": 200, "code_parent": 50})
+
 
 class Entite(EntiteBase, table=True):
+    __table_args__ = (Index("uq_entite_code", "code", unique=True),)
     id: Optional[int] = Field(default=None, primary_key=True)
 
 
@@ -78,6 +94,11 @@ class UserBase(SQLModel):
     date_sortie: Optional[date] = None
     acronyme: Optional[str] = None    # 3 lettres (nom des PDF scelles) ; propose a partir du prenom et du nom, modifiable
 
+    @field_validator("matricule", "nom", "prenom", "email", "service")
+    @classmethod
+    def _longueurs(cls, v, info):
+        return _borne(v, info.field_name, {"matricule": 50, "nom": 200, "prenom": 200, "email": 200, "service": 100})
+
     @field_validator("acronyme", mode="before")
     @classmethod
     def _acronyme(cls, v):
@@ -87,6 +108,8 @@ class UserBase(SQLModel):
 
 class User(UserBase, table=True):
     __tablename__ = "users"
+    __table_args__ = (Index("uq_users_matricule_lower", func.lower(literal_column("matricule")), unique=True,
+                            postgresql_where=text("matricule IS NOT NULL AND matricule <> ''")),)
     id: Optional[int] = Field(default=None, primary_key=True)
     compteur_documents: int = 0       # numero du dernier document scelle de ce salarie (jamais reutilise)
     cree_le: NaiveDatetime = Field(default_factory=utcnow)
@@ -110,9 +133,21 @@ class AssetBase(SQLModel):
     entite_id: Optional[int] = Field(default=None, foreign_key="entite.id")
     notes: Optional[str] = None
 
+    @field_validator("identifiant_interne", "type", "marque", "modele", "numero_serie", "source", "id_externe", "notes")
+    @classmethod
+    def _longueurs(cls, v, info):
+        return _borne(v, info.field_name, {"identifiant_interne": 100, "type": 100, "marque": 100, "modele": 100,
+                                           "numero_serie": 100, "source": 50, "id_externe": 100, "notes": 2000})
+
 
 class Asset(AssetBase, table=True):
     __tablename__ = "assets"
+    __table_args__ = (
+        Index("uq_assets_numero_serie_lower", func.lower(literal_column("numero_serie")), unique=True,
+              postgresql_where=text("numero_serie IS NOT NULL AND numero_serie <> ''")),
+        Index("uq_assets_identifiant_interne_lower", func.lower(literal_column("identifiant_interne")), unique=True,
+              postgresql_where=text("identifiant_interne IS NOT NULL AND identifiant_interne <> ''")),
+    )
     id: Optional[int] = Field(default=None, primary_key=True)
     cree_le: NaiveDatetime = Field(default_factory=utcnow)
     maj_le: NaiveDatetime = Field(default_factory=utcnow)
@@ -125,6 +160,11 @@ class ApplicationBase(SQLModel):
     description: Optional[str] = None
     entite_id: Optional[int] = Field(default=None, foreign_key="entite.id")
     actif: bool = True
+
+    @field_validator("nom", "description")
+    @classmethod
+    def _longueurs(cls, v, info):
+        return _borne(v, info.field_name, {"nom": 200, "description": 2000})
 
 
 class Application(ApplicationBase, table=True):
