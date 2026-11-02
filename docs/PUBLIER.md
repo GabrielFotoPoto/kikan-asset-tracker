@@ -8,7 +8,7 @@
 |---|---|
 | Hygiène du dépôt | pas de tiret long, tests en ASCII, en-têtes de licence, aucun secret ni fichier sensible versionné, code Python compilable, YAML et JSON valides (`tests/hygiene_check.py`) |
 | Audit des dépendances | `pip-audit` (Python) et `npm audit` (front, niveau élevé) |
-| Compilation du front | `npm ci` puis `npm run build` |
+| Compilation du front | `npm ci` puis `npm run build`, puis les tests de la logique des listes (`node --test src/*.test.js`, tri et pagination) |
 | Suites de tests | la pile complète (base, convertisseur, API) puis **toutes les suites** : sécurité, fonctionnel, signatures, chartes, import, comptes, cloisonnement, e-mails, API, GLPI (faux GLPI), SharePoint et DocuWare (faux services), SSO (faux fournisseur) (`tests/run_all.sh`) |
 | Sauvegarde et restauration | restauration dans une instance vierge, mauvaise clé, archive altérée, partage Samba (`tests/backup_check.py`) |
 | Images Docker | construction des quatre images (api, web, convertisseur, sauvegarde) et analyse Trivy (information, ne bloque pas) |
