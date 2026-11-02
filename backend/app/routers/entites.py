@@ -70,7 +70,7 @@ def list_entites(session: Session = Depends(get_session), scope: Scope = Depends
 @router.post("", response_model=Entite, status_code=201)
 def create_entite(data: EntiteBase, session: Session = Depends(get_session)):
     values = _clean(data)
-    taken(session, Entite, Entite.code, values["code"], None, "Code d'entite")
+    taken(session, Entite, Entite.code, values["code"], None, "Code d'entite", ci=False)
     _check_parent(session, values["code"], values["code_parent"], None)
     obj = Entite(**values)
     session.add(obj)
@@ -96,7 +96,7 @@ def update_entite(
     if not obj:
         raise HTTPException(404, "Entite introuvable")
     values = _clean(data)
-    taken(session, Entite, Entite.code, values["code"], obj.id, "Code d'entite")
+    taken(session, Entite, Entite.code, values["code"], obj.id, "Code d'entite", ci=False)
     _check_parent(session, values["code"], values["code_parent"], obj.id)
     fields = changed_fields(obj, values)
     old_code = obj.code
