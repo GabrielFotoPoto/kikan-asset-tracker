@@ -68,15 +68,20 @@ export function trier(items, cle, sens = "asc") {
   });
 }
 
-// Decoupe une liste en pages. Une page hors limites (liste raccourcie par un filtre ou une suppression)
-// est ramenee dans les limites : on ne tombe jamais sur une page vide.
-export function paginer(items, page, taille = TAILLE_DEFAUT) {
-  const total = items.length;
+// Repere de pagination d'une liste dont on ne connait que le nombre total (pagination faite par le serveur). Une page
+// hors limites est ramenee dans les limites ; une liste vide donne la page 1 sur 1, plage 0-0.
+export function pagination(total, page, taille = TAILLE_DEFAUT) {
   const pages = Math.max(1, Math.ceil(total / taille));
   const courante = Math.min(Math.max(1, Math.floor(page) || 1), pages);
   const debut = (courante - 1) * taille;
-  const tranche = items.slice(debut, debut + taille);
-  return { tranche, total, pages, page: courante, de: total ? debut + 1 : 0, a: debut + tranche.length };
+  return { total, pages, page: courante, de: total ? debut + 1 : 0, a: Math.min(debut + taille, total) };
+}
+
+// Decoupe une liste en pages. Une page hors limites (liste raccourcie par un filtre ou une suppression)
+// est ramenee dans les limites : on ne tombe jamais sur une page vide.
+export function paginer(items, page, taille = TAILLE_DEFAUT) {
+  const repere = pagination(items.length, page, taille);
+  return { tranche: items.slice(repere.de ? repere.de - 1 : 0, repere.a), ...repere };
 }
 
 // Numeros de pages a afficher : premiere, derniere, la page courante et ses voisines, "…" pour les trous.

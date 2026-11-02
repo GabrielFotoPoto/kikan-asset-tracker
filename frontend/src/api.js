@@ -42,10 +42,12 @@ export async function endSession() {
   try { await fetch(BASE + "/auth/logout", { method: "POST", headers: CSRF }); } catch { /* ignore */ }
 }
 
+// avecTotal : renvoie aussi le nombre total d'elements (en-tete X-Total-Count) pour les listes paginees par le serveur.
 async function req(path, opts = {}) {
-  const headers = { "Content-Type": "application/json", ...CSRF, ...(opts.headers || {}) };
+  const { avecTotal, ...init } = opts;
+  const headers = { "Content-Type": "application/json", ...CSRF, ...(init.headers || {}) };
 
-  const res = await fetch(BASE + path, { ...opts, headers });
+  const res = await fetch(BASE + path, { ...init, headers });
 
   if (res.status === 401) {
     setSession(false);
@@ -58,7 +60,10 @@ async function req(path, opts = {}) {
   }
   if (res.status === 204) return null;
   const ct = res.headers.get("content-type") || "";
-  return ct.includes("application/json") ? res.json() : res;
+  const data = ct.includes("application/json") ? await res.json() : res;
+  if (!avecTotal) return data;
+  const total = Number(res.headers.get("X-Total-Count"));
+  return { data, total: Number.isFinite(total) && res.headers.has("X-Total-Count") ? total : data.length };
 }
 
 export async function downloadFile(path, filename) {
@@ -120,6 +125,7 @@ export function errorText(ex) {
 
 export const api = {
   get: (p) => req(p),
+  getPage: (p) => req(p, { avecTotal: true }),
   post: (p, b) => req(p, { method: "POST", body: JSON.stringify(b) }),
   put: (p, b) => req(p, { method: "PUT", body: JSON.stringify(b) }),
   del: (p) => req(p, { method: "DELETE" }),
