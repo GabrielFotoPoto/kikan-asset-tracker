@@ -282,6 +282,21 @@ if PROD:
 else:
     print(f"INFO /docs expose (HTTP {s}) : normal en developpement, masque avec KIKAN_ENV=production")
 
+print("== 11b. Une rafale anonyme n'aveugle pas le journal des refus d'un compte ==")
+_s, _b, _ = call("GET", "/audit?limit=1", token=adm)
+_id_avant = json.loads(_b)[0]["id"] if _s == 200 and json.loads(_b) else 0
+for _ in range(80):
+    call("GET", "/users")  # 401 anonymes : depassent largement le plafond d'une minute
+s, _, _ = call("GET", "/audit", token=rh)
+show("refus 403 du compte rh apres la rafale", s == 403, f"HTTP {s}")
+_s, _b, _ = call("GET", "/audit?limit=500", token=adm)
+_apres = [x for x in (json.loads(_b) if _s == 200 else []) if x["id"] > _id_avant]
+show("ce refus 403 est journalise malgre la rafale anonyme",
+     any(x["actor"] == "sec_rh" and x["status"] == 403 for x in _apres))
+show("la rafale anonyme est plafonnee dans le journal",
+     0 < sum(1 for x in _apres if x["actor"] == "anonyme" and x["status"] == 401) <= 60,
+     f"{sum(1 for x in _apres if x['actor'] == 'anonyme' and x['status'] == 401)} entree(s) pour 80 requetes")
+
 SAISIE_INCONNUE = "Zz.Saisie.Inconnue@exemple.test"
 call("POST", "/auth/login", {"username": SAISIE_INCONNUE, "password": "mauvais-zz"})
 call("POST", "/auth/forgot", {"identifiant": SAISIE_INCONNUE})
