@@ -5,7 +5,13 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.4.1] - 2026-11-02
+
 Listes paginées et triables (Matériel, Utilisateurs, Remises), et sélection du matériel à remettre limitée à 20 lignes à la fois. Interface seulement : aucune migration, aucun changement d'API.
+
+### Mise à jour depuis 0.4.0
+- **Aucune migration de base de données** et aucun changement d'API : seule l'interface change (le code du serveur est identique à celui de la 0.4.0, mais les quatre images sont republiées en 0.4.1). Changer `KIKAN_VERSION` dans `.env`, puis `docker compose pull` et `docker compose up -d --no-build` ; l'interface est brièvement indisponible pendant le redémarrage. **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)).
+- Au premier affichage, le nombre de lignes par page dépend de l'écran (10 sur téléphone, 20, 50 sur grand écran) ; il se règle ensuite par liste et se mémorise dans le navigateur de chaque utilisateur.
 
 ### Ajouté
 - **Tri par colonne** sur les pages **Matériel** (id interne, type, marque, modèle, n° de série, statut), **Utilisateurs** (matricule, nom, filiale, service, statut, arrivée) et **Remises** (n°, salarié, statut, remise). Un clic sur l'en-tête trie en croissant, un deuxième en décroissant, un troisième revient à l'ordre par défaut. Le tri ignore la casse et les accents, compare les nombres comme des nombres (PC-2 avant PC-10) et range toujours les valeurs vides en fin de liste. Sur petit écran, la page Matériel (cartes) propose un menu « Trier par ».
@@ -14,6 +20,9 @@ Listes paginées et triables (Matériel, Utilisateurs, Remises), et sélection d
 - **Vue conservée dans l'adresse** (`tri`, `sens`, `taille`, `page`) : un lien copié ou un retour arrière retrouve la même vue. Le lien d'une étiquette QR (`?asset=ID`) ouvre la page qui contient le matériel.
 - **Sélection du matériel en stock** (formulaire de remise et page Renouveler) : recherche sans accent ni casse, 20 lignes à la fois (« Afficher 20 de plus »), et la sélection reste toujours visible en haut avec « Tout désélectionner ». Avec 270 matériels en stock, la liste affichait auparavant 270 cases d'un coup.
 - Composants et utilitaires partagés : `tableau.js` (tri et pagination, fonctions pures), `useTableau.js`, `Pagination.jsx`, `ThTri.jsx`, `SelectionMateriel.jsx`. Tests de la logique, sans dépendance : `node --test frontend/src/tableau.test.js`.
+
+### Modifié
+- Sur les pages **Matériel** et **Utilisateurs**, l'ordre par défaut est désormais **les derniers ajoutés d'abord** (auparavant l'ordre renvoyé par la base) : un nouvel arrivant ou un nouveau matériel apparaît sur la première page.
 
 ### Corrigé
 - Page Utilisateurs : un changement de tri ou de page ne remet plus dans la barre de recherche le texte du lien de la palette `Ctrl+K`.
