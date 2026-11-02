@@ -81,6 +81,9 @@ suite() {
 
 echo "== Demarrage de la pile =="
 dc up -d --build db converter api >/dev/null 2>&1 || { echo "Demarrage de la pile impossible" >&2; dc logs --tail 40 2>&1; exit 1; }
+# Limiteurs en memoire (connexion, refus journalises, reinitialisation) : un API neuf a chaque passage, sinon les
+# budgets du passage precedent faussent les suites lancees a la suite.
+dc up -d --force-recreate api >/dev/null 2>&1 || true
 wait_api || { dc logs --tail 60 api; exit 1; }
 
 if [ ${#ONLY[@]} -gt 0 ]; then
