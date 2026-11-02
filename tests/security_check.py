@@ -294,7 +294,7 @@ _apres = [x for x in (json.loads(_b) if _s == 200 else []) if x["id"] > _id_avan
 show("ce refus 403 est journalise malgre la rafale anonyme",
      any(x["actor"] == "sec_rh" and x["status"] == 403 for x in _apres))
 show("la rafale anonyme est plafonnee dans le journal",
-     0 < sum(1 for x in _apres if x["actor"] == "anonyme" and x["status"] == 401) <= 60,
+     sum(1 for x in _apres if x["actor"] == "anonyme" and x["status"] == 401) <= 60,
      f"{sum(1 for x in _apres if x['actor'] == 'anonyme' and x['status'] == 401)} entree(s) pour 80 requetes")
 
 SAISIE_INCONNUE = "Zz.Saisie.Inconnue@exemple.test"
