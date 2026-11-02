@@ -17,6 +17,44 @@ Issu de l'audit du 2026-11-01 (lot A, intégrité des données).
 ### Modifié
 - Le contrôle de doublon (`409`) ignore désormais la casse pour le matricule, le numéro de série et l'identifiant interne, comme les imports et les index.
 
+## [0.4.2] - 2026-11-02
+
+Journal d'audit paginé et triable, faits par le serveur : toutes les entrées deviennent consultables. Aucune migration de base de données ; l'API change de façon compatible (nouveaux paramètres facultatifs).
+
+### Mise à jour depuis 0.4.1
+- **Aucune migration de base de données.** Contrairement à la 0.4.1, **l'API change** (`GET /audit`, voir ci-dessous) : les quatre images sont à mettre à jour ensemble, car la page Journal d'audit de la nouvelle interface s'appuie sur la nouvelle API. Changer `KIKAN_VERSION` dans `.env`, puis `docker compose pull` et `docker compose up -d --no-build` ; l'application est brièvement indisponible pendant le redémarrage. **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)).
+- Les appelants existants de `GET /audit` ne sont pas touchés : la réponse reste une liste et, sans nouveau paramètre, le résultat est identique.
+
+### Ajouté
+- **Journal d'audit : pagination et tri faits par le serveur.** La page ne chargeait que les 300 dernières entrées, et les plus anciennes étaient inaccessibles alors que le journal ne fait que grossir. Elle affiche maintenant 10, 20 ou 50 lignes à la fois, avec précédent / numéros / suivant, et toutes les entrées sont consultables. Tri par clic sur Date, Compte, Action, Statut ou IP (les valeurs vides toujours en fin de liste). Les filtres Compte et Action, le tri, la taille et la page sont dans l'adresse ; le filtre s'applique aussi avec la touche Entrée.
+- **API** : `GET /audit` accepte `offset`, `tri` (`id`, `ts`, `actor`, `action`, `status`, `ip`) et `sens` (`asc`, `desc`), et renvoie le nombre total d'entrées correspondant aux filtres dans l'en-tête `X-Total-Count`. Un tri inconnu, un `offset` négatif ou non numérique sont refusés (422). **Compatible** : la réponse reste une liste, et sans nouveau paramètre le résultat est identique (les `limit` entre 1 et 1000 comme avant, les plus récentes d'abord).
+- Nouvelle suite `tests/audit_pagination_check.py` (29 vérifications : pages bout à bout sans trou ni doublon, total, tri, refus des paramètres invalides, injection dans le tri), ajoutée à `tests/run_all.sh`. `pagination()` dans `tableau.js` (2 tests de plus).
+
+### Modifié
+- Intégration continue : le travail « Compilation du front » rejoue aussi les tests de la logique de tri et de pagination des listes (`node --test src/*.test.js`). Aucun changement pour l'application.
+
+## [0.4.1] - 2026-11-02
+
+Listes paginées et triables (Matériel, Utilisateurs, Remises), et sélection du matériel à remettre limitée à 20 lignes à la fois. Interface seulement : aucune migration, aucun changement d'API.
+
+### Mise à jour depuis 0.4.0
+- **Aucune migration de base de données** et aucun changement d'API : seule l'interface change (le code du serveur est identique à celui de la 0.4.0, mais les quatre images sont republiées en 0.4.1). Changer `KIKAN_VERSION` dans `.env`, puis `docker compose pull` et `docker compose up -d --no-build` ; l'interface est brièvement indisponible pendant le redémarrage. **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)).
+- Au premier affichage, le nombre de lignes par page dépend de l'écran (10 sur téléphone, 20, 50 sur grand écran) ; il se règle ensuite par liste et se mémorise dans le navigateur de chaque utilisateur.
+
+### Ajouté
+- **Tri par colonne** sur les pages **Matériel** (id interne, type, marque, modèle, n° de série, statut), **Utilisateurs** (matricule, nom, filiale, service, statut, arrivée) et **Remises** (n°, salarié, statut, remise). Un clic sur l'en-tête trie en croissant, un deuxième en décroissant, un troisième revient à l'ordre par défaut. Le tri ignore la casse et les accents, compare les nombres comme des nombres (PC-2 avant PC-10) et range toujours les valeurs vides en fin de liste. Sur petit écran, la page Matériel (cartes) propose un menu « Trier par ».
+- **Pagination** de ces trois listes : plage affichée (« 21-40 sur 300 »), précédent / numéros / suivant et choix du nombre de lignes (10, 20 ou 50). Ordre par défaut : les derniers ajoutés d'abord (les remises, comme avant, par date de remise). La recherche et les filtres portent toujours sur toute la liste et ramènent à la première page.
+- **Nombre de lignes adapté à l'écran** : 10 sur téléphone (moins de 720 px), 20 par défaut, 50 sur grand écran (au moins 1400 × 1000 px). Le choix de l'utilisateur prime et est mémorisé dans le navigateur.
+- **Vue conservée dans l'adresse** (`tri`, `sens`, `taille`, `page`) : un lien copié ou un retour arrière retrouve la même vue. Le lien d'une étiquette QR (`?asset=ID`) ouvre la page qui contient le matériel.
+- **Sélection du matériel en stock** (formulaire de remise et page Renouveler) : recherche sans accent ni casse, 20 lignes à la fois (« Afficher 20 de plus »), et la sélection reste toujours visible en haut avec « Tout désélectionner ». Avec 270 matériels en stock, la liste affichait auparavant 270 cases d'un coup.
+- Composants et utilitaires partagés : `tableau.js` (tri et pagination, fonctions pures), `useTableau.js`, `Pagination.jsx`, `ThTri.jsx`, `SelectionMateriel.jsx`. Tests de la logique, sans dépendance : `node --test frontend/src/tableau.test.js`.
+
+### Modifié
+- Sur les pages **Matériel** et **Utilisateurs**, l'ordre par défaut est désormais **les derniers ajoutés d'abord** (auparavant l'ordre renvoyé par la base) : un nouvel arrivant ou un nouveau matériel apparaît sur la première page.
+
+### Corrigé
+- Page Utilisateurs : un changement de tri ou de page ne remet plus dans la barre de recherche le texte du lien de la palette `Ctrl+K`.
+
 ## [0.4.0] - 2026-10-31
 
 Version finale de la refonte de l'interface : elle reprend tout le contenu de la préversion 0.4.0-rc.1 (ci-dessous), dont les points qui restaient à valider ont maintenant été vérifiés : affichage sur un vrai téléphone et vues des rôles RH et lecture dans le navigateur. Aucune migration de base de données.
