@@ -5,6 +5,19 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+Listes paginées et triables (Matériel, Utilisateurs, Remises), et sélection du matériel à remettre limitée à 20 lignes à la fois. Interface seulement : aucune migration, aucun changement d'API.
+
+### Ajouté
+- **Tri par colonne** sur les pages **Matériel** (id interne, type, marque, modèle, n° de série, statut), **Utilisateurs** (matricule, nom, filiale, service, statut, arrivée) et **Remises** (n°, salarié, statut, remise). Un clic sur l'en-tête trie en croissant, un deuxième en décroissant, un troisième revient à l'ordre par défaut. Le tri ignore la casse et les accents, compare les nombres comme des nombres (PC-2 avant PC-10) et range toujours les valeurs vides en fin de liste. Sur petit écran, la page Matériel (cartes) propose un menu « Trier par ».
+- **Pagination** de ces trois listes : plage affichée (« 21-40 sur 300 »), précédent / numéros / suivant et choix du nombre de lignes (10, 20 ou 50). Ordre par défaut : les derniers ajoutés d'abord (les remises, comme avant, par date de remise). La recherche et les filtres portent toujours sur toute la liste et ramènent à la première page.
+- **Nombre de lignes adapté à l'écran** : 10 sur téléphone (moins de 720 px), 20 par défaut, 50 sur grand écran (au moins 1400 × 1000 px). Le choix de l'utilisateur prime et est mémorisé dans le navigateur.
+- **Vue conservée dans l'adresse** (`tri`, `sens`, `taille`, `page`) : un lien copié ou un retour arrière retrouve la même vue. Le lien d'une étiquette QR (`?asset=ID`) ouvre la page qui contient le matériel.
+- **Sélection du matériel en stock** (formulaire de remise et page Renouveler) : recherche sans accent ni casse, 20 lignes à la fois (« Afficher 20 de plus »), et la sélection reste toujours visible en haut avec « Tout désélectionner ». Avec 270 matériels en stock, la liste affichait auparavant 270 cases d'un coup.
+- Composants et utilitaires partagés : `tableau.js` (tri et pagination, fonctions pures), `useTableau.js`, `Pagination.jsx`, `ThTri.jsx`, `SelectionMateriel.jsx`. Tests de la logique, sans dépendance : `node --test frontend/src/tableau.test.js`.
+
+### Corrigé
+- Page Utilisateurs : un changement de tri ou de page ne remet plus dans la barre de recherche le texte du lien de la palette `Ctrl+K`.
+
 ## [0.4.0] - 2026-10-31
 
 Version finale de la refonte de l'interface : elle reprend tout le contenu de la préversion 0.4.0-rc.1 (ci-dessous), dont les points qui restaient à valider ont maintenant été vérifiés : affichage sur un vrai téléphone et vues des rôles RH et lecture dans le navigateur. Aucune migration de base de données.
