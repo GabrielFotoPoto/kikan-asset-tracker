@@ -5,6 +5,14 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.4.2] - 2026-11-02
+
+Journal d'audit paginé et triable, faits par le serveur : toutes les entrées deviennent consultables. Aucune migration de base de données ; l'API change de façon compatible (nouveaux paramètres facultatifs).
+
+### Mise à jour depuis 0.4.1
+- **Aucune migration de base de données.** Contrairement à la 0.4.1, **l'API change** (`GET /audit`, voir ci-dessous) : les quatre images sont à mettre à jour ensemble, car la page Journal d'audit de la nouvelle interface s'appuie sur la nouvelle API. Changer `KIKAN_VERSION` dans `.env`, puis `docker compose pull` et `docker compose up -d --no-build` ; l'application est brièvement indisponible pendant le redémarrage. **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)).
+- Les appelants existants de `GET /audit` ne sont pas touchés : la réponse reste une liste et, sans nouveau paramètre, le résultat est identique.
+
 ### Ajouté
 - **Journal d'audit : pagination et tri faits par le serveur.** La page ne chargeait que les 300 dernières entrées, et les plus anciennes étaient inaccessibles alors que le journal ne fait que grossir. Elle affiche maintenant 10, 20 ou 50 lignes à la fois, avec précédent / numéros / suivant, et toutes les entrées sont consultables. Tri par clic sur Date, Compte, Action, Statut ou IP (les valeurs vides toujours en fin de liste). Les filtres Compte et Action, le tri, la taille et la page sont dans l'adresse ; le filtre s'applique aussi avec la touche Entrée.
 - **API** : `GET /audit` accepte `offset`, `tri` (`id`, `ts`, `actor`, `action`, `status`, `ip`) et `sens` (`asc`, `desc`), et renvoie le nombre total d'entrées correspondant aux filtres dans l'en-tête `X-Total-Count`. Un tri inconnu, un `offset` négatif ou non numérique sont refusés (422). **Compatible** : la réponse reste une liste, et sans nouveau paramètre le résultat est identique (les `limit` entre 1 et 1000 comme avant, les plus récentes d'abord).
