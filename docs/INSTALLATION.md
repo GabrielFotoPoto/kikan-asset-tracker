@@ -50,7 +50,7 @@ Renseignez au minimum :
 |---|---|---|
 | `POSTGRES_PASSWORD` | mot de passe de la base | une valeur longue et aléatoire |
 | `KIKAN_SECRET_KEY` | signature des sessions (32 caractères minimum) | `python -c "import secrets; print(secrets.token_urlsafe(48))"` ou `openssl rand -base64 48` |
-| `KIKAN_ENV` | `production` en exploitation | refuse de démarrer sans clé solide, masque la documentation interactive de l'API et impose le cookie de session sécurisé |
+| `KIKAN_ENV` | `production` (valeur par défaut, à garder en exploitation) ; `development` réservé au poste de développement | refuse de démarrer sans clé solide, masque la documentation interactive de l'API et impose le cookie de session sécurisé |
 | `KIKAN_PUBLIC_URL` | adresse publique en HTTPS, par exemple `https://kikan.exemple.local` | **nécessaire** pour les liens des e-mails et « Mot de passe oublié ? » |
 | `KIKAN_ADMIN_USER` / `KIKAN_ADMIN_PASSWORD` | premier compte | facultatif : sinon un mot de passe aléatoire est généré (voir étape 5) |
 

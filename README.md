@@ -126,7 +126,7 @@ vous-même `KIKAN_ADMIN_USER` et `KIKAN_ADMIN_PASSWORD` dans `.env` avant le pre
 
 > **Sécurité** : `KIKAN_SECRET_KEY` (clé de signature des sessions, 32 caractères minimum) et `POSTGRES_PASSWORD`
 > sont à définir dans `.env`, qui ne doit jamais être commité. Avec `KIKAN_ENV=production`, l'application refuse
-> de démarrer sans clé solide. Voir [SECURITY.md](SECURITY.md) pour la liste de contrôle de mise en production,
+> de démarrer sans clé solide (c'est le mode par défaut si `KIKAN_ENV` est absent). Voir [SECURITY.md](SECURITY.md) pour la liste de contrôle de mise en production,
 > les risques acceptés et les tests de sécurité.
 
 ### Tablette de signature sur le réseau local

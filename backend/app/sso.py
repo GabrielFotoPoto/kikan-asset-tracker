@@ -43,7 +43,7 @@ from jwt.algorithms import RSAAlgorithm
 
 from .models import Role
 
-IS_PROD = os.environ.get("KIKAN_ENV", "development").lower() == "production"
+IS_PROD = ((os.environ.get("KIKAN_ENV") or "production").strip().lower() == "production")
 COOKIE = "kikan_sso_state"
 FLOW_TTL = 600
 TICKET_TTL = 60

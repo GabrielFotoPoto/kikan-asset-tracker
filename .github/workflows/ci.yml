@@ -112,6 +112,7 @@ jobs:
           sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" .env
           sed -i "s|^KIKAN_SECRET_KEY=.*|KIKAN_SECRET_KEY=$(openssl rand -hex 32)|" .env
           sed -i "s|^KIKAN_ADMIN_PASSWORD=.*|KIKAN_ADMIN_PASSWORD=Ci-$(openssl rand -hex 12)-Aa1|" .env
+          sed -i "s|^KIKAN_ENV=.*|KIKAN_ENV=development|" .env  # la CI tourne en developpement, comme la pile de test
           grep -c '^KIKAN_ADMIN_PASSWORD=Ci-' .env
       - name: Toutes les suites
         run: bash tests/run_all.sh
@@ -136,6 +137,7 @@ jobs:
           sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" .env
           sed -i "s|^KIKAN_SECRET_KEY=.*|KIKAN_SECRET_KEY=$(openssl rand -hex 32)|" .env
           sed -i "s|^KIKAN_ADMIN_PASSWORD=.*|KIKAN_ADMIN_PASSWORD=Ci-$(openssl rand -hex 12)-Aa1|" .env
+          sed -i "s|^KIKAN_ENV=.*|KIKAN_ENV=development|" .env  # la CI tourne en developpement, comme la pile de test
       - name: Pile de developpement
         run: |
           docker compose up -d --build db converter api
