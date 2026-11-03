@@ -123,7 +123,6 @@ show("mise-a-jour : url_release HTTPS GitHub", isinstance(m.get("url_release"), 
 
 import http.server
 import threading
-import time
 from unittest.mock import patch
 from app.routers import apropos as ap_mod
 

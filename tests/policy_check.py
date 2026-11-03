@@ -230,7 +230,7 @@ def make_docx(paragraphs, link=None, extra=None):
     body = "".join(f'<w:p><w:r><w:t xml:space="preserve">{t}</w:t></w:r></w:p>' for t in paragraphs)
     rels = ""
     if link:
-        body += f'<w:p><w:hyperlink r:id="rIdL"><w:r><w:t>lien externe</w:t></w:r></w:hyperlink></w:p>'
+        body += '<w:p><w:hyperlink r:id="rIdL"><w:r><w:t>lien externe</w:t></w:r></w:hyperlink></w:p>'
         rels = ('<Relationship Id="rIdL" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" '
                 f'Target="{link}" TargetMode="External"/>')
     files = {

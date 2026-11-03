@@ -28,7 +28,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 sys.path.insert(0, "/app")
 

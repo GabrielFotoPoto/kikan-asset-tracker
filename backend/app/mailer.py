@@ -29,7 +29,7 @@ from email.message import EmailMessage
 
 from sqlmodel import Session
 
-from . import appsettings
+from . import appsettings, netguard
 
 SECURITES = ("aucune", "starttls", "ssl")
 PIECES_JOINTES = ("aucune", "xlsx", "pdf")
@@ -128,6 +128,9 @@ def send(cfg: MailConfig, to: list[str], subject: str, body: str,
     recipients = [a.strip() for a in to]
     if not recipients or not all(valid_address(a) for a in recipients):
         raise MailError("Adresse de destination invalide")
+    refus = netguard.probleme_hote(cfg.hote)
+    if refus:
+        raise MailError(refus)
     msg = EmailMessage()
     try:
         msg["From"] = cfg.expediteur
