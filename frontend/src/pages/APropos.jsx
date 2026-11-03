@@ -18,12 +18,29 @@
  */
 
 import { useEffect, useState } from "react";
-import { api } from "../api.js";
+import { api, errorText } from "../api.js";
+import { useAuth } from "../auth.jsx";
 
 export default function APropos() {
+  const { user } = useAuth();
+  const it = user?.role === "informatique";
   const [d, setD] = useState(null);
+  const [maj, setMaj] = useState(null);
+  const [verif, setVerif] = useState(false);
   const [err, setErr] = useState(null);
-  useEffect(() => { api.get("/apropos").then(setD).catch((e) => setErr(e.message)); }, []);
+
+  useEffect(() => {
+    api.get("/apropos").then(setD).catch((e) => setErr(errorText(e)));
+    if (it) api.get("/apropos/mise-a-jour").then(setMaj).catch(() => {});
+  }, [it]);
+
+  const verifierMaintenant = () => {
+    setVerif(true);
+    api.get("/apropos/mise-a-jour?forcer=true")
+      .then(setMaj)
+      .catch(() => {})
+      .finally(() => setVerif(false));
+  };
 
   if (err) return <div><h2>A propos</h2><p className="err">{err}</p></div>;
   if (!d) return <div><h2>A propos</h2><p className="muted">Chargement...</p></div>;
@@ -46,7 +63,43 @@ export default function APropos() {
           {d.liens.version && <><a href={d.liens.version} target="_blank" rel="noopener noreferrer">Notes de cette version</a> - </>}
           <a href={d.liens.journal} target="_blank" rel="noopener noreferrer">Historique des changements</a>
         </p>
-        <p className="muted">Python {d.python}</p>
+        {it && maj && maj.verification_active && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+            {maj.disponible ? (
+              <div>
+                <p>
+                  <span className="badge bad">Mise a jour disponible</span>{" "}
+                  <strong>v{maj.derniere_version}</strong>
+                  {maj.date_publication && <span className="muted"> (publiee le {maj.date_publication})</span>}
+                  {" - "}
+                  <a href={maj.url_release} target="_blank" rel="noopener noreferrer">Voir les notes de version</a>
+                </p>
+                <p className="muted" style={{ marginBottom: 6 }}>
+                  Pour mettre a jour le serveur (sauvegarde automatique puis bascule des conteneurs) :
+                </p>
+                <pre style={{ margin: "6px 0", padding: "8px 12px", background: "var(--bg)", borderRadius: 6, overflowX: "auto", fontSize: 13 }}>
+                  <code>{`./scripts/update.sh ${maj.derniere_version}   # Linux / macOS\n.\\scripts\\update.ps1 -Version ${maj.derniere_version}   # Windows PowerShell`}</code>
+                </pre>
+              </div>
+            ) : maj.erreur ? (
+              <p className="muted">
+                Verification des mises a jour : {maj.erreur}{" "}
+                <button type="button" className="ghost" style={{ marginLeft: 8 }} disabled={verif} onClick={verifierMaintenant}>
+                  {verif ? "Verification..." : "Reessayer"}
+                </button>
+              </p>
+            ) : (
+              <p>
+                <span className="badge ok">A jour</span>{" "}
+                {maj.derniere_version && <span className="muted">Derniere version publiee sur GitHub : v{maj.derniere_version}</span>}
+                <button type="button" className="ghost" style={{ marginLeft: 10 }} disabled={verif} onClick={verifierMaintenant}>
+                  {verif ? "Verification..." : "Verifier maintenant"}
+                </button>
+              </p>
+            )}
+          </div>
+        )}
+        <p className="muted" style={{ marginTop: 10 }}>Python {d.python}</p>
       </div>
 
       <div className="card">

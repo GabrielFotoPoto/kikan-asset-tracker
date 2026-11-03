@@ -26,6 +26,7 @@ import { Feedback } from "../components/Notifications.jsx";
 export default function Dashboard() {
   const { user } = useAuth();
   const [backup, setBackup] = useState(null);
+  const [maj, setMaj] = useState(null);
   const [users, setUsers] = useState([]);
   const [assets, setAssets] = useState([]);
   const [besoins, setBesoins] = useState(0);
@@ -37,7 +38,10 @@ export default function Dashboard() {
     Promise.all([api.get("/users"), api.get("/assets")])
       .then(([u, a]) => { setUsers(u); setAssets(a); })
       .catch((e) => setErr(e.message));
-    if (user.role === "informatique") api.get("/backup/status").then(setBackup).catch(() => {});
+    if (user.role === "informatique") {
+      api.get("/backup/status").then(setBackup).catch(() => {});
+      api.get("/apropos/mise-a-jour").then(setMaj).catch(() => {});
+    }
     api.get("/stats").then((s) => setBesoins(s.besoins_a_traiter || 0)).catch(() => {});
     if (user.role === "informatique") api.get("/renouvellements?horizon_mois=0").then((r) => setRetard(r.totaux.en_retard)).catch(() => {});
     api.get("/revues/anomalies").then((r) => setAnomalies(r.count || 0)).catch(() => {});
@@ -65,6 +69,12 @@ export default function Dashboard() {
           <strong>Sauvegarde a verifier.</strong>{" "}
           {backup.configure ? (backup.dernier_echec ? "La derniere tentative a echoue." : `La derniere sauvegarde reussie date de ${backup.age_heures} h.`) : "Aucune sauvegarde enregistree."}{" "}
           <Link to="/sauvegarde">Voir le detail</Link>
+        </div>
+      )}
+      {maj?.disponible && (
+        <div className="card" role="status">
+          <strong>Nouvelle version disponible : v{maj.derniere_version}</strong> (version installee : v{maj.version_actuelle}).{" "}
+          <Link to="/a-propos">Voir les instructions de mise a jour</Link>
         </div>
       )}
       <div className="tiles">

@@ -108,5 +108,24 @@ show("chaque composant a une licence", all(c["licence"] and c["role"] for c in d
 txt = json.dumps(d).lower()
 show("aucun secret ni chemin interne", not any(w in txt for w in ("password", "secret", "token", "/app/", "database_url", "postgresql+")), "")
 
+print("== Verification des mises a jour ==")
+s, _ = call("GET", "/apropos/mise-a-jour", None, None)
+show("mise-a-jour sans session : refuse", s in (401, 403), s)
+for role in ("rh", "lecture"):
+    s, _ = j("GET", "/apropos/mise-a-jour", None, tokens[role])
+    show("mise-a-jour %s : refuse (403)" % role, s == 403, s)
+s, m = j("GET", "/apropos/mise-a-jour", None, tokens["informatique"])
+show("mise-a-jour informatique : autorise (200)", s == 200 and isinstance(m, dict), s)
+show("mise-a-jour : champs attendus presents",
+     all(k in m for k in ("verification_active", "version_actuelle", "developpement", "derniere_version", "disponible", "url_release", "erreur")),
+     m)
+show("mise-a-jour : url_release HTTPS GitHub", isinstance(m.get("url_release"), str) and m["url_release"].startswith("https://github.com/"), m.get("url_release"))
+
+from app.routers.apropos import _parse_semver
+show("semver : comparaison standard", _parse_semver("0.5.0") > _parse_semver("0.4.2"))
+show("semver : finale > preversion", _parse_semver("0.5.0") > _parse_semver("0.5.0-rc.1"))
+show("semver : prefixe v ignore", _parse_semver("v1.2.3") == _parse_semver("1.2.3"))
+show("semver : version invalide -> None", _parse_semver("dev") is None and _parse_semver("") is None)
+
 print("%d echec(s)" % fails)
 sys.exit(1 if fails else 0)
