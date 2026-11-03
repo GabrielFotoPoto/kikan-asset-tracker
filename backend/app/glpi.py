@@ -23,7 +23,6 @@ de l'interface. Regles : jamais de suppression, jamais d'ecrasement ; Kikan est 
 deja connu (meme numero de serie, meme matricule ou e-mail) est lie et non duplique. L'import n'agit que sur les elements
 choisis par l'administrateur, relus depuis GLPI au moment de l'application (le client ne fournit jamais les donnees).
 """
-import ipaddress
 import json
 import os
 import re
@@ -37,7 +36,7 @@ from dataclasses import dataclass, field
 
 from sqlmodel import Session, select
 
-from . import appsettings, integration
+from . import appsettings, integration, netguard
 from .auth import IS_PROD
 from .integration import clean
 from .models import Asset, AssetStatus, Assignment, AssignmentAsset, EmployeeStatus, ExternalLink, User
@@ -128,13 +127,7 @@ def url_problem(url: str) -> str | None:
         return "L'adresse ne doit contenir ni identifiants ni parametres"
     if parsed.scheme == "http" and IS_PROD and os.environ.get("KIKAN_GLPI_ALLOW_HTTP") != "1":
         return "HTTPS est exige en production (les jetons ne doivent pas circuler en clair)"
-    try:
-        ip = ipaddress.ip_address(parsed.hostname)
-        if ip.is_link_local or ip.is_multicast or ip.is_unspecified:
-            return "Adresse de serveur non autorisee"
-    except ValueError:
-        pass
-    return None
+    return netguard.probleme_hote(parsed.hostname)
 
 
 def base_url(url: str) -> str:

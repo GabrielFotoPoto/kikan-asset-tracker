@@ -80,6 +80,7 @@ class State:
         self.chunks = []
         self.dw_bad_multipart = []
         self.requests = []
+        self.dav_auth = []         # en-tetes Authorization recus sur /dav/ (une redirection ne doit jamais en apporter)
 
 
 S = State()
@@ -121,7 +122,10 @@ class Fake(BaseHTTPRequestHandler):
         path = urllib.parse.unquote(parsed.path)
         body = self._body()
         S.requests.append((method, path))
+        if path.startswith("/davredir/"):  # redirige vers un AUTRE port (autre hote pour le client) : ne doit pas etre suivie
+            return self._send(302, b"", {"Location": "http://127.0.0.1:2620/dav/" + path[len("/davredir/"):]})
         if path.startswith("/dav/"):
+            S.dav_auth.append(self.headers.get("Authorization"))
             return self._webdav(method, path[len("/dav/"):], body)
         if S.fail:
             return self._send(500, {"error": {"code": "serverError"}})
@@ -489,6 +493,32 @@ for bad in ("../evil.pdf", "/abs.pdf", "a/../../b.pdf", "a b.pdf", "a\\b.pdf"):
         show("cle refusee : %s" % bad, False)
     except filestore.StorageError:
         show("cle refusee : %s" % bad, True)
+
+print("== WebDAV : les redirections ne sont pas suivies ==")
+S.files[("dav", "2026/zzredir.pdf")] = b"%PDF-1.4 cible de redirection"
+_url_avant = os.environ.get("KIKAN_WEBDAV_URL")
+os.environ["KIKAN_WEBDAV_URL"] = "http://127.0.0.1:2610/davredir"
+try:
+    dav_redir = filestore.WebDavBackend()
+    n_avant, auth_avant = len(S.requests), len(S.dav_auth)
+    for nom, action in (("lecture", lambda: dav_redir.read("2026/zzredir.pdf")),
+                        ("depot", lambda: dav_redir.write("2026/zzredir2.pdf", b"x")),
+                        ("suppression", lambda: dav_redir.delete("2026/zzredir.pdf"))):
+        try:
+            action()
+            show(f"redirection vers un autre hote : {nom} refusee", False, "aucune erreur")
+        except filestore.StorageError as exc:
+            show(f"redirection vers un autre hote : {nom} refusee", "redirig" in str(exc), exc)
+    vers_cible = [r for r in S.requests[n_avant:] if r[1].startswith("/dav/")]
+    show("la cible de la redirection n'a recu aucune requete", not vers_cible, vers_cible)
+    show("aucun en-tete Authorization n'a atteint la cible", len(S.dav_auth) == auth_avant, S.dav_auth[auth_avant:])
+    show("le document cible est intact", S.files.get(("dav", "2026/zzredir.pdf")) == b"%PDF-1.4 cible de redirection")
+finally:
+    if _url_avant is None:
+        os.environ.pop("KIKAN_WEBDAV_URL", None)
+    else:
+        os.environ["KIKAN_WEBDAV_URL"] = _url_avant
+S.files.pop(("dav", "2026/zzredir.pdf"), None)
 
 print("== Copie vers le moteur actif (depuis WebDAV) ==")
 old_pdf = b"%PDF-1.4 ancien document zzdoc " + os.urandom(16)

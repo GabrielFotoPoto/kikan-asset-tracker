@@ -33,7 +33,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from .db import engine, get_session
-from .models import Account, Role, Setting
+from .models import Account, RevokedToken, Role, Setting
 
 log = logging.getLogger("kikan.security")
 
@@ -188,6 +188,7 @@ def create_access_token(username: str, role: str, epoch: int = 0) -> str:
         "sub": username,
         "role": role,
         "te": epoch,  # version de session du compte : change a chaque revocation
+        "jti": secrets.token_urlsafe(16),  # identifiant du jeton : permet de le revoquer a la deconnexion
         "iat": now,
         "exp": now + datetime.timedelta(minutes=_ttl_minutes()),
     }
@@ -238,6 +239,30 @@ def generate_temp_password() -> str:
     return "-".join("".join(chars[i:i + 4]) for i in range(0, 16, 4))
 
 
+def revoquer_jeton(session: Session, token: str | None) -> None:
+    """Ferme un jeton de session (deconnexion) : il est refuse jusqu'a son expiration, puis la ligne est purgee.
+
+    Sans effet, et sans erreur, si le jeton est absent, invalide, deja expire ou emis avant l'introduction du jti
+    (il expire alors de lui-meme, 12 h au plus). Les lignes expirees sont supprimees au passage.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    for old in session.exec(select(RevokedToken).where(RevokedToken.expire_le < now)).all():
+        session.delete(old)
+    try:
+        payload = jwt.decode(token or "", SECRET, algorithms=[ALGO])
+        jti, exp = payload.get("jti"), payload.get("exp")
+    except jwt.PyJWTError:
+        jti = exp = None
+    if jti and exp and not session.get(RevokedToken, str(jti)):
+        session.add(RevokedToken(jti=str(jti), expire_le=datetime.datetime.fromtimestamp(int(exp), datetime.timezone.utc).replace(tzinfo=None)))
+    session.commit()
+
+
+def token_de_la_requete(request: Request, cred: HTTPAuthorizationCredentials | None) -> str | None:
+    """Jeton presente dans la requete : en-tete Bearer, sinon cookie de session."""
+    return cred.credentials if cred is not None else request.cookies.get(SESSION_COOKIE)
+
+
 def get_current_account(
     request: Request,
     cred: HTTPAuthorizationCredentials | None = Depends(_bearer),
@@ -256,6 +281,9 @@ def get_current_account(
         payload = jwt.decode(token, SECRET, algorithms=[ALGO])
     except jwt.PyJWTError:
         raise HTTPException(401, "Token invalide ou expire", headers={"WWW-Authenticate": "Bearer"})
+    jti = payload.get("jti")
+    if jti and session.get(RevokedToken, str(jti)):
+        raise HTTPException(401, "Session fermee, reconnectez-vous", headers={"WWW-Authenticate": "Bearer"})
     account = session.exec(
         select(Account).where(func.lower(Account.username) == str(payload.get("sub", "")).lower())
     ).first()
