@@ -36,6 +36,7 @@ from ..models import (
     Assignment,
     AssignmentAsset,
     Besoin,
+    EcheanceReport,
     EchangeRetour,
     EmployeeStatus,
     Entite,
@@ -322,6 +323,12 @@ def echange(data: EchangeRequest, request: Request, session: Session = Depends(g
     for asset in anciens:
         asset.statut = {"rendu": AssetStatus.rendu, "stock": AssetStatus.stock, "reforme": AssetStatus.reforme}[destinations[asset.id]]
         asset.maj_le = now
+        if destinations[asset.id] == "stock" and asset.echeance_renouvellement is not None:
+            # Remis en stock, l'ancien materiel vient d'etre remplace : son echeance ne doit pas le faire reapparaitre
+            # comme a renouveler (rendu et reforme en sortent deja). La trace va dans l'historique des reports.
+            session.add(EcheanceReport(asset_id=asset.id, ancienne=asset.echeance_renouvellement, nouvelle=None,
+                                       motif="Echange de materiel : remis en stock", par=account.username))
+            asset.echeance_renouvellement = None
         session.add(asset)
         for link in detenus[asset.id][1]:
             link.date_retour = now

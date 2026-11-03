@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- **Renouvellement (échange)** : un ancien matériel remis en stock perd son échéance de renouvellement (« aucun renouvellement prévu »), avec une ligne dans l'historique des reports. Avant, il gardait son échéance et réapparaissait comme à renouveler dans la page Renouvellements, les prévisions et les rappels. Un ancien matériel rendu ou réformé n'est pas touché : il sort déjà de ces listes par son statut.
+
 ## [0.5.1] - 2026-11-03
 
 Version de fonctionnalités : mise à jour guidée, aperçu d'import GLPI filtrable et suppression de matériel en lot. **Aucune migration de base de données** ; l'API change de façon compatible (nouvelles routes), donc les quatre images sont à mettre à jour ensemble.
