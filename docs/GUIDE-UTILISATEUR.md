@@ -94,6 +94,8 @@ Page **Matériel** (ou **Importer un fichier** en haut à droite pour reprendre 
 - Un matériel porte un **identifiant interne**, un **numéro de série**, des dates (achat, fin de garantie, **échéance de renouvellement**), un statut et une entité.
 - L'identifiant interne et le numéro de série sont **uniques**, majuscules et minuscules confondues (une valeur vide n'est pas comparée). Il en va de même du **matricule** d'un salarié et du **code** d'une entité : un doublon est refusé avec un message clair, même si deux personnes saisissent la même valeur au même instant. Les champs texte ont une longueur maximale (par exemple 200 caractères pour un nom, 2 000 pour une note) ; un texte trop long est refusé.
 - Les statuts **affecté** et **rendu** viennent des remises et restitutions : on ne les saisit pas. Un matériel qui a déjà été remis ne se supprime pas ; on le passe en **réformé**.
+- **Sélection multiple** : une case par ligne, *Cocher les N résultats* (jusqu'à 500) et le filtre de type *Tous sauf ce type*. *Supprimer la sélection* affiche d'abord un récapitulatif (ce qui serait supprimé, ce qui est refusé et pourquoi) ; *Réformer la sélection* fonctionne de la même façon.
+- **Retours en stock** : un matériel qui a déjà été remis, puis restitué et remis en stock, porte la pastille *Déjà remis, retour du …*. Le filtre *Retours en stock* les isole pour décider, matériel par matériel ou en lot, de les remettre en circulation ou de les réformer. Ce repérage est calculé à partir de l'historique des remises : il n'y a rien à saisir, et la pastille disparaît quand le matériel repart ou est réformé.
 
 ### 5.4 Remettre du matériel (informatique)
 

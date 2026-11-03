@@ -55,6 +55,7 @@ export default function Assets() {
   const filtre = params.get("statut") || "";
   const filtreType = params.get("type") || "";
   const filtreTypeSauf = params.get("typesauf") === "1";   // vrai : tous les types sauf celui choisi
+  const filtreRetour = params.get("retour") === "1";       // vrai : seulement les retours en stock (deja remis, restitues)
   const filtreEntite = params.get("entite") || "";
   const idCible = Number(params.get("asset")) || null;
   // Tri, sens, nombre de lignes et page vivent dans l'adresse (voir useTableau.js) ; les filtres ci-dessus aussi.
@@ -72,6 +73,11 @@ export default function Assets() {
   useEffect(() => { api.get("/entites").then(setEntites); }, []);
   useEffect(() => { load(); }, []);
   useEffect(() => { api.get("/assets/catalogue/types").then(setTypes).catch(() => {}); }, [items]);
+  // Retours en stock : materiels deja remis puis restitues, remis en stock (id -> date du dernier retour). Calcule par le serveur.
+  const [retours, setRetours] = useState({});
+  useEffect(() => {
+    api.get("/assets/retours-stock").then((r) => setRetours(Object.fromEntries(r.map((x) => [x.asset_id, x.retour_le])))).catch(() => {});
+  }, [items]);
 
   const lockedStatus = editing && editing.statut === "affecte";
   const options = editing && editing.statut === "rendu" ? ["rendu", ...SAISISSABLES] : SAISISSABLES;
@@ -125,15 +131,22 @@ export default function Assets() {
   const [lotBusy, setLotBusy] = useState(false);
   const basculer = (id) => setSel((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const cocher = (liste, valeur) => setSel((cur) => { const n = new Set(cur); liste.forEach((a) => (valeur ? n.add(a.id) : n.delete(a.id))); return n; });
-  const apercuLot = async () => {
-    setErr(null); setMsg(null); setLotBusy(true);
-    try { setLot(await api.post("/assets/suppression-lot", { ids: [...sel], simulation: true })); } catch (ex) { setErr(errorText(ex)); } finally { setLotBusy(false); }
-  };
-  const supprimerLot = async () => {
+  // action : "suppression" ou "reforme" (mise au rebut) ; les deux passent par un apercu (simulation) avant d'agir.
+  const ROUTES_LOT = { suppression: "/assets/suppression-lot", reforme: "/assets/reforme-lot" };
+  const apercuLot = async (action) => {
     setErr(null); setMsg(null); setLotBusy(true);
     try {
-      const r = await api.post("/assets/suppression-lot", { ids: [...sel], simulation: false });
-      setMsg(`${r.supprimes.length} materiel(s) supprime(s)${r.refuses.length ? `, ${r.refuses.length} refuse(s)` : ""}.`);
+      const r = await api.post(ROUTES_LOT[action], { ids: [...sel], simulation: true });
+      setLot({ ...r, action, ok: action === "reforme" ? r.reformes : r.supprimes });
+    } catch (ex) { setErr(errorText(ex)); } finally { setLotBusy(false); }
+  };
+  const appliquerLot = async () => {
+    const { action } = lot;
+    setErr(null); setMsg(null); setLotBusy(true);
+    try {
+      const r = await api.post(ROUTES_LOT[action], { ids: [...sel], simulation: false });
+      const n = (action === "reforme" ? r.reformes : r.supprimes).length;
+      setMsg(`${n} materiel(s) ${action === "reforme" ? "reforme(s)" : "supprime(s)"}${r.refuses.length ? `, ${r.refuses.length} refuse(s)` : ""}.`);
       setSel(new Set()); setLot(null); load();
     } catch (ex) { setErr(errorText(ex)); } finally { setLotBusy(false); }
   };
@@ -161,7 +174,7 @@ export default function Assets() {
     poussee.current = ""; setSaisie("");
     setParams((prev) => {
       const p = new URLSearchParams(prev);
-      ["q", "statut", "type", "typesauf", "entite", "page"].forEach((k) => p.delete(k));
+      ["q", "statut", "type", "typesauf", "retour", "entite", "page"].forEach((k) => p.delete(k));
       return p;
     }, { replace: true });
   };
@@ -178,11 +191,12 @@ export default function Assets() {
       if (filtre && a.statut !== filtre) return false;
       if (filtreType && (a.type === filtreType) === filtreTypeSauf) return false;
       if (filtreEntite && String(a.entite_id ?? "") !== filtreEntite) return false;
+      if (filtreRetour && !retours[a.id]) return false;
       if (!termes.length) return true;
       const meule = fold([a.identifiant_interne, a.type, a.marque, a.modele, a.numero_serie, a.notes].filter(Boolean).join(" "));
       return termes.every((t) => meule.includes(t));
     });
-  }, [items, saisie, filtre, filtreType, filtreTypeSauf, filtreEntite]);
+  }, [items, saisie, filtre, filtreType, filtreTypeSauf, filtreEntite, filtreRetour, retours]);
   // Tri puis decoupage en pages : seules les lignes de la page affichee sont rendues (la recherche et les filtres,
   // eux, portent sur toute la liste). Le tri par defaut montre les derniers ajoutes en premier.
   const triees = useMemo(() => (tri ? trier(visibles, tri, sens) : trier(visibles, "id", "desc")), [visibles, tri, sens]);
@@ -194,6 +208,7 @@ export default function Assets() {
     saisie.trim() && { cle: "q", texte: `Recherche : ${saisie.trim()}` },
     filtre && { cle: "statut", texte: `Statut : ${filtre}` },
     filtreType && { cle: "type", texte: `Type : ${filtreTypeSauf ? "tous sauf " : ""}${filtreType}` },
+    filtreRetour && { cle: "retour", texte: "Retours en stock" },
     filtreEntite && { cle: "entite", texte: `Entite : ${entites.find((e) => String(e.id) === filtreEntite)?.nom || filtreEntite}` },
   ].filter(Boolean);
 
@@ -264,6 +279,13 @@ export default function Assets() {
           <label>Date d'achat<input type="date" value={form.date_achat} onChange={set("date_achat")} /></label>
           <label>Fin de garantie<input type="date" value={form.fin_garantie} onChange={set("fin_garantie")} /></label>
           <label>Echeance renouvellement<input type="date" value={form.echeance_renouvellement} onChange={set("echeance_renouvellement")} /></label>
+          <label>Retours
+            <span className="row" style={{ gap: 6, alignItems: "center", marginTop: 4 }}>
+              <input type="checkbox" style={{ width: "auto" }} id="retours-stock" checked={filtreRetour}
+                     onChange={(e) => setParam("retour", e.target.checked ? "1" : "")} />
+              <label htmlFor="retours-stock" style={{ margin: 0 }}>Retours en stock ({Object.keys(retours).length})</label>
+            </span>
+          </label>
           <label>Filiale / entite
             <select value={form.entite_id} onChange={set("entite_id")}>
               <option value="">-</option>
@@ -331,15 +353,18 @@ export default function Assets() {
             {selNb > 0 && <>
               <strong>{selNb} selectionne(s)</strong>
               <button type="button" className="ghost" onClick={() => { setSel(new Set()); setLot(null); }}>Vider la selection</button>
-              <button type="button" onClick={apercuLot} disabled={lotBusy || selNb > 500}>Supprimer la selection...</button>
+              <button type="button" className="ghost" onClick={() => apercuLot("reforme")} disabled={lotBusy || selNb > 500}>Reformer la selection...</button>
+              <button type="button" onClick={() => apercuLot("suppression")} disabled={lotBusy || selNb > 500}>Supprimer la selection...</button>
               {selNb > 500 && <span className="err">500 materiels au plus par suppression.</span>}
             </>}
           </div>
         )}
         {lot && (
           <div className="card" role="alertdialog" aria-label="Recapitulatif de la suppression">
-            <h3>Supprimer {lot.supprimes.length} materiel(s) ?</h3>
-            <p className="muted">Cette suppression est definitive. Un materiel deja remis n'est jamais supprime : passez-le au statut reforme.</p>
+            <h3>{lot.action === "reforme" ? "Reformer" : "Supprimer"} {lot.ok.length} materiel(s) ?</h3>
+            <p className="muted">{lot.action === "reforme"
+              ? "Le materiel passe au statut reforme et sort des previsions et des rappels ; son historique de remise est conserve. Un materiel actuellement remis est refuse."
+              : "Cette suppression est definitive. Un materiel deja remis n'est jamais supprime : passez-le au statut reforme."}</p>
             {lot.refuses.length > 0 && (
               <div>
                 <strong>{lot.refuses.length} refuse(s) :</strong>
@@ -357,7 +382,7 @@ export default function Assets() {
               </div>
             )}
             <div className="row" style={{ marginTop: 8 }}>
-              {lot.supprimes.length > 0 && <ConfirmButton confirmLabel={`Confirmer : supprimer ${lot.supprimes.length} materiel(s)`} onConfirm={supprimerLot}>Supprimer {lot.supprimes.length} materiel(s)</ConfirmButton>}
+              {lot.ok.length > 0 && <ConfirmButton confirmLabel={`Confirmer : ${lot.action === "reforme" ? "reformer" : "supprimer"} ${lot.ok.length} materiel(s)`} onConfirm={appliquerLot}>{lot.action === "reforme" ? "Reformer" : "Supprimer"} {lot.ok.length} materiel(s)</ConfirmButton>}
               <button type="button" className="ghost" onClick={() => setLot(null)}>Annuler</button>
             </div>
           </div>
@@ -386,7 +411,7 @@ export default function Assets() {
                 <td>{a.marque || "-"}</td>
                 <td>{a.modele || "-"}</td>
                 <td>{a.numero_serie || "-"}</td>
-                <td><span className="badge">{a.statut}</span></td>
+                <td><span className="badge">{a.statut}</span>{retours[a.id] && <span className="badge" title="Deja remis puis restitue, de nouveau en stock">{" "}Deja remis, retour du {String(retours[a.id]).slice(0, 10).split("-").reverse().join("/")}</span>}</td>
                 {writable && <td>{actionsDe(a)}</td>}
               </tr>
             ))}
@@ -416,6 +441,7 @@ export default function Assets() {
                 <strong>{[a.marque, a.modele].filter(Boolean).join(" ") || a.type || "Materiel"}</strong>
                 <span className="badge">{a.statut}</span>
               </div>
+              {retours[a.id] && <div className="muted">Deja remis, retour du {String(retours[a.id]).slice(0, 10).split("-").reverse().join("/")}</div>}
               <div className="muted">{[a.type, a.identifiant_interne].filter(Boolean).join(" - ")}</div>
               {a.numero_serie && <code className="carte-serie">{a.numero_serie}</code>}
               {writable && actionsDe(a)}
