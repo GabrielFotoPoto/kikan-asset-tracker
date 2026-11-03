@@ -73,7 +73,7 @@ docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
 docker compose up -d --build
 ```
 
-Sous Windows (PowerShell), remplacez `export KIKAN_VERSION=0.5.0` par `$env:KIKAN_VERSION = "0.5.0"`. Si le téléchargement des images est refusé
+Si le téléchargement des images est refusé
 (paquets non publics), connectez-vous d'abord : `docker login ghcr.io` avec un jeton personnel GitHub autorisé à lire les paquets (`read:packages`).
 
 Vérification (une minute après le démarrage) :
@@ -159,6 +159,17 @@ docker compose --profile backup run --rm backup backup                          
 > La page **Sauvegarde** de Kikan et le tableau de bord alertent si la dernière sauvegarde a plus de 36 heures.
 
 ## 10. Mettre à jour Kikan
+
+La page **À propos** et le **Tableau de bord** (rôle informatique) vérifient automatiquement (actif par défaut, `KIKAN_UPDATE_CHECK=true`) si une nouvelle version finale est publiée sur GitHub. Sur un serveur sans accès à Internet, désactivez cette vérification avec `KIKAN_UPDATE_CHECK=false` dans `.env`.
+
+Sur un serveur Linux (Debian, Ubuntu, RHEL), vous pouvez utiliser le **script de mise à jour guidée** (qui vérifie `.env`, déclenche et contrôle une sauvegarde préalable, met à jour les conteneurs et vérifie `/health`) :
+
+```bash
+./scripts/update.sh 0.5.0                 # images publiées (méthode A)
+./scripts/update.sh --sources             # depuis un clone Git (méthode B)
+```
+
+Ou procéder manuellement :
 
 1. **Sauvegardez** (étape 9), et lisez le [CHANGELOG](../CHANGELOG.md) : les changements qui demandent une action y sont signalés.
 2. **Méthode A** :

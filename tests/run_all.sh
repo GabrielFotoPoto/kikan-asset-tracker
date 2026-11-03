@@ -24,6 +24,7 @@ PFX="${KIKAN_TEST_PREFIX:-kiktest}"
 export COMPOSE_PROJECT_NAME="$PFX" KIKAN_PREFIX="$PFX" KIKAN_API_PORT="${KIKAN_TEST_API_PORT:-8081}"
 TESTENV=".env.test.tmp"
 grep -E '^(POSTGRES_PASSWORD|KIKAN_ADMIN_USER|KIKAN_ADMIN_PASSWORD|KIKAN_SECRET_KEY)=' .env > "$TESTENV" 2>/dev/null
+echo "KIKAN_UPDATE_CHECK=false" >> "$TESTENV"
 trap 'rm -f "$TESTENV"' EXIT
 dc() { docker compose --env-file "$TESTENV" "$@"; }
 
