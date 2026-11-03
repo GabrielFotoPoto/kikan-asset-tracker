@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Sécurité
+- **WebDAV : les redirections ne sont plus suivies.** Le client WebDAV suivait les redirections HTTP et renvoyait l'en-tête `Authorization` (identifiants ou jeton du partage) au nouvel hôte : un partage mal configuré ou compromis pouvait rediriger vers un autre serveur et recevoir les identifiants. Comme pour SharePoint, DocuWare, GLPI et Microsoft 365, une redirection est maintenant une erreur explicite (« redirigé (HTTP 302), redirection non suivie ») qui invite à corriger `KIKAN_WEBDAV_URL`. **Effet à connaître** : un partage dont l'adresse configurée redirige légitimement (http vers https, barre oblique finale manquante) cessera de fonctionner tant que l'adresse n'est pas corrigée ; la création de dossiers (`MKCOL`) tolère toujours le 301 « existe déjà ». Test : le faux serveur de `documents_check` redirige vers un autre port ; l'ancien code lui envoyait l'en-tête, le nouveau ne lui envoie rien (5 vérifications). Aucune migration, aucun changement d'API.
+
 ### Corrigé
 - Tests : `stats_check` calcule « aujourd'hui » à l'heure de l'organisation (Europe/Paris), comme le serveur, et non en UTC. Entre 23 h et minuit UTC, la date du conteneur et celle du serveur différaient et la suite échouait (« période du jour : 2 remises »). Aucun changement pour l'application.
 
