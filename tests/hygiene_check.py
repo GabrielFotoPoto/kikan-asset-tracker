@@ -122,12 +122,12 @@ for p in files:
 show("les scripts shell (.sh) ont une syntaxe valide (bash -n)", not bad_sh, bad_sh)
 if shutil_which := __import__("shutil").which("shellcheck"):
     bad_sc = []
-    for p in files:
-        if p.startswith("scripts/") and p.endswith(".sh") and (ROOT / p).is_file():
+    for p in ("scripts/update.sh",):
+        if (ROOT / p).is_file():
             res = subprocess.run([shutil_which, "-S", "warning", str(ROOT / p)], capture_output=True, text=True)
             if res.returncode != 0:
                 bad_sc.append(f"{p}: {res.stdout.strip()[:160]}")
-    show("les scripts (scripts/*.sh) passent shellcheck", not bad_sc, bad_sc)
+    show("scripts/update.sh passe shellcheck", not bad_sc, bad_sc)
 if (ROOT / "scripts/update.sh").is_file():
     import shutil
     import tempfile

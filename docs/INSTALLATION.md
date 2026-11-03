@@ -73,7 +73,7 @@ docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
 docker compose up -d --build
 ```
 
-Sous Windows (PowerShell), remplacez `export KIKAN_VERSION=0.5.0` par `$env:KIKAN_VERSION = "0.5.0"`. Si le téléchargement des images est refusé
+Si le téléchargement des images est refusé
 (paquets non publics), connectez-vous d'abord : `docker login ghcr.io` avec un jeton personnel GitHub autorisé à lire les paquets (`read:packages`).
 
 Vérification (une minute après le démarrage) :
