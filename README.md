@@ -637,8 +637,9 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
 
 ## Développement et intégration continue
 
-Ce projet a été développé avec l'assistance d'une **intelligence artificielle**
-(Claude, d'Anthropic), sous la direction et la relecture de l'auteur.
+Ce projet a été développé avec l'assistance d'**intelligences artificielles**, sous la direction et la relecture de l'auteur :
+**Claude** (Anthropic) pour le développement, et **Gemini** (Google) pour des relectures de code et des pistes d'amélioration, que l'auteur
+examine puis reprend ou écarte (par exemple l'issue n° 70).
 
 - **Tests** : `bash tests/run_all.sh` rejoue toutes les suites dans une **pile de test séparée** (projet `kiktest`, jamais votre instance) ; `python tests/hygiene_check.py` vérifie les
   règles du dépôt. **GitHub Actions** les rejoue à chaque envoi et à chaque demande de fusion, avec l'audit des dépendances, la

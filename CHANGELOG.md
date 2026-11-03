@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Modifié
+- Mention des IA : le README et la page À propos indiquent que Gemini (Google) a aussi participé, pour des relectures et des pistes d'amélioration, en plus de Claude (Anthropic) pour le développement. Les en-têtes des fichiers ne changent pas (ils décrivent le développement, pas les relectures). Aucune migration.
+
 ### Sécurité
 - **Déconnexion : le jeton de session est révoqué.** Jusqu'ici la déconnexion effaçait seulement le cookie : un jeton copié avant (journal, proxy, poste partagé) restait valable jusqu'à son expiration, 12 h au plus. Chaque jeton porte maintenant un identifiant aléatoire (`jti`), conservé dans la nouvelle table `revoked_tokens` à la déconnexion et refusé ensuite (401). Les autres sessions du même compte restent ouvertes. La déconnexion répond toujours 204, même sans jeton ou avec un jeton invalide.
 - **Migration `0022`** (une table). **Les sessions ouvertes avant la mise à jour n'ont pas d'identifiant** : elles ne sont pas révocables et expirent normalement, mais continuent de fonctionner.
