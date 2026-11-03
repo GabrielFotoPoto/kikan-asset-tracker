@@ -5,6 +5,11 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Sécurité
+- **`KIKAN_ENV` vaut `production` par défaut.** Un `.env` sans cette ligne (ou avec une valeur vide) démarrait en mode développement : clé de session générée au hasard, documentation de l'API exposée. Le défaut est maintenant le mode sûr : l'application refuse de démarrer sans `KIKAN_SECRET_KEY` solide (32 caractères minimum), masque `/docs` et impose le cookie de session sécurisé. `.env.example` est en `production`. En mode développement, un avertissement est écrit au démarrage.
+- **À vérifier avant la mise à jour** : si votre `.env` n'a pas de ligne `KIKAN_ENV` et pas de `KIKAN_SECRET_KEY` solide, l'API ne démarrera plus (message explicite dans `docker compose logs api`) : définissez la clé. Si votre `.env` contient `KIKAN_ENV=development` alors que le serveur est en exploitation, passez-le à `production` : ce changement de défaut ne le touche pas. Le poste de développement et la pile de test écrivent `development` explicitement.
+- Tests : `security_check` vérifie le défaut en démarrant l'application sans `KIKAN_ENV` (4 vérifications). Aucune migration, aucun changement d'API.
+
 ### Corrigé
 - Tests : `stats_check` calcule « aujourd'hui » à l'heure de l'organisation (Europe/Paris), comme le serveur, et non en UTC. Entre 23 h et minuit UTC, la date du conteneur et celle du serveur différaient et la suite échouait (« période du jour : 2 remises »). Aucun changement pour l'application.
 

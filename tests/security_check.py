@@ -38,7 +38,7 @@ import jwt
 B = os.environ.get("TEST_BASE_URL", "http://localhost:8000")
 ADMIN_USER = os.environ.get("TEST_ADMIN_USER", "admin")
 ADMIN_PW = os.environ.get("TEST_ADMIN_PASSWORD", "")
-PROD = os.environ.get("KIKAN_ENV", "development").lower() == "production"
+PROD = (os.environ.get("KIKAN_ENV") or "production").strip().lower() == "production"
 TEST_PW = "Sec-Test-Passw0rd-2026"
 fails = 0
 
@@ -324,6 +324,28 @@ _emp_reset = {x["actor"] for x in logs if x["action"] == "reset_demande_ignoree"
 show("la meme saisie donne la meme empreinte (tentatives correlables)", bool(_emp_login & _emp_reset),
      f"{len(_emp_login)} / {len(_emp_reset)} empreinte(s)")
 
+
+print("== 13. Mode par defaut ==")
+import subprocess  # noqa: E402
+import sys as _sys  # noqa: E402
+
+
+def demarrage(env_extra, retirer=("KIKAN_ENV",)):
+    env = {k: v for k, v in os.environ.items() if k not in retirer}
+    env.update(env_extra)
+    return subprocess.run([_sys.executable, "-c", "import app.auth as a; print('PROD' if a.IS_PROD else 'DEV')"],
+                          env=env, capture_output=True, text=True, cwd="/app" if os.path.isdir("/app") else None)
+
+
+r = demarrage({"KIKAN_SECRET_KEY": "faible"})
+show("sans KIKAN_ENV, une cle faible empeche de demarrer (mode production par defaut)",
+     r.returncode != 0 and "KIKAN_SECRET_KEY" in (r.stderr or ""), (r.stderr or r.stdout)[-120:])
+r = demarrage({"KIKAN_SECRET_KEY": "x" * 48})
+show("sans KIKAN_ENV, avec une cle solide : mode production", r.stdout.strip() == "PROD", (r.stderr or r.stdout)[-120:])
+r = demarrage({"KIKAN_SECRET_KEY": "x" * 48, "KIKAN_ENV": ""})
+show("KIKAN_ENV vide : mode production", r.stdout.strip() == "PROD", (r.stderr or r.stdout)[-120:])
+r = demarrage({"KIKAN_SECRET_KEY": "faible", "KIKAN_ENV": "development"})
+show("KIKAN_ENV=development explicite : mode developpement accepte", r.stdout.strip() == "DEV", (r.stderr or r.stdout)[-120:])
 # Nettoyage : comptes de test desactives
 for acc_id in (id_rh, id_lect):
     call("PUT", f"/auth/accounts/{acc_id}", {"actif": False}, adm)
