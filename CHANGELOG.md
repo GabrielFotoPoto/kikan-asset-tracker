@@ -5,6 +5,11 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Sécurité
+- **Adresses des serveurs GLPI et SMTP : filtre commun.** Un administrateur (ou un compte informatique détourné) pouvait pointer le connecteur GLPI ou le serveur SMTP vers une adresse interne sensible. GLPI refusait seulement les adresses IP link-local écrites en clair ; SMTP n'avait aucun filtre d'adresse ; aucun des deux ne regardait vers où un **nom** de serveur résout. Un module commun (`netguard`) refuse maintenant les adresses link-local (dont les métadonnées cloud `169.254.169.254`), multicast, non spécifiée, et les adresses de métadonnées Alibaba, Azure et AWS IPv6, qu'elles soient écrites en clair ou obtenues en résolvant le nom (une seule adresse refusée suffit). Contrôle à l'enregistrement du réglage et à chaque envoi de courriel ou connexion GLPI. **Les réseaux privés et le bouclage restent permis** : un GLPI ou un serveur de messagerie interne est le cas normal.
+- **Limite connue** : le nom est résolu à nouveau au moment de la connexion ; un attaquant qui maîtrise le DNS pourrait répondre autre chose entre le contrôle et la connexion. Le risque est borné par le fait que seul un compte informatique règle ces adresses. Un nom introuvable n'est pas refusé ici (la connexion échouera avec son propre message).
+- Tests : 27 vérifications dans `security_check` (adresses refusées et permises, noms simulés pointant vers une adresse réservée ou privée, refus par l'API GLPI et SMTP). Aucune migration, aucun changement d'API.
+
 ### Corrigé
 - Tests : `stats_check` calcule « aujourd'hui » à l'heure de l'organisation (Europe/Paris), comme le serveur, et non en UTC. Entre 23 h et minuit UTC, la date du conteneur et celle du serveur différaient et la suite échouait (« période du jour : 2 remises »). Aucun changement pour l'application.
 
