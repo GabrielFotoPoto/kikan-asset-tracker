@@ -5,6 +5,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **Aperçu d'import GLPI** : recherche, filtres par type, état d'import et fabricant (avec « tous sauf ce fabricant »), cases « cocher / décocher les éléments affichés » et « tout décocher », et nombre d'éléments sélectionnés. Le filtrage se fait dans l'interface ; l'API est inchangée.
+- **Suppression de matériel en lot** (rôle informatique) : cases à cocher dans la liste du matériel, « cocher tous les résultats » (jusqu'à 500), filtre de type « tous sauf », puis récapitulatif obligatoire avant la suppression. Un matériel déjà remis est refusé (raison affichée), les autres sont supprimés ensemble ; chaque suppression est journalisée. Nouvelle route `POST /assets/suppression-lot` (simulation par défaut).
+
 ### Modifié
 - Documentation remise à jour après les versions 0.4.1 à 0.5.0 : `SECURITY.md` (plafond des refus 401/403 par couple adresse IP et appelant, compte inconnu journalisé par empreinte, purge des liens externes, nouvelles suites de tests), `docs/RGPD.md`, guide d'utilisation (section 4.1 : tri et pagination des listes ; unicité et longueurs ; journal d'audit), `SPEC.md` (feuille de route : D6, D7, E9, E10 ; date de C2 corrigée ; connecteurs SharePoint et DocuWare), `README.md` (version, structure) et exemples de version (0.5.0). Aucun changement pour l'application.
 
