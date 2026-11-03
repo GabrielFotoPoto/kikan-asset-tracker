@@ -5,6 +5,11 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Sécurité
+- **Déconnexion : le jeton de session est révoqué.** Jusqu'ici la déconnexion effaçait seulement le cookie : un jeton copié avant (journal, proxy, poste partagé) restait valable jusqu'à son expiration, 12 h au plus. Chaque jeton porte maintenant un identifiant aléatoire (`jti`), conservé dans la nouvelle table `revoked_tokens` à la déconnexion et refusé ensuite (401). Les autres sessions du même compte restent ouvertes. La déconnexion répond toujours 204, même sans jeton ou avec un jeton invalide.
+- **Migration `0022`** (une table). **Les sessions ouvertes avant la mise à jour n'ont pas d'identifiant** : elles ne sont pas révocables et expirent normalement, mais continuent de fonctionner.
+- Les cinq questions : donnée = identifiant aléatoire du jeton et sa date d'expiration (aucune donnée personnelle) ; pourquoi = rendre la déconnexion effective ; qui la voit = personne dans l'interface ; combien de temps = jusqu'à l'expiration du jeton, supprimée à la déconnexion suivante ; effacement = suppression automatique des lignes expirées.
+
 ### Corrigé
 - Tests : `stats_check` calcule « aujourd'hui » à l'heure de l'organisation (Europe/Paris), comme le serveur, et non en UTC. Entre 23 h et minuit UTC, la date du conteneur et celle du serveur différaient et la suite échouait (« période du jour : 2 remises »). Aucun changement pour l'application.
 

@@ -21,6 +21,7 @@ import secrets
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -37,7 +38,10 @@ from ..auth import (
     hash_password,
     LoginLimiter,
     login_limiter,
+    _bearer,
     require_roles,
+    revoquer_jeton,
+    token_de_la_requete,
     set_session_cookie,
     verify_password,
 )
@@ -210,8 +214,10 @@ def login(data: LoginRequest, request: Request, response: Response, session: Ses
 
 
 @router.post("/logout", status_code=204)
-def logout(response: Response):
-    """Ferme la session du navigateur (efface le cookie). Les jetons deja emis expirent d'eux-memes."""
+def logout(request: Request, response: Response, cred: HTTPAuthorizationCredentials | None = Depends(_bearer),
+           session: Session = Depends(get_session)):
+    """Ferme la session : efface le cookie et revoque le jeton (un jeton copie avant ne sert plus). Toujours 204."""
+    revoquer_jeton(session, token_de_la_requete(request, cred))
     clear_session_cookie(response)
 
 
