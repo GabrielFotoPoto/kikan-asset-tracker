@@ -188,7 +188,6 @@ STATUTS = {"stock": "En stock", "affecte": "Affecte", "reforme": "Reforme"}
 
 def _sections(s: dict) -> list[tuple[str, list[str], list[list]]]:
     """Le meme contenu pour les trois formats : (titre, en-tetes, lignes)."""
-    f = s["filtres"]
     sections = [("Synthese", ["Indicateur", "Valeur"], [
         ["Actifs au total", s["actifs_total"]],
         ["Salaries actifs", s["taux_equipement"]["salaries_actifs"]],

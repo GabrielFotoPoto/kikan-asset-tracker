@@ -36,7 +36,7 @@ from . import appsettings, mailer, purge, revue_acces
 from .audit import audit
 from .db import engine
 from .mailer import MailConfig, MailError
-from .models import (Account, Asset, AssetStatus, Assignment, AssignmentAsset, Besoin, EmployeeStatus, Entite,
+from .models import (Account, Asset, AssetStatus, Assignment, AssignmentAsset, Besoin, EmployeeStatus,
                      ReminderSent, Role, User)
 from .scope import GLOBAL, Scope, compute_scope
 

@@ -15,6 +15,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - **Limite connue** : le nom est résolu à nouveau au moment de la connexion ; un attaquant qui maîtrise le DNS pourrait répondre autre chose entre le contrôle et la connexion. Le risque est borné par le fait que seul un compte informatique règle ces adresses. Un nom introuvable n'est pas refusé ici (la connexion échouera avec son propre message).
 - Tests : 27 vérifications dans `security_check` (adresses refusées et permises, noms simulés pointant vers une adresse réservée ou privée, refus par l'API GLPI et SMTP). Aucune migration, aucun changement d'API.
 
+### Nettoyage
+- Analyse `pyflakes` du code et des tests : suppression de 11 imports ou variables inutilisés (`glpi.py`, `reminders.py`, `xlsx_io.py`, `routers/stats.py` et six fichiers de tests). Un seul avertissement subsiste, voulu : `migrations/env.py` importe `app.models` pour enregistrer les tables. Aucun changement de comportement, aucune migration, aucun changement d'API.
+
 ### Corrigé
 - Tests : `stats_check` calcule « aujourd'hui » à l'heure de l'organisation (Europe/Paris), comme le serveur, et non en UTC. Entre 23 h et minuit UTC, la date du conteneur et celle du serveur différaient et la suite échouait (« période du jour : 2 remises »). Aucun changement pour l'application.
 
