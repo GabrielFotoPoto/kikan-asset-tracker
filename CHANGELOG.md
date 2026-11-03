@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Modifié
+- Documentation remise à jour après les versions 0.4.1 à 0.5.0 : `SECURITY.md` (plafond des refus 401/403 par couple adresse IP et appelant, compte inconnu journalisé par empreinte, purge des liens externes, nouvelles suites de tests), `docs/RGPD.md`, guide d'utilisation (section 4.1 : tri et pagination des listes ; unicité et longueurs ; journal d'audit), `SPEC.md` (feuille de route : D6, D7, E9, E10 ; date de C2 corrigée ; connecteurs SharePoint et DocuWare), `README.md` (version, structure) et exemples de version (0.5.0). Aucun changement pour l'application.
+
 ## [0.5.0] - 2026-11-03
 
 Version finale : elle reprend tout le contenu de la préversion 0.5.0-rc.1 (ci-dessous) sans autre changement de code. Le point qui restait à valider, la migration `0021`, a été appliquée sur la préproduction (recherche de doublons à zéro avant, révision `0021`, quatre index d'unicité présents, démarrage propre). **Une migration de base de données (`0021`)**, voir la mise à jour ci-dessous.

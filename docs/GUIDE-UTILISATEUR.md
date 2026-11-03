@@ -43,6 +43,17 @@ Le menu de gauche liste les pages selon votre rôle. Le **tableau de bord** rés
 - la liste des **départs à suivre** (salariés partis ou en cours de départ) ;
 - pour l'informatique, une **alerte** si la dernière sauvegarde est ancienne ou a échoué.
 
+### 4.1 Trier et paginer les listes
+
+Les listes **Matériel**, **Utilisateurs**, **Remises** et le **Journal d'audit** affichent leurs lignes par pages :
+
+- **Trier** : cliquez sur l'en-tête d'une colonne. Un premier clic trie en croissant, un deuxième en décroissant, un troisième revient à l'ordre par défaut (les derniers ajoutés d'abord ; pour les remises, par date de remise). Le tri ignore la casse et les accents, place PC-2 avant PC-10 et met toujours les valeurs vides à la fin. Sur petit écran (cartes, sans en-têtes), un menu **Trier par** et un bouton de sens les remplacent.
+- **Paginer** : la barre sous la liste donne la plage affichée (« 21-40 sur 300 »), permet de passer de page en page et de choisir **10, 20 ou 50 lignes par page**. Au premier affichage, ce nombre dépend de l'écran (10 sur téléphone, 20 par défaut, 50 sur grand écran) ; votre choix est ensuite mémorisé dans votre navigateur.
+- **Rechercher et filtrer** : la recherche et les filtres portent sur toute la liste, pas seulement sur la page affichée, et ramènent à la première page.
+- **Partager une vue** : le tri, la page, la taille et les filtres sont dans l'adresse du navigateur. Copier le lien, ou revenir en arrière, retrouve la même vue.
+
+Dans le **Journal d'audit**, le tri et la pagination sont faits par le serveur : toutes les entrées restent consultables, quelle que soit la taille du journal. Les filtres **Compte** et **Action** s'appliquent aussi avec la touche Entrée.
+
 ## 5. Le quotidien
 
 ### 5.1 Un salarié arrive (RH)
@@ -81,6 +92,7 @@ Page **Matériel** (ou **Importer un fichier** en haut à droite pour reprendre 
 
 - Les champs **Type**, **Marque** et **Modèle** proposent des suggestions pendant la saisie (insensibles à la casse et aux accents) ; une valeur nouvelle est acceptée.
 - Un matériel porte un **identifiant interne**, un **numéro de série**, des dates (achat, fin de garantie, **échéance de renouvellement**), un statut et une entité.
+- L'identifiant interne et le numéro de série sont **uniques**, majuscules et minuscules confondues (une valeur vide n'est pas comparée). Il en va de même du **matricule** d'un salarié et du **code** d'une entité : un doublon est refusé avec un message clair, même si deux personnes saisissent la même valeur au même instant. Les champs texte ont une longueur maximale (par exemple 200 caractères pour un nom, 2 000 pour une note) ; un texte trop long est refusé.
 - Les statuts **affecté** et **rendu** viennent des remises et restitutions : on ne les saisit pas. Un matériel qui a déjà été remis ne se supprime pas ; on le passe en **réformé**.
 
 ### 5.4 Remettre du matériel (informatique)
@@ -152,7 +164,7 @@ badge **échange** et la liste du matériel restitué ; le bouton **PDF scellé*
 | **Prévisions** | **échéances de renouvellement** et **budget estimé** par mois, année, type et entité, sur la période de votre choix (12 mois par défaut) ; export **CSV, Excel et PDF** (section 6.2) |
 | **Revue des accès** | anomalies d'accès, rapport « qui a accès à quoi » et **campagnes de revue** (section 6.1) |
 | **À propos** (lien en bas du menu, tous les comptes) | version de Kikan et date de publication, licence, auteur, composants et licences tierces |
-| **Journal d'audit** (informatique) | qui a fait quoi et quand : connexions, écritures, refus. Jamais de mot de passe ni de contenu personnel inutile |
+| **Journal d'audit** (informatique) | qui a fait quoi et quand : connexions, écritures, refus. Jamais de mot de passe ni de contenu personnel inutile : pour un compte inconnu, seule une empreinte est gardée, pas ce qui a été saisi. Liste paginée et triable (section 4.1), filtres **Compte** et **Action** |
 
 ### 6.1 Revue des droits d'accès
 

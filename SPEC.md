@@ -504,7 +504,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | # | Fonctionnalité | Origine |
 |---|---|---|
 | C1 | **Statistiques exportables** (CSV et PDF), avec filtres par entité et période. **Fait (2026-10-30)** : filtre par entité (sous-entités incluses, limité à la portée du compte, 404 hors portée) et par période (mouvements remis, restitués et achetés, au total et par mois ; fenêtre des renouvellements) ; export CSV, Excel et PDF (modèle de PDF de l'organisation) ; les répartitions décrivent le parc à la date du jour | SPEC |
-| C2 | **Revue périodique des droits d'accès** : rapport « qui a accès à quoi » et campagne de validation (ISO A.5.18) **Fait (2026-11-05)** : anomalies (salarié sorti, application désactivée) et rapport exportable ; campagne à la demande, décisions par les RH dans leur périmètre et l'informatique ; clôture seulement si tout est décidé, accès à retirer passés à non, rapport PDF scellé, retraits suivis jusqu'à confirmation ; rappels (échéance, retraits, revue annuelle) | Prop. |
+| C2 | **Revue périodique des droits d'accès** : rapport « qui a accès à quoi » et campagne de validation (ISO A.5.18) **Fait (2026-10-29)** : anomalies (salarié sorti, application désactivée) et rapport exportable ; campagne à la demande, décisions par les RH dans leur périmètre et l'informatique ; clôture seulement si tout est décidé, accès à retirer passés à non, rapport PDF scellé, retraits suivis jusqu'à confirmation ; rappels (échéance, retraits, revue annuelle) | Prop. |
 | C3 | **Prévision des renouvellements** avec budget estimé. **Fait (2026-10-30)** : coût de remplacement par type (exception par modèle) saisi par l'informatique dans le Paramétrage (migration 0017) ; page Prévisions par mois, année, type et entité sur une période au choix (12 mois par défaut), échéances dépassées signalées, matériel sans coût compté à part ; filtre d'entité dans la portée du compte ; export CSV, Excel et PDF ; aucune donnée de salarié | Prop. |
 | C4 | **Étiquettes et QR codes** sur le matériel, recherche par scan | Prop. |
 | C5 | **Pièces jointes** au matériel (facture, garantie) | Prop. |
@@ -519,6 +519,8 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | D3 | **API publique documentée** avec jetons d'accès | Prop. |
 | D4 | **Webhooks** vers des outils externes (par exemple n8n) | Prop. |
 | D5 | **Personnalisation de l'apparence** : icône de l'application (menu, page de connexion, favicon). **Fait (2026-10-30)** : dépôt PNG ou JPEG par l'informatique (Paramétrage, Apparence), image vérifiée et réécrite en PNG, lecture publique limitée à cette image, prévisualisation, suppression ; sans icône déposée, le **logo Kikan** (jeu de favicons dans `frontend/public/`, `docs/logo/`) s'affiche partout ; le nom de l'application reste « Kikan » | Prop. |
+| D6 | **Listes triables et paginées** (Matériel, Utilisateurs, Remises) et sélection du matériel en stock limitée à 20 lignes à la fois. **Fait (2026-11-02, version 0.4.1)** : tri par clic sur l'en-tête (casse, accents et nombres bien classés, valeurs vides en fin), 10, 20 ou 50 lignes par page selon l'écran, vue gardée dans l'adresse, ordre par défaut « derniers ajoutés d'abord » | Prop. |
+| D7 | **Journal d'audit paginé et trié par le serveur**. **Fait (2026-11-02, version 0.4.2)** : `GET /audit` accepte `offset`, `tri` et `sens` et renvoie `X-Total-Count` ; la page ne se limite plus aux 300 dernières entrées | Prop. |
 
 ### Sécurité et exploitation (en continu)
 
@@ -532,6 +534,8 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | E6 | **Tests unitaires** (pytest) et tests automatisés de l'interface | Prop. |
 | E7 | **Sauvegarde et restauration** documentées et testées. **Fait (2026-10-29)** : sauvegarde chiffrée (`age`, clé publique) de la base, des PDF scellés locaux, des clés, du certificat HTTPS et du `.env` vers un partage SMB ou un dossier, planifiée chaque nuit, rétention 30 jours plus la première de chaque mois pendant 12 mois, restauration guidée avec contrôle des empreintes, page et alerte dans l'application, test de bout en bout (restauration dans une instance vierge) | Prop. |
 | E8 | **Accessibilité** (RGAA/WCAG) et thème sombre | Prop. |
+| E9 | **Intégrité des données**. **Fait (2026-11-03, version 0.5.0)** : unicité garantie par la base (matricule, numéro de série, identifiant interne sans tenir compte de la casse, code d'entité ; migration 0021), refus 409 d'une course perdante, longueurs maximales des champs texte | Audit |
+| E10 | **Durcissement du journal et de la purge RGPD**. **Fait (2026-11-03, version 0.5.0)** : plafond des refus 401/403 journalisés par couple (adresse IP, appelant), saisie d'un compte inconnu remplacée par une empreinte HMAC, purge qui supprime aussi les liens externes du salarié | Audit |
 
 ## 14. Décisions
 
@@ -552,7 +556,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 - Déploiement **on-premise**, conteneurs Docker (§11.1).
 - **Stockage des PDF** sur **lecteur réseau (SMB)** ou **partage de fichiers web (WebDAV)**, **un dossier
   par année** (`AAAA/`) ; dépôt de fichier, sans API propriétaire (§6.1, §11.1). Les connecteurs API
-  SharePoint Online et DocuWare sont reportés en v0.2.
+  SharePoint Online et DocuWare ont été livrés ensuite (B6).
 - **Charte informatique annexée** au document de remise (couvre A.5.10), versionnée et figée
   dans le PDF signé.
 - **Multi-entités / filiales** : salarié rattaché à une entité ; rapports filtrables par
@@ -574,7 +578,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 1. **Formulation juridique** du document combinant réception du matériel + acceptation de la
    charte informatique (à faire relire RH / juridique).
 2. Emplacement exact du dépôt (serveur de fichiers SMB ou partage WebDAV, nom du partage, compte de
-   service dédié) et besoin éventuel d'un connecteur API SharePoint Online / DocuWare.
+   service dédié). Les connecteurs API SharePoint Online et DocuWare existent (B6).
 3. Format d'import proposé (§6.4, modèles dans `import-modeles/`) à valider : plusieurs
    fichiers liés, ou fichier unique à plat ?
 4. **Portée des comptes par entité** : accès global ou restreint à une/des filiale(s) dès la v0.1 ?

@@ -21,7 +21,7 @@ semaines).
 ## Déroulement
 
 1. **Prévisualiser** : la liste des salariés dont la conservation est échue. Seuls ceux de la liste affichée sont purgés.
-2. **Purger** : les données du salarié (fiche, remises, signatures, besoins) sont supprimées de Kikan, de façon irréversible. Les PDF scellés
+2. **Purger** : les données du salarié (fiche, remises, signatures, besoins, liens vers les systèmes externes comme GLPI) sont supprimées de Kikan, de façon irréversible. Les liens du matériel sont conservés : le matériel n'est pas une donnée personnelle. Les PDF scellés
    sont suivis dans la même transaction : il n'y a jamais de PDF oublié sans trace.
 3. **Partage SMB, WebDAV ou volume local** : chaque PDF est copié dans le dossier `A_PURGER/` du même moteur, relu et comparé par empreinte
    SHA-256, puis l'original est supprimé. Si le partage est indisponible, le rangement est **réessayé** (bouton *Réessayer le rangement*).
