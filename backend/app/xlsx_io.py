@@ -112,7 +112,7 @@ def read_xlsx(raw: bytes, max_rows: int) -> tuple[list[dict], list[str], dict]:
         rows_v = ws_v.iter_rows(values_only=True, max_col=MAX_COLUMNS)
         rows_f = ws_f.iter_rows(values_only=True, max_col=MAX_COLUMNS)
         try:
-            head_v, head_f = next(rows_v), next(rows_f)
+            head_v, _ = next(rows_v), next(rows_f)  # la ligne d'en-tete des formules est lue pour avancer l'iterateur
         except StopIteration:
             raise XlsxError("La feuille est vide.") from None
         headers = [_text(h) for h in head_v]
