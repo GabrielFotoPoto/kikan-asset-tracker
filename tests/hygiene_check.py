@@ -104,6 +104,16 @@ hits = [f"{p} ({label})" for p, t in texts.items() if t and p != "tests/hygiene_
         for label, rx in PATTERNS.items() if re.search(rx, t)]
 show("aucun secret reconnaissable dans le code", not hits, hits[:5])
 
+print("== TLS ==")
+conf = texts.get("frontend/nginx.conf") or ""
+m = re.search(r"^\s*ssl_ciphers\s+([^;]+);", conf, re.M)
+suites = m.group(1).strip().split(":") if m else []
+show("nginx : liste de suites TLS 1.2 explicite", bool(suites))
+show("nginx : uniquement ECDHE (confidentialite persistante) avec GCM ou ChaCha20",
+     bool(suites) and all(s.startswith("ECDHE-") and ("GCM" in s or "CHACHA20" in s) for s in suites), suites)
+show("nginx : aucune suite CBC ni SHA-1", bool(suites) and not any(("CBC" in s or s.endswith("-SHA")) for s in suites))
+show("nginx : TLS 1.2 minimum", re.search(r"^\s*ssl_protocols\s+TLSv1\.2 TLSv1\.3;", conf, re.M) is not None)
+
 print("== Validite ==")
 bad_py = []
 for p in files:
