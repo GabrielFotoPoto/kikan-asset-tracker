@@ -5,6 +5,32 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.6.0] - 2026-11-03
+
+Version finale : elle reprend tout le contenu de la préversion 0.6.0-rc.1 (ci-dessous) sans autre changement de code. **Une migration de base de données (`0022`)** et **quatre changements qui peuvent empêcher une installation existante de démarrer ou de se connecter** : lisez la liste avant de mettre à jour.
+
+### Mise à jour depuis 0.5.3
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.6.0`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.6.0` sous Linux) ; les quatre images ensemble. Retour arrière : restaurer la sauvegarde (base de données et volumes) ; ne repassez pas `KIKAN_VERSION` à une version antérieure sans restaurer.
+- **Vérifiez ces quatre points avant la mise à jour** (détails dans la préversion ci-dessous) :
+  1. **`.env`** : sans ligne `KIKAN_ENV` (ou vide) **et** sans `KIKAN_SECRET_KEY` de 32 caractères minimum, l'API ne démarre plus. Un `.env` qui contient `KIKAN_ENV=development` sur un serveur d'exploitation reste en développement : passez-le à `production`.
+  2. **Clients TLS anciens** : seules les suites ECDHE avec AES-GCM ou ChaCha20-Poly1305 sont acceptées en TLS 1.2 ; essayez la tablette de signature.
+  3. **Partage WebDAV** : les redirections ne sont plus suivies ; `KIKAN_WEBDAV_URL` doit être l'adresse finale.
+  4. **Serveurs GLPI et SMTP** : les adresses link-local, multicast, non spécifiées ou de métadonnées cloud sont refusées (les adresses privées restent acceptées).
+- Depuis une 0.6.0-rc.1 : aucune migration de plus.
+
+### Vérifié depuis la préversion
+- **Mise à jour** de la plateforme de développement vers la 0.6.0-rc.1 (sauvegarde relue avant) : migration `0022` appliquée, table `revoked_tokens` présente, données intactes, démarrage sans erreur.
+- **Dans le navigateur** : un seul appel `/auth/me` au chargement ; page À propos (version `0.6.0-rc.1`, mention de Gemini) ; liste du matériel (sélection multiple, filtre « Retours en stock ») ; déconnexion : `POST /auth/logout` répond 204, une ligne est ajoutée à `revoked_tokens` avec une expiration future, puis `/auth/me` répond 401.
+- **Mode production par défaut** : l'API démarrée sans `KIKAN_ENV` (copie du `.env` sans cette ligne) tourne en `production`, sans erreur ni avertissement ; `/docs`, `/openapi.json` et `/redoc` répondent 404 ; retour ensuite à la configuration de développement.
+- **TLS** (`openssl s_client`) : trois suites CBC ou à échange RSA statique refusées, la suite ECDHE avec AES-GCM acceptée.
+
+### Resté non vérifié
+- **Rejeu à la main** d'un jeton copié après déconnexion : le cookie de session est `HttpOnly`, donc illisible depuis la page ; le rejeu est couvert par `session_cookie_check`, pas essayé à la main.
+- **Tablette de signature ancienne**, **vrai serveur WebDAV** (Nextcloud, IIS), **vrai nom DNS pointant vers une adresse réservée** : non essayés (redirections et résolution de noms simulées dans les tests).
+- **Refus de démarrer en production avec une clé faible** : vérifié par `security_check` (démarrage de l'application dans un sous-processus), pas sur un conteneur réel.
+- **Aucune installation de production** n'a été mise à jour : seule la plateforme de développement l'a été.
+- **Appels en double** observés sur l'accueil (`/api/stats`, `/api/revues/anomalies`, `/api/renouvellements`, trois fois chacun) : non traités, sans lien avec le lot C.
+
 ## [0.6.0-rc.1] - 2026-11-03
 
 Pré-version issue de l'audit du 2026-11-01 (lot C, durcissement). **Une migration de base de données (`0022`)** et **plusieurs changements qui peuvent empêcher une installation existante de démarrer ou de se connecter** (voir ci-dessous) : à essayer sur une copie avant la version finale. Aucun changement d'API.
