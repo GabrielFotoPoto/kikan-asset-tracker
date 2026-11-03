@@ -5,36 +5,37 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
-### Corrigé
-- Tests : `tests/run_all.sh` recrée l'API au démarrage de chaque passage. Les limiteurs en mémoire (connexion, refus journalisés, réinitialisation de mot de passe) gardaient les budgets du passage précédent, et relancer `security_check` dans la minute faisait échouer des vérifications sans rapport avec le code. La vérification de la rafale anonyme accepte aussi 0 entrée. Aucun changement pour l'application.
+## [0.5.0-rc.1] - 2026-11-03
+
+Pré-version issue de l'audit du 2026-11-01 (lots A et B) : intégrité des données, RGPD et journal d'audit. **Une migration de base de données (`0021`)** : à valider sur une copie avant la version finale.
+
+### Mise à jour depuis 0.4.2
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.5.0-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` ; l'application est brièvement indisponible pendant le redémarrage. Les quatre images sont à mettre à jour ensemble.
+- **La migration `0021` crée des index d'unicité et s'arrête s'il existe déjà des doublons** (matricule, numéro de série ou identifiant interne sans tenir compte de la casse, code d'entité). Elle liste alors les valeurs en cause, ne modifie ni ne supprime rien, et l'application ne démarre pas : corrigez les doublons (fusion ou renommage) puis relancez. Pour les chercher avant la mise à jour, comptez les valeurs en double de `lower(matricule)` dans `users`, de `lower(numero_serie)` et `lower(identifiant_interne)` dans `assets`, et de `code` dans `entite`.
+- Retour arrière : restaurer la sauvegarde. La migration a une procédure `downgrade` (suppression des 4 index) mais le plus sûr reste la restauration.
+- Les entrées du journal d'audit déjà enregistrées ne sont pas réécrites : celles qui contiennent une saisie de compte inconnu restent telles quelles.
 
 ### Sécurité
-- **Journal d'audit : une rafale de requêtes anonymes ne masque plus les refus d'un compte.** Les refus 401 et 403 partageaient un même plafond par adresse IP (60 par minute). Un client (ou tout un site derrière le même proxy) qui envoyait 60 requêtes anonymes épuisait ce plafond, et les refus 403 d'un compte connecté qui sondait ses droits n'étaient plus journalisés pendant la minute. Le plafond est maintenant par couple (adresse IP, appelant) : les requêtes anonymes ont leur budget, chaque compte a le sien. Le plafond d'un compte reste atteignable par ce compte lui-même (60 refus par minute) ; il faut surveiller les rafales de 403 dans le journal. Aucune migration, aucun changement d'API.
-
-### Nettoyage
-- Nettoyage issu d'une relecture externe : le cookie de session lit sa durée dans le jeton émis (une lecture de moins en base par connexion), `signing.py` n'utilise plus `datetime.utcnow()` (déprécié), l'interface n'appelle plus `/auth/me` deux fois au chargement, et `docs/.DS_Store` n'est plus suivi (`.DS_Store` ajouté à `.gitignore`). Aucune migration, aucun changement d'API.
-
-Issu de l'audit du 2026-11-01 (lot A, intégrité des données).
-
-### Sécurité
-- **Unicité garantie par la base** : le matricule, le numéro de série, l'identifiant interne (sans tenir compte de la casse, valeurs vides ignorées) et le code d'entité ont maintenant un index unique. Avant, seule l'application le vérifiait : 20 créations simultanées du même numéro de série en laissaient passer 4. La perdante d'une course reçoit un `409` clair (filet commun dans `main.py`). **Migration `0021`** : si des doublons existent déjà, elle s'arrête en listant les valeurs à fusionner ou renommer, sans rien modifier ni supprimer ; il faut les corriger puis relancer.
+- **Unicité garantie par la base** : le matricule, le numéro de série, l'identifiant interne (sans tenir compte de la casse, valeurs vides ignorées) et le code d'entité ont maintenant un index unique. Avant, seule l'application le vérifiait : 20 créations simultanées du même numéro de série en laissaient passer 4. La perdante d'une course reçoit un `409` clair (filet commun dans `main.py`). Le contrôle de doublon applicatif (`409`) ignore aussi la casse, comme les imports et les index.
 - **Longueurs maximales** sur les champs texte des salariés, du matériel, des entités et des applications (par exemple matricule 50, nom 200, numéro de série 100, notes 2 000 caractères) : un champ trop long est refusé en `422`. Avant, un prénom de 200 000 caractères et une note de 1 Mo étaient acceptés. La base reste non bornée, donc une donnée existante plus longue n'empêche pas de la lire.
-
-### Ajouté
-- Suite `tests/integrite_check.py` (créations simultanées, casse, valeurs vides, modification, longueurs).
-
-### Modifié
-- Le contrôle de doublon (`409`) ignore désormais la casse pour le matricule, le numéro de série et l'identifiant interne, comme les imports et les index.
-
-Issu de l'audit du 2026-11-01 (lot B, RGPD).
+- **Journal d'audit : une rafale de requêtes anonymes ne masque plus les refus d'un compte.** Les refus 401 et 403 partageaient un même plafond par adresse IP (60 par minute) : 60 requêtes anonymes suffisaient à empêcher la journalisation des refus 403 d'un compte connecté qui sondait ses droits, pendant une minute. Le plafond est maintenant par couple (adresse IP, appelant). Un compte peut encore atteindre son propre plafond (60 refus par minute) : il faut surveiller les rafales de 403 dans le journal.
 
 ### Corrigé (RGPD)
 - **Purge : les liens vers les systèmes externes disparaissent avec le salarié.** La purge supprimait le salarié mais laissait sa ligne de correspondance (`external_links`, GLPI par exemple) : un identifiant externe orphelin restait lié à une personne effacée. Elle est maintenant supprimée dans la même transaction. Les liens du matériel sont conservés (le matériel n'est pas une donnée personnelle).
 - **Journal d'audit : la saisie d'un compte inconnu n'est plus conservée.** Un échec de connexion, un verrouillage ou une demande de réinitialisation ignorée enregistrait ce qui avait été tapé, parfois une adresse e-mail de tiers ou un mot de passe saisi dans le mauvais champ. Pour un compte inconnu, le journal garde désormais `inconnu:` suivi d'une empreinte (HMAC avec la clé secrète du serveur) : les tentatives répétées d'une même saisie restent corrélables, sans donnée personnelle. Pour un compte existant, l'identifiant reste journalisé comme avant.
+- Les cinq questions : donnée = identifiant saisi (inconnu) et lien externe du salarié ; pourquoi = détecter les attaques, rapprocher les systèmes ; qui la voit = les administrateurs du journal ; combien de temps = empreinte non réversible, lien supprimé à la purge ; effacement = purge RGPD existante.
 
-Les cinq questions : donnée = identifiant saisi (inconnu) et lien externe du salarié ; pourquoi = détecter les attaques, rapprocher les systèmes ; qui la voit = les administrateurs du journal ; combien de temps = empreinte non réversible, lien supprimé à la purge ; effacement = purge RGPD existante.
+### Modifié
+- Le cookie de session lit sa durée dans le jeton émis (une lecture de moins en base par connexion), `signing.py` n'utilise plus `datetime.utcnow()` (déprécié), l'interface n'appelle plus `/auth/me` deux fois au chargement, et `docs/.DS_Store` n'est plus suivi (`.DS_Store` ajouté à `.gitignore`). L'API ne change pas.
 
-Aucune migration, aucun changement d'API. Les entrées déjà présentes dans le journal ne sont pas réécrites.
+### Tests
+- Nouvelle suite `tests/integrite_check.py` (créations simultanées, casse, valeurs vides, modification, longueurs).
+- `security_check` : saisie d'un compte inconnu absente du journal, rafale anonyme sans effet sur les refus d'un compte ; `purge_check` : lien externe supprimé à la purge.
+- `tests/run_all.sh` recrée l'API au démarrage de chaque passage : les limiteurs en mémoire gardaient les budgets du passage précédent et faisaient échouer des suites relancées dans la minute.
+
+### Non vérifié
+- La migration `0021` est testée sur les bases neuves de la pile de test (suite complète et test de sauvegarde-restauration). Sur la base de dev, seule la recherche de doublons a été faite (aucun), en lecture seule : la migration n'y a pas encore été appliquée, et elle n'a pas été éprouvée sur une copie d'une base de production.
+- Le comportement du chargement initial de l'interface (un seul appel `/auth/me`) n'est couvert par aucun test automatisé.
 
 ## [0.4.2] - 2026-11-02
 
