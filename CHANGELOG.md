@@ -5,9 +5,21 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.5.3] - 2026-11-03
+
+Repérage des matériels revenus en stock et mise au rebut en lot. **Aucune migration de base de données** ; l'API gagne deux routes (compatible), donc les quatre images sont à mettre à jour ensemble.
+
+### Mise à jour depuis 0.5.2
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.5.3`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.5.3` sous Linux).
+- **Aucune migration.** Retour arrière : repasser `KIKAN_VERSION` à `0.5.2` ; aucune restauration n'est nécessaire.
+- Le repérage des retours en stock se calcule à partir de l'historique des remises : il fonctionne tout de suite sur les matériels déjà revenus en stock, sans rien saisir.
+
 ### Ajouté
 - **Retours en stock** : la liste du matériel repère les matériels déjà remis, restitués puis remis en stock (pastille « Déjà remis, retour du … » et filtre *Retours en stock*), pour décider de les remettre en circulation ou de les réformer. Calculé à partir de l'historique des remises, sans nouvelle donnée à saisir. Nouvelle route `GET /assets/retours-stock`.
 - **Mise au rebut en lot** : *Réformer la sélection* dans la liste du matériel (récapitulatif obligatoire, 500 matériels au plus, un matériel actuellement remis est refusé, une entrée de journal par matériel). Nouvelle route `POST /assets/reforme-lot` (simulation par défaut).
+
+### Corrigé
+- Le test de pagination du journal d'audit visait une page vide quand le nombre d'entrées était un multiple de 10 (aucun effet pour les utilisateurs, seulement pour la CI).
 
 ## [0.5.2] - 2026-11-03
 
