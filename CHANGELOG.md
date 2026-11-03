@@ -39,7 +39,7 @@ Pré-version issue de l'audit du 2026-11-01 (lot C, durcissement). **Une migrati
 - Tests : `stats_check` calcule « aujourd'hui » à l'heure de l'organisation (Europe/Paris), comme le serveur, et non en UTC. Entre 23 h et minuit UTC, la date du conteneur et celle du serveur différaient et la suite échouait (« période du jour : 2 remises »). Aucun changement pour l'application.
 
 ### Non vérifié
-- Le lot C a été éprouvé par la suite de tests (pile de test séparée) et sur la plateforme de développement, pas sur une installation réelle en production. C'est l'objet de cette pré-version.
+- Le lot C a été éprouvé par la suite de tests (pile de test séparée). Seules les suites TLS ont été mesurées sur une instance de développement (`openssl s_client`) ; le reste n'a pas tourné sur une installation réelle ni en production. C'est l'objet de cette pré-version.
 - Le comportement avec une tablette de signature ancienne, un vrai serveur WebDAV (Nextcloud, IIS) et un vrai nom DNS pointant vers une adresse réservée n'est pas testé : les redirections WebDAV et la résolution de noms sont simulées dans les tests.
 - La déconnexion n'a pas été essayée dans un navigateur (le test de bout en bout passe par l'API).
 
