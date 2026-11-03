@@ -39,7 +39,7 @@ et A.5.18 (droits d'accès).
 
 ## Fonctionnalités
 
-La version publiée est la **0.3.4** (historique dans le [CHANGELOG](CHANGELOG.md)).
+La dernière version publiée figure dans les [versions GitHub](https://github.com/GabrielFotoPoto/kikan-asset-tracker/releases) et dans le [CHANGELOG](CHANGELOG.md), qui détaille chaque mise à jour.
 
 **Cycle de vie du matériel et des salariés**
 - **Cycle de vie du salarié** : formulaire d'entrée (RH) avec le **matériel souhaité** à cocher (et la gamme à préciser), départ avec liste automatique du matériel à récupérer et rappels, passage en « sorti » une fois tout rendu.
@@ -63,7 +63,7 @@ La version publiée est la **0.3.4** (historique dans le [CHANGELOG](CHANGELOG.m
 - **Reporting** « qui détient quoi » à l'instant T, export **CSV, Excel et PDF** ; **statistiques** de parc (modèles, répartition, renouvellements à venir, mouvements), filtrables par entité et par période, exportables en CSV, Excel et PDF ; **prévisions de renouvellement** avec **budget estimé** (par mois, année, type et entité), à partir d'un coût de remplacement par type saisi dans le Paramétrage.
 - **Rappels et rapport mensuel par e-mail** (renouvellements, départs, matériel non restitué, besoins, purge, revue des accès), selon le périmètre de chacun.
 - **Rétention RGPD** : durée de conservation et délai de grace **réglables**, purge par l'informatique, quarantaine des PDF du partage avant suppression et liste pour la GED : voir [docs/RGPD.md](docs/RGPD.md).
-- **Journal d'audit** de toutes les écritures et des refus d'accès, sans donnée personnelle superflue.
+- **Journal d'audit** de toutes les écritures et des refus d'accès, paginé et triable, sans donnée personnelle superflue (une saisie de compte inconnu n'est pas conservée).
 - **Sauvegarde chiffrée** nocturne (base, PDF scellés, clés, certificat) et restauration testée : voir [docs/SAUVEGARDE.md](docs/SAUVEGARDE.md).
 
 **Pour démarrer et évaluer**
@@ -599,7 +599,8 @@ backend/              API FastAPI
     reset_admin.py    commande de secours (mot de passe provisoire)
     routers/          endpoints (entites, users, assets, assignments, lifecycle, besoins, revues, import, reports,
                       rgpd, stats, applications, user_apps, parametres, policies, auth, sso, audit_log, mail_admin,
-                      storage_admin, backup_admin, integrations, glpi_admin, api_v1, search, arrivee)
+                      storage_admin, backup_admin, integrations, glpi_admin, api_v1, search, arrivee,
+                      apropos, branding, previsions, renouvellements)
 backend/migrations/   migrations Alembic du schema
 converter/            service isole de conversion Word vers PDF (LibreOffice, sans Internet)
 frontend/             application React (Vite + Nginx, HTTPS)

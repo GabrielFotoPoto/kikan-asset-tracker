@@ -26,7 +26,7 @@ est fixé à `kikan` (`COMPOSE_PROJECT_NAME`) pour les étapes de sauvegarde et 
 secrets repris de `.env` sans le reste) : les tests créent puis effacent des données `ZZ...` et des réglages (e-mails, GLPI...), et ne touchent jamais à
 votre instance ni à votre `.env`. Pour la supprimer : `docker compose -p kiktest down -v`. `KIKAN_TEST_PREFIX` et `KIKAN_TEST_API_PORT` changent le nom et
 le port. Les suites lancées à la main (`docker exec -i ... kikan-api`, voir SECURITY.md) visent la pile qui porte ce nom : remplacer par `kiktest-api`
-pour la pile de test.
+pour la pile de test. `run_all.sh` **recrée l'API au début de chaque passage** : les limiteurs de débit et de connexion gardent leurs compteurs en mémoire, donc une suite relancée à la main dans la même minute peut échouer à tort (par exemple `security_check`) ; redémarrer le conteneur de l'API entre deux exécutions.
 
 ## Réglages GitHub
 
@@ -58,11 +58,11 @@ Ne fusionnez que ce qui est au vert ; lisez les notes de version des mises à jo
 2. Vérifier que la CI est verte sur `main`.
 3. Étiqueter et envoyer :
    ```bash
-   git tag v0.3.4
-   git push origin v0.3.4
+   git tag v0.5.0
+   git push origin v0.5.0
    ```
 4. Le workflow `.github/workflows/release.yml` construit et publie sur le **GitHub Container Registry** quatre images (`amd64` et `arm64`),
-   `ghcr.io/gabrielfotopoto/kikan-api`, `kikan-web`, `kikan-converter` et `kikan-backup`, étiquetées `0.3.4`, `0.3` et `latest` (`latest` seulement pour une version finale, pas pour une préversion `-rc`), puis crée la
+   `ghcr.io/gabrielfotopoto/kikan-api`, `kikan-web`, `kikan-converter` et `kikan-backup`, étiquetées `0.5.0`, `0.5` et `latest` (`latest` seulement pour une version finale, pas pour une préversion `-rc`), puis crée la
    **version GitHub** (notes générées, `docker-compose.yml`, `docker-compose.ghcr.yml` et `.env.example` en pièces jointes).
 5. Au premier envoi, ouvrir chaque paquet dans *Packages* et le rendre **public** si vous voulez que d'autres puissent le télécharger sans
    identifiants (les paquets créés par un workflow sont privés par défaut).
@@ -74,7 +74,7 @@ La version s'affiche dans `/health` et dans la page **À propos** (variable `KIK
 Aucune compilation sur le serveur (pas à pas complet dans le [guide d'installation](INSTALLATION.md)) :
 
 ```bash
-export KIKAN_VERSION=0.3.4            # ou latest
+export KIKAN_VERSION=0.5.0            # ou latest
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
 ```
