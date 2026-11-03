@@ -58,7 +58,7 @@ Puis `docker compose up -d api`, et dans **Paramétrage, onglet Intégrations, s
 5. Cocher **Activer le connecteur GLPI**.
 
 Messages d'erreur courants : *GLPI exige un jeton d'application* (renseignez `KIKAN_GLPI_APP_TOKEN`), *adresse IP non autorisée*
-(client API de GLPI), *API REST désactivée*, *certificat* (utilisez `KIKAN_GLPI_CA_BUNDLE`).
+(client API de GLPI), *API REST désactivée*, *certificat* (utilisez `KIKAN_GLPI_CA_BUNDLE`), *adresse de serveur non autorisée* (Kikan refuse les adresses link-local, multicast, non spécifiée et de métadonnées cloud, y compris quand le nom du serveur y pointe ; une adresse privée comme `192.168.x.x` est acceptée).
 
 ## Importer depuis GLPI
 
