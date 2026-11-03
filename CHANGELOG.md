@@ -5,6 +5,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **Retours en stock** : la liste du matériel repère les matériels déjà remis, restitués puis remis en stock (pastille « Déjà remis, retour du … » et filtre *Retours en stock*), pour décider de les remettre en circulation ou de les réformer. Calculé à partir de l'historique des remises, sans nouvelle donnée à saisir. Nouvelle route `GET /assets/retours-stock`.
+- **Mise au rebut en lot** : *Réformer la sélection* dans la liste du matériel (récapitulatif obligatoire, 500 matériels au plus, un matériel actuellement remis est refusé, une entrée de journal par matériel). Nouvelle route `POST /assets/reforme-lot` (simulation par défaut).
+
 ## [0.5.2] - 2026-11-03
 
 Correctif du renouvellement : l'ancien matériel remis en stock ne revient plus comme « à renouveler ». **Aucune migration de base de données** et aucun changement d'API ; les quatre images sont à mettre à jour ensemble.

@@ -106,7 +106,8 @@ for n in range(5):
     pages += [r["id"] for r in page]
 show("5 pages de 10 = les 50 premieres lignes", pages == reference, f"{len(pages)} lignes")
 show("aucun doublon entre les pages", len(set(pages)) == len(pages))
-dernier = ((apres or 0) // 10) * 10
+# Index de la derniere page non vide : (total - 1) // 10, sinon un total multiple de 10 viserait une page vide.
+dernier = ((max(apres or 1, 1) - 1) // 10) * 10
 _, fin, t = audit(limit=10, offset=dernier, **FILTRE)
 show("derniere page : au plus 10 lignes, total inchange", 0 < len(fin) <= 10 and t == apres, f"{len(fin)} lignes, total {t}")
 s, vide, t = audit(limit=10, offset=(apres or 0) + 1000, **FILTRE)

@@ -19,7 +19,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from ..auth import get_current_account, writer_guard
 from ..asset_catalog import AssetCatalog
@@ -49,6 +49,22 @@ def list_assets(
     if statut is not None:
         stmt = stmt.where(Asset.statut == statut)
     return session.exec(stmt).all()
+
+
+@router.get("/retours-stock")
+def retours_stock(session: Session = Depends(get_session), scope: Scope = Depends(scope_dep)):
+    """Materiels en stock qui ont deja ete remis puis restitues : `retour_le` est la date de leur dernier retour.
+
+    Calcule a partir de l'historique des affectations (rien a saisir) ; sert a reperer ce qu'il reste a decider
+    (remettre en circulation ou reformer). Un materiel qui repart en affectation ou est reforme n'y figure plus."""
+    stmt = (
+        select(Asset.id, func.max(AssignmentAsset.date_retour))
+        .join(AssignmentAsset, AssignmentAsset.asset_id == Asset.id)
+        .where(Asset.statut == AssetStatus.stock, AssignmentAsset.date_retour.is_not(None))
+        .group_by(Asset.id)
+    )
+    stmt = scope.where(stmt, Asset.entite_id)
+    return [{"asset_id": asset_id, "retour_le": retour.isoformat()} for asset_id, retour in session.exec(stmt).all()]
 
 
 @router.get("/catalogue/marques")
@@ -149,6 +165,50 @@ def update_asset(
     session.refresh(obj)
     audit_change(account.username, "assets", obj.id, fields)
     return obj
+
+
+class ReformeLot(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+    simulation: bool = True   # vrai : ne change rien, annonce seulement ce qui serait reforme ou refuse
+
+
+@router.post("/reforme-lot")
+def reform_assets_batch(
+    data: ReformeLot, session: Session = Depends(get_session),
+    scope: Scope = Depends(scope_dep), account: Account = Depends(get_current_account),
+):
+    """Passe plusieurs materiels au statut `reforme` en une fois (decision de mise au rebut apres un retour en stock).
+
+    Un materiel actuellement remis (affecte) se libere par la restitution : il est refuse, comme les materiels deja reformes
+    ou hors du perimetre. En simulation (par defaut), rien ne change : la reponse sert de recapitulatif."""
+    ids = list(dict.fromkeys(data.ids))
+    reformables: list[Asset] = []
+    refuses: list[dict] = []
+    for asset_id in ids:
+        obj = session.get(Asset, asset_id)
+        if not obj or not scope.allows(obj.entite_id):
+            refuses.append({"id": asset_id, "raison": "Actif introuvable"})
+        elif obj.statut == AssetStatus.affecte:
+            refuses.append({"id": asset_id, "raison": "Affecte : il se libere par la restitution du salarie", "identifiant": obj.identifiant_interne})
+        elif obj.statut == AssetStatus.reforme:
+            refuses.append({"id": asset_id, "raison": "Deja reforme", "identifiant": obj.identifiant_interne})
+        else:
+            reformables.append(obj)
+    ids_ok = [o.id for o in reformables]
+    apercu = [
+        {"id": o.id, "identifiant": o.identifiant_interne, "type": o.type, "marque": o.marque, "modele": o.modele, "numero_serie": o.numero_serie, "statut": o.statut}
+        for o in reformables
+    ]
+    if not data.simulation:
+        now = datetime.utcnow()
+        for obj in reformables:
+            obj.statut = AssetStatus.reforme
+            obj.maj_le = now
+            session.add(obj)
+        session.commit()
+        for asset_id in ids_ok:
+            audit_change(account.username, "assets", asset_id, ["statut"])
+    return {"simulation": data.simulation, "reformes": ids_ok, "refuses": refuses, "apercu": apercu if data.simulation else []}
 
 
 class SuppressionLot(BaseModel):
