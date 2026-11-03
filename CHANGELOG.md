@@ -5,6 +5,20 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.6.0-rc.1] - 2026-11-03
+
+Pré-version issue de l'audit du 2026-11-01 (lot C, durcissement). **Une migration de base de données (`0022`)** et **plusieurs changements qui peuvent empêcher une installation existante de démarrer ou de se connecter** (voir ci-dessous) : à essayer sur une copie avant la version finale. Aucun changement d'API.
+
+### Mise à jour depuis 0.5.3
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.6.0-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.6.0-rc.1` sous Linux). Les quatre images sont à mettre à jour ensemble ; l'application est brièvement indisponible pendant le redémarrage.
+- **Migration `0022`** : crée la table `revoked_tokens` (identifiants de jetons fermés à la déconnexion). Elle ne modifie aucune donnée existante. Retour arrière : restaurer la sauvegarde (base de données et volumes), le plus sûr ; ne repassez pas `KIKAN_VERSION` à une version antérieure sans restaurer.
+- **Avant de mettre à jour, vérifiez ces quatre points**, qui sont les ruptures possibles :
+  1. **`.env` : `KIKAN_ENV` et `KIKAN_SECRET_KEY`.** Le mode par défaut devient `production`. Sans ligne `KIKAN_ENV` (ou si elle est vide) **et** sans `KIKAN_SECRET_KEY` de 32 caractères minimum, l'API refuse de démarrer (message explicite dans `docker compose logs api`) : définissez la clé. À l'inverse, un `.env` qui contient `KIKAN_ENV=development` sur un serveur d'exploitation reste en développement : passez-le à `production`.
+  2. **Clients TLS anciens.** nginx n'accepte plus en TLS 1.2 que des suites ECDHE avec AES-GCM ou ChaCha20-Poly1305 (plus de CBC ni d'échange RSA statique). Les navigateurs et tablettes récents n'y voient rien ; un poste très ancien, ou un outil de supervision ancien, ne pourra plus se connecter. Essayez votre **tablette de signature** après la mise à jour.
+  3. **Partage WebDAV.** Les redirections ne sont plus suivies. Si `KIKAN_WEBDAV_URL` redirige (http vers https, barre oblique finale manquante), le dépôt et la lecture échoueront avec « redirigé (HTTP 30x), redirection non suivie » : mettez l'adresse finale.
+  4. **Serveurs GLPI et SMTP.** Une adresse link-local, multicast, non spécifiée ou de métadonnées cloud (ou un nom qui y pointe) est refusée. Les adresses privées (`10.x`, `192.168.x`) restent acceptées : peu probable d'être concerné.
+- **Sessions ouvertes pendant la mise à jour** : elles continuent de fonctionner, mais ne sont pas révocables à la déconnexion (elles n'ont pas d'identifiant) ; elles expirent normalement.
+
 ### Sécurité
 - **Déconnexion : le jeton de session est révoqué.** Jusqu'ici la déconnexion effaçait seulement le cookie : un jeton copié avant (journal, proxy, poste partagé) restait valable jusqu'à son expiration, 12 h au plus. Chaque jeton porte maintenant un identifiant aléatoire (`jti`), conservé dans la nouvelle table `revoked_tokens` à la déconnexion et refusé ensuite (401). Les autres sessions du même compte restent ouvertes. La déconnexion répond toujours 204, même sans jeton ou avec un jeton invalide.
 - **Migration `0022`** (une table). **Les sessions ouvertes avant la mise à jour n'ont pas d'identifiant** : elles ne sont pas révocables et expirent normalement, mais continuent de fonctionner.
@@ -23,6 +37,11 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ### Corrigé
 - Tests : `stats_check` calcule « aujourd'hui » à l'heure de l'organisation (Europe/Paris), comme le serveur, et non en UTC. Entre 23 h et minuit UTC, la date du conteneur et celle du serveur différaient et la suite échouait (« période du jour : 2 remises »). Aucun changement pour l'application.
+
+### Non vérifié
+- Le lot C a été éprouvé par la suite de tests (pile de test séparée) et sur la plateforme de développement, pas sur une installation réelle en production. C'est l'objet de cette pré-version.
+- Le comportement avec une tablette de signature ancienne, un vrai serveur WebDAV (Nextcloud, IIS) et un vrai nom DNS pointant vers une adresse réservée n'est pas testé : les redirections WebDAV et la résolution de noms sont simulées dans les tests.
+- La déconnexion n'a pas été essayée dans un navigateur (le test de bout en bout passe par l'API).
 
 ## [0.5.3] - 2026-11-03
 
