@@ -240,8 +240,13 @@ class SmbBackend:
             pass
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):  # jamais suivie : l'en-tete Authorization ne doit pas partir vers un autre hote
+        return None
+
+
 class WebDavBackend:
-    """Partage de fichiers web (WebDAV, HTTPS) : MKCOL / PUT / GET / DELETE."""
+    """Partage de fichiers web (WebDAV, HTTPS) : MKCOL / PUT / GET / DELETE. Aucune redirection n'est suivie."""
     name = "webdav"
 
     def __init__(self):
@@ -270,6 +275,7 @@ class WebDavBackend:
             log.warning("KIKAN_WEBDAV_VERIFY_TLS a ete supprimee et est ignoree : la verification du "
                         "certificat reste active (utilisez KIKAN_WEBDAV_CA_BUNDLE).")
         self._ctx = ssl.create_default_context(cafile=_env("KIKAN_WEBDAV_CA_BUNDLE") or None)
+        self._opener = urllib.request.build_opener(_NoRedirect(), urllib.request.HTTPSHandler(context=self._ctx))
 
     def _url(self, key: str) -> str:
         return self.base_url + "/" + "/".join(urllib.parse.quote(p) for p in safe_key(key).split("/"))
@@ -283,7 +289,7 @@ class WebDavBackend:
         req = urllib.request.Request(url, data=data, method=method, headers=headers)
         try:
             # Faux positif B310 : l'adresse vient de KIKAN_WEBDAV_URL, dont le schema (http ou https seulement) est verifie a la creation.
-            with urllib.request.urlopen(req, timeout=TIMEOUT, context=self._ctx) as resp:  # nosec B310
+            with self._opener.open(req, timeout=TIMEOUT) as resp:  # nosec B310
                 if resp.status not in ok:
                     raise StorageError(f"Partage WebDAV : reponse inattendue ({resp.status})")
                 return resp.read()
@@ -292,6 +298,9 @@ class WebDavBackend:
                 return b""
             if exc.code == 404:
                 raise FileNotFoundError(url) from exc
+            if 300 <= exc.code < 400:
+                raise StorageError(f"Partage WebDAV : {method} redirige (HTTP {exc.code}), redirection non suivie "
+                                   "(verifiez KIKAN_WEBDAV_URL : adresse finale, https, sans barre oblique manquante)") from exc
             raise StorageError(f"Partage WebDAV : {method} refuse (HTTP {exc.code})") from exc
         except (urllib.error.URLError, OSError, ssl.SSLError) as exc:
             reason = getattr(exc, "reason", exc)
