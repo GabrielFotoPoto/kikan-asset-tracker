@@ -101,7 +101,7 @@ def a_propos():
                     "texte": f"{DEPOT}/blob/main/LICENSE"},
         "auteur": "Gabriel Chollet",
         "copyright": "Copyright (C) 2026 Gabriel Chollet",
-        "ia": "Developpe avec l'assistance d'une IA (Claude, Anthropic).",
+        "ia": "Developpe avec l'assistance d'IA (Claude, Anthropic ; relectures avec Gemini, Google).",
         "liens": {
             "depot": DEPOT,
             "problemes": f"{DEPOT}/issues",
