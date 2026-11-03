@@ -15,14 +15,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""A propos : version, licence, auteur et composants (lecture, tous roles authentifies)."""
+"""A propos : version, licence, auteur, composants (lecture, tous roles authentifies) et verification des mises a jour (informatique)."""
+import json
 import os
 import platform
+import re
+import ssl
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
-from ..auth import get_current_account
+from ..auth import get_current_account, require_roles
 from ..config import settings
 
 router = APIRouter(
@@ -31,6 +39,15 @@ router = APIRouter(
 )
 
 DEPOT = "https://github.com/GabrielFotoPoto/kikan-asset-tracker"
+API_RELEASE_DEFAUT = "https://api.github.com/repos/GabrielFotoPoto/kikan-asset-tracker/releases/latest"
+CACHE_TTL_SEC = 6 * 3600
+ERROR_TTL_SEC = 300
+FORCE_MIN_INTERVAL_SEC = 60
+LOOPBACK = {"127.0.0.1", "localhost", "[::1]"}
+_SEMVER_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$")
+
+_maj_lock = threading.Lock()
+_maj_cache: dict = {"ts": 0.0, "version_locale": None, "data": None}
 
 # Composants principaux : (nom, role, licence, paquet Python dont on lit la version installee ou None).
 # Les licences sont celles declarees par chaque projet (relevees dans l'image) ; a revoir quand une dependance change.
@@ -93,3 +110,113 @@ def a_propos():
         },
         "composants": [{"nom": n, "role": r, "licence": lic, "version": _version(p)} for n, r, lic, p in COMPOSANTS],
     }
+
+
+def _parse_semver(v: str | None) -> tuple[int, int, int, int, str] | None:
+    """Transforme '0.5.0' ou 'v0.5.0-rc.1' en tuple comparable (majeur, mineur, correctif, est_finale, preversion)."""
+    if not v:
+        return None
+    m = _SEMVER_RE.match(v.strip())
+    if not m:
+        return None
+    maj, min_, pat, pre = int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4) or ""
+    # Une version finale (sans preversion) est superieure a sa preversion (ex. 0.5.0 > 0.5.0-rc.1).
+    return (maj, min_, pat, 1 if not pre else 0, pre)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def _interroger_github() -> dict:
+    url = os.environ.get("KIKAN_UPDATE_CHECK_URL", API_RELEASE_DEFAUT).strip() or API_RELEASE_DEFAUT
+    parsed = urllib.parse.urlparse(url)
+    is_prod = os.environ.get("KIKAN_ENV", "development").lower() == "production"
+    if parsed.scheme != "https" and not (parsed.scheme == "http" and parsed.hostname in LOOPBACK and not is_prod):
+        raise ValueError("adresse de verification non HTTPS")
+    ca = (os.environ.get("KIKAN_UPDATE_CA_BUNDLE") or os.environ.get("KIKAN_SSO_CA_BUNDLE") or "").strip() or None
+    proxy = (os.environ.get("KIKAN_UPDATE_PROXY") or os.environ.get("KIKAN_SSO_PROXY") or "").strip()
+    ctx = ssl.create_default_context(cafile=ca)
+    opener = urllib.request.build_opener(
+        _NoRedirect(),
+        urllib.request.HTTPSHandler(context=ctx),
+        urllib.request.ProxyHandler({"https": proxy, "http": proxy} if proxy else {}),
+    )
+    req = urllib.request.Request(
+        url,
+        method="GET",
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "Kikan-Update-Checker"},
+    )
+    with opener.open(req, timeout=5) as resp:
+        raw = resp.read(262_144 + 1)
+    if len(raw) > 262_144:
+        raise ValueError("reponse trop volumineuse")
+    data = json.loads(raw)
+    if not isinstance(data, dict):
+        raise ValueError("reponse inattendue")
+    return data
+
+
+def reset_update_cache() -> None:
+    with _maj_lock:
+        _maj_cache.update(ts=0.0, version_locale=None, data=None)
+
+
+@router.get("/mise-a-jour", dependencies=[Depends(require_roles("informatique"))])
+def verifier_mise_a_jour(forcer: bool = Query(False)):
+    ver = os.environ.get("KIKAN_VERSION", "dev").lstrip("v") or "dev"
+    dev = ver == "dev"
+    active = os.environ.get("KIKAN_UPDATE_CHECK", "true").strip().lower() not in ("0", "false", "no", "off")
+    base = {
+        "verification_active": active,
+        "version_actuelle": ver,
+        "developpement": dev,
+        "derniere_version": None,
+        "disponible": False,
+        "date_publication": None,
+        "url_release": f"{DEPOT}/releases",
+        "erreur": None,
+    }
+    if not active:
+        return base
+
+    now = time.time()
+    with _maj_lock:
+        cached = _maj_cache["data"]
+        age = now - _maj_cache["ts"]
+        same_ver = _maj_cache["version_locale"] == ver
+        if cached is not None and same_ver:
+            ttl = ERROR_TTL_SEC if cached.get("erreur") else CACHE_TTL_SEC
+            if not forcer and age < ttl:
+                return cached
+            if forcer and age < FORCE_MIN_INTERVAL_SEC:
+                return cached
+
+    try:
+        rel = _interroger_github()
+        tag = str(rel.get("tag_name") or "").strip().lstrip("v")
+        v_dist = _parse_semver(tag)
+        if not v_dist:
+            raise ValueError("numero de version distant invalide")
+        v_loc = _parse_semver(ver)
+        dispo = bool(v_loc and v_dist > v_loc)
+        pub = str(rel.get("published_at") or "").strip()
+        date_pub = pub[:10] if len(pub) >= 10 else None
+        html_url = str(rel.get("html_url") or "").strip()
+        if not html_url.startswith("https://github.com/"):
+            html_url = f"{DEPOT}/releases/tag/v{tag}"
+        res = {
+            **base,
+            "derniere_version": tag,
+            "disponible": dispo,
+            "date_publication": date_pub,
+            "url_release": html_url,
+        }
+    except (urllib.error.URLError, OSError, ssl.SSLError, ValueError) as exc:
+        res = {**base, "erreur": f"Verification impossible ({type(exc).__name__})."}
+
+    with _maj_lock:
+        _maj_cache.update(ts=time.time(), version_locale=ver, data=res)
+    return res
+
