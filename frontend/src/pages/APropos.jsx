@@ -75,7 +75,7 @@ export default function APropos() {
                   <a href={maj.url_release} target="_blank" rel="noopener noreferrer">Voir les notes de version</a>
                 </p>
                 <p className="muted" style={{ marginBottom: 6 }}>
-                  Pour mettre a jour le serveur (sauvegarde automatique puis bascule des conteneurs) :
+                  Apres avoir lu le journal des changements, lancez sur le serveur (sauvegarde prealable puis bascule des conteneurs) :
                 </p>
                 <pre style={{ margin: "6px 0", padding: "8px 12px", background: "var(--bg)", borderRadius: 6, overflowX: "auto", fontSize: 13 }}>
                   <code>{`./scripts/update.sh ${maj.derniere_version}   # Linux / macOS\n.\\scripts\\update.ps1 -Version ${maj.derniere_version}   # Windows PowerShell`}</code>

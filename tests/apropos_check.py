@@ -121,11 +121,83 @@ show("mise-a-jour : champs attendus presents",
      m)
 show("mise-a-jour : url_release HTTPS GitHub", isinstance(m.get("url_release"), str) and m["url_release"].startswith("https://github.com/"), m.get("url_release"))
 
-from app.routers.apropos import _parse_semver
-show("semver : comparaison standard", _parse_semver("0.5.0") > _parse_semver("0.4.2"))
-show("semver : finale > preversion", _parse_semver("0.5.0") > _parse_semver("0.5.0-rc.1"))
-show("semver : prefixe v ignore", _parse_semver("v1.2.3") == _parse_semver("1.2.3"))
-show("semver : version invalide -> None", _parse_semver("dev") is None and _parse_semver("") is None)
+import http.server
+import threading
+import time
+from unittest.mock import patch
+from app.routers import apropos as ap_mod
+
+show("semver : comparaison standard", ap_mod._parse_semver("0.5.0") > ap_mod._parse_semver("0.4.2"))
+show("semver : finale > preversion", ap_mod._parse_semver("0.5.0") > ap_mod._parse_semver("0.5.0-rc.1"))
+show("semver : prefixe v ignore", ap_mod._parse_semver("v1.2.3") == ap_mod._parse_semver("1.2.3"))
+show("semver : version invalide -> None", ap_mod._parse_semver("dev") is None and ap_mod._parse_semver("") is None)
+
+MOCK_STATE = {"status": 200, "body": {"tag_name": "v0.6.0", "published_at": "2026-11-03T10:00:00Z", "html_url": "https://github.com/GabrielFotoPoto/kikan-asset-tracker/releases/tag/v0.6.0"}, "calls": 0}
+
+
+class MockGh(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        MOCK_STATE["calls"] += 1
+        if MOCK_STATE["status"] in (301, 302):
+            self.send_response(MOCK_STATE["status"])
+            self.send_header("Location", "http://evil.example/release")
+            self.end_headers()
+            return
+        self.send_response(MOCK_STATE["status"])
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        raw = MOCK_STATE["body"] if isinstance(MOCK_STATE["body"], bytes) else json.dumps(MOCK_STATE["body"]).encode()
+        self.wfile.write(raw)
+
+    def log_message(self, *args):
+        pass
+
+
+srv = http.server.HTTPServer(("127.0.0.1", 0), MockGh)
+mock_url = "http://127.0.0.1:%d/releases/latest" % srv.server_port
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+try:
+    with patch.dict(os.environ, {"KIKAN_VERSION": "0.5.0", "KIKAN_UPDATE_CHECK": "true", "KIKAN_UPDATE_CHECK_URL": mock_url, "KIKAN_ENV": "development"}):
+        ap_mod.reset_update_cache()
+        MOCK_STATE["calls"] = 0
+        r1 = ap_mod.verifier_mise_a_jour(forcer=False)
+        show("faux GitHub : nouvelle version detectee (0.5.0 -> 0.6.0)", r1["disponible"] is True and r1["derniere_version"] == "0.6.0" and r1["date_publication"] == "2026-11-03", r1)
+        r2 = ap_mod.verifier_mise_a_jour(forcer=False)
+        show("cache : pas de second appel reseau", MOCK_STATE["calls"] == 1 and r2["derniere_version"] == "0.6.0", MOCK_STATE["calls"])
+        r3 = ap_mod.verifier_mise_a_jour(forcer=True)
+        show("anti-rebond : forcer=true dans les 60 s repond depuis le cache", MOCK_STATE["calls"] == 1, MOCK_STATE["calls"])
+        ap_mod._maj_cache["ts"] -= 120
+        r4 = ap_mod.verifier_mise_a_jour(forcer=True)
+        show("forcer=true apres 60 s : nouvel appel reseau", MOCK_STATE["calls"] == 2, MOCK_STATE["calls"])
+
+    with patch.dict(os.environ, {"KIKAN_VERSION": "0.6.0", "KIKAN_UPDATE_CHECK": "true", "KIKAN_UPDATE_CHECK_URL": mock_url, "KIKAN_ENV": "development"}):
+        ap_mod.reset_update_cache()
+        r_ajour = ap_mod.verifier_mise_a_jour(forcer=False)
+        show("meme version : disponible=False", r_ajour["disponible"] is False and r_ajour["derniere_version"] == "0.6.0", r_ajour)
+
+    with patch.dict(os.environ, {"KIKAN_VERSION": "0.5.0", "KIKAN_UPDATE_CHECK": "false", "KIKAN_UPDATE_CHECK_URL": mock_url}):
+        ap_mod.reset_update_cache()
+        calls_before = MOCK_STATE["calls"]
+        r_off = ap_mod.verifier_mise_a_jour(forcer=False)
+        show("desactivation KIKAN_UPDATE_CHECK=false : aucun appel", r_off["verification_active"] is False and r_off["disponible"] is False and MOCK_STATE["calls"] == calls_before, r_off)
+
+    with patch.dict(os.environ, {"KIKAN_VERSION": "0.5.0", "KIKAN_UPDATE_CHECK": "true", "KIKAN_UPDATE_CHECK_URL": "http://example.com/releases", "KIKAN_ENV": "development"}):
+        ap_mod.reset_update_cache()
+        r_http = ap_mod.verifier_mise_a_jour(forcer=False)
+        show("URL HTTP distante refusee", bool(r_http["erreur"]) and r_http["disponible"] is False, r_http)
+
+    MOCK_STATE["status"] = 302
+    with patch.dict(os.environ, {"KIKAN_VERSION": "0.5.0", "KIKAN_UPDATE_CHECK": "true", "KIKAN_UPDATE_CHECK_URL": mock_url, "KIKAN_ENV": "development"}):
+        ap_mod.reset_update_cache()
+        r_redir = ap_mod.verifier_mise_a_jour(forcer=False)
+        show("redirection 302 refusee et erreur mise en cache court", bool(r_redir["erreur"]) and r_redir["disponible"] is False, r_redir)
+        ap_mod._maj_cache["ts"] -= (ap_mod.ERROR_TTL_SEC + 5)
+        MOCK_STATE["status"] = 200
+        r_recov = ap_mod.verifier_mise_a_jour(forcer=False)
+        show("expiration du cache court d'erreur (5 min) : reprise automatique", r_recov["erreur"] is None and r_recov["disponible"] is True, r_recov)
+finally:
+    srv.shutdown()
 
 print("%d echec(s)" % fails)
 sys.exit(1 if fails else 0)

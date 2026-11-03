@@ -73,7 +73,8 @@ export default function Dashboard() {
       )}
       {maj?.disponible && (
         <div className="card" role="status">
-          <strong>Nouvelle version disponible : v{maj.derniere_version}</strong> (version installee : v{maj.version_actuelle}).{" "}
+          <strong>Nouvelle version disponible : v{maj.derniere_version}</strong>
+          {!maj.developpement && maj.version_actuelle && ` (version installee : v${maj.version_actuelle})`}.{" "}
           <Link to="/a-propos">Voir les instructions de mise a jour</Link>
         </div>
       )}

@@ -28,6 +28,7 @@ Code de sortie 1 si un controle echoue.
 """
 import ast
 import json
+import os
 import re
 import subprocess
 import sys
@@ -112,6 +113,50 @@ for p in files:
         except SyntaxError as exc:
             bad_py.append(f"{p}:{exc.lineno}")
 show("tout le code Python compile", not bad_py, bad_py)
+bad_sh = []
+for p in files:
+    if p.endswith(".sh") and (ROOT / p).is_file():
+        res = subprocess.run(["bash", "-n", str(ROOT / p)], capture_output=True, text=True)
+        if res.returncode != 0:
+            bad_sh.append(f"{p}: {res.stderr.strip()[:120]}")
+show("les scripts shell (.sh) ont une syntaxe valide (bash -n)", not bad_sh, bad_sh)
+if (ROOT / "scripts/update.sh").is_file():
+    import shutil
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpd:
+        shutil.copytree(ROOT / "scripts", Path(tmpd) / "scripts")
+        env_p = Path(tmpd) / ".env"
+        env_p.write_text("POSTGRES_PASSWORD=test\nKIKAN_VERSION=0.5.0\n", encoding="utf-8")
+        env_p.chmod(0o600)
+        (Path(tmpd) / "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
+        (Path(tmpd) / "docker-compose.ghcr.yml").write_text("services: {}\n", encoding="utf-8")
+
+        def _run_upd(*args):
+            return subprocess.run(["bash", str(Path(tmpd) / "scripts/update.sh"), *args], cwd=tmpd, capture_output=True, text=True)
+
+        r_bad = _run_upd("0.5.0/x", "--oui")
+        show("update.sh : version invalide refusee", r_bad.returncode != 0 and "invalide" in r_bad.stderr, r_bad.stderr.strip())
+        r_down = _run_upd("0.4.2", "--oui")
+        show("update.sh : retour arriere (0.5.0 -> 0.4.2) refuse", r_down.returncode != 0 and "retour arriere" in r_down.stderr, r_down.stderr.strip())
+        r_same = _run_upd("0.5.0", "--oui")
+        show("update.sh : meme version (0.5.0) s'arrete proprement", r_same.returncode == 0 and "deja en version" in r_same.stdout, r_same.stdout.strip())
+        r_nobk = _run_upd("0.6.0", "--oui")
+        show("update.sh : sans KIKAN_BACKUP_RECIPIENT ni --sans-sauvegarde refuse", r_nobk.returncode != 0 and "KIKAN_BACKUP_RECIPIENT" in r_nobk.stderr, r_nobk.stderr.strip())
+        # Simulation de la mise a jour avec de faux binaires docker et curl pour verifier la preservation des permissions 0600 de .env
+        bin_d = Path(tmpd) / "bin"
+        bin_d.mkdir()
+        fake_docker = bin_d / "docker"
+        fake_docker.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        fake_docker.chmod(0o755)
+        fake_curl = bin_d / "curl"
+        fake_curl.write_text('#!/usr/bin/env bash\necho \'{"status":"ok","version":"0.6.0"}\'\n', encoding="utf-8")
+        fake_curl.chmod(0o755)
+        env_sim = {**os.environ, "PATH": f"{bin_d}:{os.environ.get('PATH', '')}"}
+        r_ok = subprocess.run(["bash", str(Path(tmpd) / "scripts/update.sh"), "0.6.0", "--oui", "--sans-sauvegarde"], cwd=tmpd, env=env_sim, capture_output=True, text=True)
+        mode_after = env_p.stat().st_mode & 0o777
+        show("update.sh : mise a jour simulee reussit et preserve le mode 0600 de .env",
+             r_ok.returncode == 0 and mode_after == 0o600 and "KIKAN_VERSION=0.6.0" in env_p.read_text(encoding="utf-8"),
+             f"rc={r_ok.returncode} mode={oct(mode_after)} err={r_ok.stderr.strip()[:120]}")
 bad_json = []
 for p in files:
     if p.endswith(".json") and texts.get(p):

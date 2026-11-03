@@ -41,6 +41,7 @@ router = APIRouter(
 DEPOT = "https://github.com/GabrielFotoPoto/kikan-asset-tracker"
 API_RELEASE_DEFAUT = "https://api.github.com/repos/GabrielFotoPoto/kikan-asset-tracker/releases/latest"
 CACHE_TTL_SEC = 6 * 3600
+ERROR_TTL_SEC = 300
 FORCE_MIN_INTERVAL_SEC = 60
 LOOPBACK = {"127.0.0.1", "localhost", "[::1]"}
 _SEMVER_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$")
@@ -186,7 +187,8 @@ def verifier_mise_a_jour(forcer: bool = Query(False)):
         age = now - _maj_cache["ts"]
         same_ver = _maj_cache["version_locale"] == ver
         if cached is not None and same_ver:
-            if not forcer and age < CACHE_TTL_SEC:
+            ttl = ERROR_TTL_SEC if cached.get("erreur") else CACHE_TTL_SEC
+            if not forcer and age < ttl:
                 return cached
             if forcer and age < FORCE_MIN_INTERVAL_SEC:
                 return cached
