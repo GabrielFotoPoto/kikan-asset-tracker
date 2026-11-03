@@ -73,7 +73,7 @@ def j(method, path, body=None, token=None):
         return s, b
 
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 # Jour de l'organisation (comme le serveur, qui compte les remises a l'heure locale) : date.today() du conteneur est en UTC

@@ -22,7 +22,6 @@ Usage :
 
 Cree des donnees marquees ZZFN (a nettoyer ensuite). Code de sortie 1 si un test echoue.
 """
-import glob
 import json
 import os
 import sys

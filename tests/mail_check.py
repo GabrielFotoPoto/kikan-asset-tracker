@@ -183,7 +183,7 @@ def run(**kw):
     return j("POST", "/mail/executer", {"rappels": kw.get("rappels", True), "rapport": kw.get("rapport", False)})
 
 
-from sqlmodel import Session, delete, select  # noqa: E402
+from sqlmodel import Session, select  # noqa: E402
 from app.db import engine  # noqa: E402
 from app.models import ReminderSent, Setting  # noqa: E402
 
