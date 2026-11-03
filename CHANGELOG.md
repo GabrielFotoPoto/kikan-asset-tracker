@@ -5,6 +5,18 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.5.0] - 2026-11-03
+
+Version finale : elle reprend tout le contenu de la préversion 0.5.0-rc.1 (ci-dessous) sans autre changement de code. Le point qui restait à valider, la migration `0021`, a été appliquée sur la préproduction (recherche de doublons à zéro avant, révision `0021`, quatre index d'unicité présents, démarrage propre). **Une migration de base de données (`0021`)**, voir la mise à jour ci-dessous.
+
+### Mise à jour depuis 0.4.2
+- Les consignes de la 0.5.0-rc.1 s'appliquent telles quelles : **sauvegarde avant**, `KIKAN_VERSION=0.5.0`, `docker compose pull` puis `docker compose up -d --no-build`, les quatre images ensemble. La migration `0021` s'arrête sans rien modifier s'il existe des doublons (matricule, numéro de série ou identifiant interne sans tenir compte de la casse, code d'entité) : corrigez-les puis relancez.
+- Depuis une 0.5.0-rc.1 : aucune migration de plus.
+
+### Vérifié depuis la préversion
+- Migration `0021` appliquée sur la préproduction (1 salarié, 2 matériels, 7 entités), sauvegarde relue avant.
+- Resté non vérifié : l'usage de l'application connecté après migration (par exemple le refus `409` d'un numéro de série en double avec une autre casse) et le chargement initial de l'interface (un seul appel `/auth/me`), non couvert par un test automatisé.
+
 ## [0.5.0-rc.1] - 2026-11-03
 
 Pré-version issue de l'audit du 2026-11-01 (lots A et B) : intégrité des données, RGPD et journal d'audit. **Une migration de base de données (`0021`)** : à valider sur une copie avant la version finale.
