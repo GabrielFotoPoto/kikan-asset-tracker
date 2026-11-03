@@ -296,6 +296,26 @@ show("S1 remis en stock perd son echeance (plus a renouveler)", j("GET", "/asset
 show("P2 rendu garde son echeance (il sort deja des listes par son statut)", j("GET", "/assets/%d" % P2["id"])[1]["echeance_renouvellement"] == "2099-02-01")
 s, lst = j("GET", "/renouvellements?horizon_mois=24")
 show("S1 (echeance du jour avant l'echange) n'apparait plus dans la page Renouvellements", s == 200 and S1["id"] not in {x["id"] for x in (lst if isinstance(lst, list) else lst.get("items", []))}, s)
+
+print("== Retours en stock : reperage et mise au rebut en lot ==")
+s, rs = j("GET", "/assets/retours-stock")
+rs_ids = {x["asset_id"]: x["retour_le"] for x in rs} if s == 200 else {}
+show("S1 (restitue puis remis en stock) est repere avec sa date de retour", s == 200 and S1["id"] in rs_ids and rs_ids[S1["id"]], rs)
+show("P2 (rendu) et N2 (affecte) ne sont pas des retours en stock", P2["id"] not in rs_ids and N2["id"] not in rs_ids)
+RF = new_asset("RF1")
+show("un materiel neuf en stock n'est pas un retour", RF["id"] not in {x["asset_id"] for x in j("GET", "/assets/retours-stock")[1]})
+s, r = j("POST", "/assets/reforme-lot", {"ids": [S1["id"], N2["id"], 99999999]})
+rf_raisons = {x["id"]: x["raison"] for x in r["refuses"]} if s == 200 else {}
+show("simulation : S1 reformable, N2 affecte refuse, inconnu refuse", s == 200 and r["simulation"] is True and r["reformes"] == [S1["id"]]
+     and "Affecte" in rf_raisons.get(N2["id"], "") and 99999999 in rf_raisons, r)
+show("la simulation ne change rien", statut(S1) == "stock")
+s, r = j("POST", "/assets/reforme-lot", {"ids": [RF["id"], RF["id"]], "simulation": False})
+show("reforme en lot : applique, doublons ignores", s == 200 and r["reformes"] == [RF["id"]] and statut(RF) == "reforme", r)
+s, r = j("POST", "/assets/reforme-lot", {"ids": [RF["id"]], "simulation": False})
+show("un materiel deja reforme est refuse", s == 200 and r["reformes"] == [] and r["refuses"] and "reforme" in r["refuses"][0]["raison"].lower(), r)
+s, r = j("POST", "/assets/reforme-lot", {"ids": []})
+show("liste vide : 422", s == 422, s)
+
 s, h = j("GET", "/lifecycle/holdings/%d" % U1["id"])
 show("materiel detenu : N1, N2, N3", {a["id"] for a in h} == {N1["id"], N2["id"], N3["id"]}, [a["id"] for a in h])
 s, rc = j("GET", "/assignments/echange/recap?user_id=%d" % U1["id"])
