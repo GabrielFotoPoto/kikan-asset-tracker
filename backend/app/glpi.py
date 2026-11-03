@@ -34,14 +34,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import datetime
 
 from sqlmodel import Session, select
 
 from . import appsettings, integration
 from .auth import IS_PROD
 from .integration import clean
-from .models import Asset, AssetStatus, Assignment, AssignmentAsset, EmployeeStatus, Entite, ExternalLink, User
+from .models import Asset, AssetStatus, Assignment, AssignmentAsset, EmployeeStatus, ExternalLink, User
 from .scope import GLOBAL
 
 SYSTEME = "glpi"

@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Nettoyage
+- Analyse `pyflakes` du code et des tests : suppression de 11 imports ou variables inutilisés (`glpi.py`, `reminders.py`, `xlsx_io.py`, `routers/stats.py` et six fichiers de tests). Un seul avertissement subsiste, voulu : `migrations/env.py` importe `app.models` pour enregistrer les tables. Aucun changement de comportement, aucune migration, aucun changement d'API.
+
 ### Corrigé
 - Tests : `stats_check` calcule « aujourd'hui » à l'heure de l'organisation (Europe/Paris), comme le serveur, et non en UTC. Entre 23 h et minuit UTC, la date du conteneur et celle du serveur différaient et la suite échouait (« période du jour : 2 remises »). Aucun changement pour l'application.
 
