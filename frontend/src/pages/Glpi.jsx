@@ -32,6 +32,8 @@ const ETATS_EXPORT = {
 };
 const RESULTATS = { cree: "cree", lie: "lie a l'existant", inchange: "deja a jour", conflit: "conflit (non modifie)", refuse: "refuse", erreur: "erreur", ignore: "ignore" };
 const line = { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, margin: "3px 0" };
+const FILTRES_VIDES = { q: "", fab: "", sauf: false, etat: "", type: "" };
+const sansAccent = (v) => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 function Badge({ table, k }) {
   const [label, cls] = table[k] || [k, "badge"];
@@ -62,6 +64,7 @@ export default function Glpi({ setErr, setMsg }) {
   const [conn, setConn] = useState(null);
   const [imp, setImp] = useState(null);
   const [pickA, setPickA] = useState({});
+  const [fa, setFa] = useState(FILTRES_VIDES);
   const [pickU, setPickU] = useState({});
   const [homonyme, setHomonyme] = useState({});
   const [impEntite, setImpEntite] = useState("");
@@ -105,6 +108,7 @@ export default function Glpi({ setErr, setMsg }) {
     const r = await run(() => api.post("/glpi/import/apercu", {}));
     if (!r) return;
     setImp(r);
+    setFa(FILTRES_VIDES);
     setPickA(Object.fromEntries(r.actifs.filter((a) => a.importable && a.etat_import !== "sans_serie").map((a) => [a.externe_id, true])));
     setPickU(Object.fromEntries(r.salaries.filter((u) => u.importable && u.etat_import !== "homonyme").map((u) => [u.externe_id, true])));
   };
@@ -129,6 +133,20 @@ export default function Glpi({ setErr, setMsg }) {
   };
 
   const nA = Object.values(pickA).filter(Boolean).length;
+  const fabricants = imp ? [...new Set(imp.actifs.map((a) => a.fabricant).filter(Boolean))].sort((x, y) => x.localeCompare(y)) : [];
+  const actifsVisibles = imp ? imp.actifs.filter((a) => {
+    if (fa.type && a.itemtype !== fa.type) return false;
+    if (fa.etat && a.etat_import !== fa.etat) return false;
+    if (fa.fab && ((a.fabricant || "") === fa.fab) === fa.sauf) return false;
+    const q = sansAccent(fa.q).trim();
+    return !q || sansAccent([a.nom, a.serial, a.inventaire, a.fabricant, a.modele, a.utilisateur].join(" ")).includes(q);
+  }) : [];
+  const cocherVisibles = (valeur) => setPickA((cur) => {
+    const next = { ...cur };
+    actifsVisibles.filter((a) => a.importable).forEach((a) => { next[a.externe_id] = valeur; });
+    return next;
+  });
+  const filtresActifs = JSON.stringify(fa) !== JSON.stringify(FILTRES_VIDES);
   const nU = Object.values(pickU).filter(Boolean).length;
   const nX = Object.values(pickX).filter(Boolean).length;
 
@@ -203,11 +221,36 @@ export default function Glpi({ setErr, setMsg }) {
                   <option value="">Selon les reglages (correspondance ou entite par defaut)</option>
                   {entites.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
                 </select></label>
-              <h4>Materiel ({imp.actifs.length})</h4>
-              {imp.actifs.length === 0 ? <p className="muted">Aucun ordinateur ni telephone dans GLPI.</p> : (
+              <h4>Materiel ({filtresActifs ? `${actifsVisibles.length} affiches sur ` : ""}{imp.actifs.length}, {nA} selectionne(s))</h4>
+              {imp.actifs.length > 0 && (
+                <div>
+                  <div className="row">
+                    <input style={{ width: "auto", minWidth: 220 }} value={fa.q} onChange={(e) => setFa({ ...fa, q: e.target.value })} placeholder="Rechercher (nom, serie, modele, utilisateur...)" />
+                    <select style={{ width: "auto" }} value={fa.type} onChange={(e) => setFa({ ...fa, type: e.target.value })}>
+                      <option value="">Tous les types</option><option value="Computer">Ordinateurs</option><option value="Phone">Telephones</option>
+                    </select>
+                    <select style={{ width: "auto" }} value={fa.etat} onChange={(e) => setFa({ ...fa, etat: e.target.value })}>
+                      <option value="">Tous les etats d'import</option>
+                      {Object.entries(ETATS_IMPORT).map(([k, [label]]) => <option key={k} value={k}>{label}</option>)}
+                    </select>
+                    <select style={{ width: "auto" }} value={fa.fab} onChange={(e) => setFa({ ...fa, fab: e.target.value })}>
+                      <option value="">Tous les fabricants</option>
+                      {fabricants.map((x) => <option key={x} value={x}>{x}</option>)}
+                    </select>
+                    <label style={line}><input type="checkbox" style={{ width: "auto" }} checked={fa.sauf} disabled={!fa.fab} onChange={(e) => setFa({ ...fa, sauf: e.target.checked })} /> Tous sauf ce fabricant</label>
+                    {filtresActifs && <button className="ghost" onClick={() => setFa(FILTRES_VIDES)}>Effacer les filtres</button>}
+                  </div>
+                  <div className="row" style={{ marginTop: 6 }}>
+                    <button className="ghost" onClick={() => cocherVisibles(true)}>Cocher les {actifsVisibles.length} affiches</button>
+                    <button className="ghost" onClick={() => cocherVisibles(false)}>Decocher les affiches</button>
+                    <button className="ghost" onClick={() => setPickA({})}>Tout decocher</button>
+                  </div>
+                </div>
+              )}
+              {imp.actifs.length === 0 ? <p className="muted">Aucun ordinateur ni telephone dans GLPI.</p> : actifsVisibles.length === 0 ? <p className="muted">Aucun materiel ne correspond aux filtres.</p> : (
                 <table>
                   <thead><tr><th></th><th>Type</th><th>Nom</th><th>Numero de serie</th><th>Fabricant, modele</th><th>Utilisateur GLPI</th><th>Etat</th></tr></thead>
-                  <tbody>{imp.actifs.map((a) => (
+                  <tbody>{actifsVisibles.map((a) => (
                     <tr key={a.externe_id}>
                       <td><input type="checkbox" disabled={!a.importable} checked={!!pickA[a.externe_id]} onChange={(e) => setPickA({ ...pickA, [a.externe_id]: e.target.checked })} /></td>
                       <td>{a.itemtype === "Computer" ? "Ordinateur" : "Telephone"}{!a.type_kikan && <div className="err">type Kikan non configure</div>}</td>

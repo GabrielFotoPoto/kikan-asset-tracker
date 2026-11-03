@@ -72,6 +72,11 @@ Messages d'erreur courants : *GLPI exige un jeton d'application* (renseignez `KI
 | Déjà lié | Importé ou lié précédemment : rien à faire |
 | Sans numéro de série / nom ou prénom manquant | Signalé |
 
+Pour le matériel, des filtres aident à trier une longue liste : recherche libre (nom, numéro de série, modèle, utilisateur), type, état
+d'import et fabricant, avec la case *Tous sauf ce fabricant* pour exclure par exemple les machines virtuelles. *Cocher les N affichés*,
+*Décocher les affichés* et *Tout décocher* ne touchent que ce qui est visible ; le compteur indique ce qui est sélectionné au total, y
+compris hors de l'écran.
+
 Cochez ce que vous voulez, choisissez au besoin l'entité Kikan, puis **Importer la sélection**.
 
 ## Exporter vers GLPI
