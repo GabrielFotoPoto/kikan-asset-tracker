@@ -349,6 +349,14 @@ class AccountScope(SQLModel, table=True):
     entite_id: int = Field(foreign_key="entite.id", primary_key=True)
 
 
+class RevokedToken(SQLModel, table=True):
+    """Jeton de session ferme a la deconnexion : refuse jusqu'a son expiration naturelle, puis la ligne est purgee.
+    Seul l'identifiant aleatoire du jeton (jti) est conserve : aucune donnee personnelle."""
+    __tablename__ = "revoked_tokens"
+    jti: str = Field(primary_key=True)
+    expire_le: NaiveDatetime = Field(index=True)
+
+
 class PasswordResetToken(SQLModel, table=True):
     """Lien de reinitialisation du mot de passe : usage unique, valable 30 minutes ; seule l'empreinte SHA-256 est stockee."""
     __tablename__ = "password_reset_tokens"
