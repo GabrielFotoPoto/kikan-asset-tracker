@@ -5,6 +5,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- **Accueil : les compteurs ne sont plus chargés plusieurs fois.** À l'ouverture, le menu et le tableau de bord lisaient chacun `/api/stats`, `/api/revues/anomalies` et `/api/renouvellements` (soit 2 appels par route, 3 avec un retour de focus de la fenêtre). Les compteurs viennent maintenant d'un seul chargement partagé (`CompteursProvider`) : 1 appel par route à l'ouverture. Revenir sur l'accueil relit les compteurs si la dernière lecture date de plus de 5 secondes (les chiffres restent à jour), et un second retour plus rapide ne rappelle rien. Interface seulement : aucune migration, aucun changement d'API.
+- Tests : 4 tests de la règle de rechargement (`frontend/src/compteurs.test.js`).
+
 ## [0.6.0] - 2026-11-03
 
 Version finale : elle reprend tout le contenu de la préversion 0.6.0-rc.1 (ci-dessous) sans autre changement de code. **Une migration de base de données (`0022`)** et **quatre changements qui peuvent empêcher une installation existante de démarrer ou de se connecter** : lisez la liste avant de mettre à jour.
