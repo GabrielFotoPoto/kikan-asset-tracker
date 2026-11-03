@@ -32,6 +32,9 @@ Pré-version issue de l'audit du 2026-11-01 (lot C, durcissement). **Une migrati
 - **À vérifier avant la mise à jour** : si votre `.env` n'a pas de ligne `KIKAN_ENV` et pas de `KIKAN_SECRET_KEY` solide, l'API ne démarrera plus (message explicite dans `docker compose logs api`) : définissez la clé. Si votre `.env` contient `KIKAN_ENV=development` alors que le serveur est en exploitation, passez-le à `production` : ce changement de défaut ne le touche pas. Le poste de développement et la pile de test écrivent `development` explicitement.
 - Tests : `security_check` vérifie le défaut en démarrant l'application sans `KIKAN_ENV` (4 vérifications). Aucune migration, aucun changement d'API.
 
+### Modifié
+- Mention des IA : le README et la page À propos indiquent que Gemini (Google) a aussi participé, pour des relectures et des pistes d'amélioration, en plus de Claude (Anthropic) pour le développement. Les en-têtes des fichiers ne changent pas (ils décrivent le développement, pas les relectures). Aucune migration.
+
 ### Nettoyage
 - Analyse `pyflakes` du code et des tests : suppression de 11 imports ou variables inutilisés (`glpi.py`, `reminders.py`, `xlsx_io.py`, `routers/stats.py` et six fichiers de tests). Un seul avertissement subsiste, voulu : `migrations/env.py` importe `app.models` pour enregistrer les tables. Aucun changement de comportement, aucune migration, aucun changement d'API.
 
