@@ -5,7 +5,17 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.5.1] - 2026-11-03
+
+Version de fonctionnalités : mise à jour guidée, aperçu d'import GLPI filtrable et suppression de matériel en lot. **Aucune migration de base de données** ; l'API change de façon compatible (nouvelles routes), donc les quatre images sont à mettre à jour ensemble.
+
+### Mise à jour depuis 0.5.0
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.5.1`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.5.1` sous Linux, qui sauvegarde et vérifie à votre place).
+- **Aucune migration.** Retour arrière : repasser `KIKAN_VERSION` à `0.5.0` ; aucune restauration n'est nécessaire.
+- **Nouveau : la vérification de mise à jour est active par défaut.** Le serveur interroge l'API publique de GitHub (au plus toutes les 6 heures) pour savoir s'il existe une version plus récente, et l'affiche aux comptes informatique (page À propos et tableau de bord). Sur un serveur sans accès à Internet, ou si vous ne le souhaitez pas, mettez `KIKAN_UPDATE_CHECK=false` dans `.env` ; un proxy (`KIKAN_UPDATE_PROXY`) et une autorité interne (`KIKAN_UPDATE_CA_BUNDLE`) sont possibles. La requête ne contient aucune donnée de votre instance (en-têtes fixes) ; GitHub voit seulement l'adresse IP de sortie du serveur.
+
 ### Ajouté
+- **Mise à jour guidée** : page À propos (vérification de la dernière version publiée, route `GET /apropos/mise-a-jour`, réservée à l'informatique) et script `scripts/update.sh` (Linux) : version validée, refus d'un retour en arrière sans `--forcer-version`, sauvegarde préalable vérifiée (archive non vide et empreinte), confirmation, contrôle de santé de la nouvelle version. Voir [docs/INSTALLATION.md](docs/INSTALLATION.md) §10.
 - **Aperçu d'import GLPI** : recherche, filtres par type, état d'import et fabricant (avec « tous sauf ce fabricant »), cases « cocher / décocher les éléments affichés » et « tout décocher », et nombre d'éléments sélectionnés. Le filtrage se fait dans l'interface ; l'API est inchangée.
 - **Suppression de matériel en lot** (rôle informatique) : cases à cocher dans la liste du matériel, « cocher tous les résultats » (jusqu'à 500), filtre de type « tous sauf », puis récapitulatif obligatoire avant la suppression. Un matériel déjà remis est refusé (raison affichée), les autres sont supprimés ensemble ; chaque suppression est journalisée. Nouvelle route `POST /assets/suppression-lot` (simulation par défaut).
 
