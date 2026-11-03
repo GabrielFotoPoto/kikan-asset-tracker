@@ -5,6 +5,15 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.5.2] - 2026-11-03
+
+Correctif du renouvellement : l'ancien matériel remis en stock ne revient plus comme « à renouveler ». **Aucune migration de base de données** et aucun changement d'API ; les quatre images sont à mettre à jour ensemble.
+
+### Mise à jour depuis 0.5.1
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.5.2`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.5.2` sous Linux).
+- **Aucune migration.** Retour arrière : repasser `KIKAN_VERSION` à `0.5.1` ; aucune restauration n'est nécessaire.
+- Les échéances déjà présentes ne sont pas modifiées : le correctif ne s'applique qu'aux échanges faits après la mise à jour. Un ancien matériel déjà remis en stock avant garde son échéance ; vous pouvez la retirer depuis la page Renouvellements (*Reporter*, puis *aucun renouvellement prévu*).
+
 ### Corrigé
 - **Renouvellement (échange)** : un ancien matériel remis en stock perd son échéance de renouvellement (« aucun renouvellement prévu »), avec une ligne dans l'historique des reports. Avant, il gardait son échéance et réapparaissait comme à renouveler dans la page Renouvellements, les prévisions et les rappels. Un ancien matériel rendu ou réformé n'est pas touché : il sort déjà de ces listes par son statut.
 
