@@ -38,7 +38,7 @@ import jwt
 B = os.environ.get("TEST_BASE_URL", "http://localhost:8000")
 ADMIN_USER = os.environ.get("TEST_ADMIN_USER", "admin")
 ADMIN_PW = os.environ.get("TEST_ADMIN_PASSWORD", "")
-PROD = os.environ.get("KIKAN_ENV", "development").lower() == "production"
+PROD = (os.environ.get("KIKAN_ENV") or "production").strip().lower() == "production"
 TEST_PW = "Sec-Test-Passw0rd-2026"
 fails = 0
 
@@ -323,6 +323,59 @@ _emp_login = {x["actor"] for x in logs if x["action"] == "login_echec" and x["ac
 _emp_reset = {x["actor"] for x in logs if x["action"] == "reset_demande_ignoree" and x["actor"].startswith("inconnu:")}
 show("la meme saisie donne la meme empreinte (tentatives correlables)", bool(_emp_login & _emp_reset),
      f"{len(_emp_login)} / {len(_emp_reset)} empreinte(s)")
+
+
+print("== 13. Mode par defaut ==")
+import subprocess  # noqa: E402
+import sys as _sys  # noqa: E402
+
+
+def demarrage(env_extra, retirer=("KIKAN_ENV",)):
+    env = {k: v for k, v in os.environ.items() if k not in retirer}
+    env.update(env_extra)
+    return subprocess.run([_sys.executable, "-c", "import app.auth as a; print('PROD' if a.IS_PROD else 'DEV')"],
+                          env=env, capture_output=True, text=True, cwd="/app" if os.path.isdir("/app") else None)
+
+
+r = demarrage({"KIKAN_SECRET_KEY": "faible"})
+show("sans KIKAN_ENV, une cle faible empeche de demarrer (mode production par defaut)",
+     r.returncode != 0 and "KIKAN_SECRET_KEY" in (r.stderr or ""), (r.stderr or r.stdout)[-120:])
+r = demarrage({"KIKAN_SECRET_KEY": "x" * 48})
+show("sans KIKAN_ENV, avec une cle solide : mode production", r.stdout.strip() == "PROD", (r.stderr or r.stdout)[-120:])
+r = demarrage({"KIKAN_SECRET_KEY": "x" * 48, "KIKAN_ENV": ""})
+show("KIKAN_ENV vide : mode production", r.stdout.strip() == "PROD", (r.stderr or r.stdout)[-120:])
+r = demarrage({"KIKAN_SECRET_KEY": "faible", "KIKAN_ENV": "development"})
+show("KIKAN_ENV=development explicite : mode developpement accepte", r.stdout.strip() == "DEV", (r.stderr or r.stdout)[-120:])
+
+print("== 14. Garde des adresses de serveurs sortants (GLPI, SMTP) ==")
+import socket as _socket  # noqa: E402
+from app import netguard  # noqa: E402
+
+for adresse in ("169.254.169.254", "169.254.1.1", "0.0.0.0", "224.0.0.1", "fe80::1", "::ffff:169.254.169.254",
+                "168.63.129.16", "100.100.100.200", "fd00:ec2::254", "[fe80::1]"):
+    show(f"adresse refusee : {adresse}", netguard.probleme_hote(adresse) is not None)
+for adresse in ("127.0.0.1", "10.0.0.5", "192.168.1.20", "172.16.3.4", "8.8.8.8", "::1", "glpi.exemple.invalid"):
+    show(f"adresse permise : {adresse}", netguard.probleme_hote(adresse) is None, netguard.probleme_hote(adresse))
+_vrai = _socket.getaddrinfo
+try:
+    _socket.getaddrinfo = lambda h, *a, **k: [(2, 1, 6, "", ("169.254.169.254", 0))]
+    show("un nom qui pointe vers une adresse de metadonnees est refuse", netguard.probleme_hote("glpi.exemple.test") is not None)
+    _socket.getaddrinfo = lambda h, *a, **k: [(2, 1, 6, "", ("10.0.0.5", 0)), (2, 1, 6, "", ("169.254.169.254", 0))]
+    show("un nom dont UNE des adresses est refusee est refuse", netguard.probleme_hote("glpi.exemple.test") is not None)
+    _socket.getaddrinfo = lambda h, *a, **k: [(2, 1, 6, "", ("10.0.0.5", 0))]
+    show("un nom qui pointe vers un reseau prive est permis", netguard.probleme_hote("glpi.exemple.test") is None)
+    _socket.getaddrinfo = lambda h, *a, **k: (_ for _ in ()).throw(_socket.gaierror("introuvable"))
+    show("un nom introuvable n'est pas un refus de politique", netguard.probleme_hote("glpi.exemple.test") is None)
+finally:
+    _socket.getaddrinfo = _vrai
+for hote in ("169.254.169.254", "224.0.0.1", "0.0.0.0"):
+    s, _, _ = call("PUT", "/mail/config", {"actif": False, "hote": hote, "port": 25, "securite": "aucune", "utilisateur": "",
+                                           "expediteur": "", "liste": ""}, adm)
+    show(f"SMTP : serveur {hote} refuse (400)", s == 400, f"HTTP {s}")
+for url in ("http://[fe80::1]/", "http://224.0.0.1", "http://168.63.129.16"):
+    s, _, _ = call("PUT", "/glpi/config", {"actif": False, "url": url, "verifier_cert": True, "types_computer": [], "types_phone": [],
+                                           "entites": {}, "entite_kikan": None, "entite_glpi": 0, "profil": ""}, adm)
+    show(f"GLPI : adresse {url} refusee (400)", s == 400, f"HTTP {s}")
 
 # Nettoyage : comptes de test desactives
 for acc_id in (id_rh, id_lect):

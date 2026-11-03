@@ -50,7 +50,7 @@ Renseignez au minimum :
 |---|---|---|
 | `POSTGRES_PASSWORD` | mot de passe de la base | une valeur longue et aléatoire |
 | `KIKAN_SECRET_KEY` | signature des sessions (32 caractères minimum) | `python -c "import secrets; print(secrets.token_urlsafe(48))"` ou `openssl rand -base64 48` |
-| `KIKAN_ENV` | `production` en exploitation | refuse de démarrer sans clé solide, masque la documentation interactive de l'API et impose le cookie de session sécurisé |
+| `KIKAN_ENV` | `production` (valeur par défaut, à garder en exploitation) ; `development` réservé au poste de développement | refuse de démarrer sans clé solide, masque la documentation interactive de l'API et impose le cookie de session sécurisé |
 | `KIKAN_PUBLIC_URL` | adresse publique en HTTPS, par exemple `https://kikan.exemple.local` | **nécessaire** pour les liens des e-mails et « Mot de passe oublié ? » |
 | `KIKAN_ADMIN_USER` / `KIKAN_ADMIN_PASSWORD` | premier compte | facultatif : sinon un mot de passe aléatoire est généré (voir étape 5) |
 
@@ -124,7 +124,7 @@ Dans cet ordre, depuis un compte informatique (détail dans le [guide d'utilisat
 3. **Chartes** : déposer la charte informatique (Word, PDF ou Markdown), globale ou par entité.
 4. **Comptes** : un compte nominatif par personne, avec son rôle (informatique, RH, lecture) et, pour RH et lecture, le périmètre d'entités.
 5. **Salariés, matériel, accès applicatifs** : saisie, ou **Import** de l'existant (modèles CSV et Excel fournis).
-6. **E-mails** (Paramétrage, onglet E-mails) : serveur SMTP interne, expéditeur, adresse de liste, puis message de test. `KIKAN_PUBLIC_URL` doit être défini.
+6. **E-mails** (Paramétrage, onglet E-mails) : serveur SMTP interne (une adresse link-local ou de métadonnées cloud est refusée ; les adresses privées sont acceptées), expéditeur, adresse de liste, puis message de test. `KIKAN_PUBLIC_URL` doit être défini.
 7. **Stockage** et **Sauvegarde** : étapes 8 et 9.
 
 Pour **essayer avant de saisir les vraies données**, utilisez le jeu de démonstration sur une instance vide : `bash scripts/demo.sh charger` (retrait : `bash scripts/demo.sh effacer`).

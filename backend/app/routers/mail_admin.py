@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session
 
-from .. import appsettings, mailer, reminders
+from .. import appsettings, mailer, netguard, reminders
 from ..audit import audit
 from ..auth import require_roles
 from ..db import get_session
@@ -100,6 +100,9 @@ def put_config(data: MailConfigIn, session: Session = Depends(get_session),
                admin: Account = Depends(require_roles("informatique"))):
     if data.hote and not mailer.HOST_RE.match(data.hote):
         raise HTTPException(400, "Nom de serveur invalide")
+    refus = netguard.probleme_hote(data.hote)
+    if refus:
+        raise HTTPException(400, refus)
     if data.expediteur and not mailer.valid_address(data.expediteur):
         raise HTTPException(400, "Adresse d'expediteur invalide")
     if data.liste and not mailer.valid_address(data.liste):

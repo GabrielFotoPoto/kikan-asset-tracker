@@ -126,7 +126,7 @@ vous-même `KIKAN_ADMIN_USER` et `KIKAN_ADMIN_PASSWORD` dans `.env` avant le pre
 
 > **Sécurité** : `KIKAN_SECRET_KEY` (clé de signature des sessions, 32 caractères minimum) et `POSTGRES_PASSWORD`
 > sont à définir dans `.env`, qui ne doit jamais être commité. Avec `KIKAN_ENV=production`, l'application refuse
-> de démarrer sans clé solide. Voir [SECURITY.md](SECURITY.md) pour la liste de contrôle de mise en production,
+> de démarrer sans clé solide (c'est le mode par défaut si `KIKAN_ENV` est absent). Voir [SECURITY.md](SECURITY.md) pour la liste de contrôle de mise en production,
 > les risques acceptés et les tests de sécurité.
 
 ### Tablette de signature sur le réseau local
@@ -510,7 +510,7 @@ Fonctionnement, pensé pour ne jamais perdre une preuve :
 
 Pour un WebDAV avec un certificat d'autorité interne, déposer le certificat (PEM) dans `./ca/` et définir
 `KIKAN_WEBDAV_CA_BUNDLE=/ca/mon-autorite.pem`. L'HTTP simple est refusé par défaut, et la vérification du
-certificat du serveur ne peut pas être désactivée.
+certificat du serveur ne peut pas être désactivée. **Les redirections ne sont jamais suivies** (elles enverraient les identifiants du partage à un autre serveur) : l'adresse `KIKAN_WEBDAV_URL` doit être l'adresse finale, en `https://` et avec sa barre oblique finale si le serveur l'exige ; sinon l'erreur « redirigé (HTTP 30x), redirection non suivie » s'affiche.
 
 Changer d'emplacement : les nouveaux documents vont vers l'emplacement actif ; les anciens restent lisibles tant que
 les variables de leur emplacement d'origine sont conservées dans `.env`. Le passage de `local` vers `smb` ou `webdav`
