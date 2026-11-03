@@ -73,9 +73,12 @@ def j(method, path, body=None, token=None):
         return s, b
 
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
-TODAY = date.today()
+# Jour de l'organisation (comme le serveur, qui compte les remises a l'heure locale) : date.today() du conteneur est en UTC
+# et differe de la date de Paris apres minuit, ce qui faisait echouer ce test chaque nuit entre 23 h et minuit UTC.
+TODAY = datetime.now(ZoneInfo(os.environ.get("KIKAN_TIMEZONE", "").strip() or "Europe/Paris")).date()
 
 
 def raw(path, token=None):

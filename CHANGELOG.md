@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- Tests : `stats_check` calcule « aujourd'hui » à l'heure de l'organisation (Europe/Paris), comme le serveur, et non en UTC. Entre 23 h et minuit UTC, la date du conteneur et celle du serveur différaient et la suite échouait (« période du jour : 2 remises »). Aucun changement pour l'application.
+
 ## [0.5.3] - 2026-11-03
 
 Repérage des matériels revenus en stock et mise au rebut en lot. **Aucune migration de base de données** ; l'API gagne deux routes (compatible), donc les quatre images sont à mettre à jour ensemble.
