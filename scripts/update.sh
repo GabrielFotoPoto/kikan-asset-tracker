@@ -4,7 +4,9 @@
 # Developpe avec l'assistance d'une IA (Claude, Anthropic).
 # Licence GPLv3 (voir LICENSE).
 #
-# Mise a jour guidee de Kikan (Linux / macOS / Git Bash). A lancer depuis la racine du projet.
+# Mise a jour guidee de Kikan sur un serveur Linux (Debian, Ubuntu, RHEL). A lancer depuis la racine du projet.
+# La verification periodique des mises a jour dans l'interface est active par defaut (KIKAN_UPDATE_CHECK=true) ;
+# mettre KIKAN_UPDATE_CHECK=false dans .env sur un serveur sans acces a Internet.
 #
 #   scripts/update.sh [version] [--sources] [--oui] [--sans-sauvegarde] [--forcer-version]
 #
@@ -13,11 +15,12 @@
 #   scripts/update.sh                        # interroge GitHub pour trouver la derniere version publiee
 #   scripts/update.sh --sources              # git pull --ff-only de main puis recompilation locale (methode B)
 #
-# Etapes : validation de la version cible, confirmation, controle des variables .env par rapport a .env.example,
-# sauvegarde de securite obligatoire (sauf --sans-sauvegarde), telechargement des nouvelles images (ou compilation),
-# redemarrage et controle de la version renvoyee par /health.
+# Etapes : controle de Docker et de la version cible, confirmation, controle des variables .env par rapport a .env.example,
+# sauvegarde de securite obligatoire avec verification d'integrite (sauf --sans-sauvegarde), telechargement des nouvelles images
+# (ou compilation), redemarrage et controle de la version renvoyee par /health.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+trap 'rm -f .env.tmp' EXIT
 
 VERSION=""
 MODE=""
@@ -53,11 +56,21 @@ done
 
 [ -f .env ] || { echo "Fichier .env introuvable a la racine du projet." >&2; exit 1; }
 
+if ! docker compose version >/dev/null 2>&1; then
+  echo "Erreur : 'docker compose' (plugin Compose v2) est introuvable. Installez docker-compose-plugin." >&2
+  exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "Erreur : impossible de communiquer avec le demon Docker (verifiez que le service tourne et que votre utilisateur a les droits)." >&2
+  exit 1
+fi
+
 read_env() {
   grep -E "^${1}=" .env 2>/dev/null | tail -n 1 | cut -d= -f2- | tr -d '\r' || true
 }
 
-# Comparaison de deux versions semver X.Y.Z[-pre] : renvoie 0 si $1 > $2, 1 si $1 == $2, 2 si $1 < $2
+# Comparaison de deux versions semver X.Y.Z[-pre] : renvoie 0 si $1 > $2, 1 si $1 == $2, 2 si $1 < $2.
+# Note : deux suffixes de preversion d'une meme version X.Y.Z sont compares par ordre lexicographique (sans effet sur les versions finales).
 semver_cmp() {
   local v1="${1#v}" v2="${2#v}"
   if [ "$v1" = "$v2" ]; then return 1; fi
@@ -65,15 +78,14 @@ semver_cmp() {
   local p1="" p2=""
   [ "$v1" != "$b1" ] && p1="${v1#*-}"
   [ "$v2" != "$b2" ] && p2="${v2#*-}"
-  local IFS=.
-  # shellcheck disable=SC2206
-  local a1=($b1) a2=($b2)
+  local a1=() a2=()
+  IFS=. read -r -a a1 <<< "$b1"
+  IFS=. read -r -a a2 <<< "$b2"
   for i in 0 1 2; do
     local n1="${a1[$i]:-0}" n2="${a2[$i]:-0}"
     if [ "$n1" -gt "$n2" ]; then return 0; fi
     if [ "$n1" -lt "$n2" ]; then return 2; fi
   done
-  # Meme X.Y.Z : une version finale (sans suffixe) est superieure a une preversion
   if [ -z "$p1" ] && [ -n "$p2" ]; then return 0; fi
   if [ -n "$p1" ] && [ -z "$p2" ]; then return 2; fi
   if [[ "$p1" > "$p2" ]]; then return 0; else return 2; fi
@@ -82,7 +94,6 @@ semver_cmp() {
 CURRENT_VERSION=$(read_env KIKAN_VERSION | tr -d '[:space:]')
 CURRENT_VERSION="${CURRENT_VERSION#v}"
 
-# Detection automatique du mode si non precise
 if [ -z "$MODE" ]; then
   if [ -n "$VERSION" ] || [ -n "$CURRENT_VERSION" ] || [ ! -d .git ]; then
     MODE="ghcr"
@@ -98,6 +109,9 @@ if [ "$MODE" = "ghcr" ]; then
     PROXY=$(read_env KIKAN_UPDATE_PROXY)
     [ -z "$PROXY" ] && PROXY=$(read_env KIKAN_SSO_PROXY)
     [ -n "$PROXY" ] && CURL_ARGS+=(--proxy "$PROXY")
+    CA_BUNDLE=$(read_env KIKAN_UPDATE_CA_BUNDLE)
+    [ -z "$CA_BUNDLE" ] && CA_BUNDLE=$(read_env KIKAN_SSO_CA_BUNDLE)
+    [ -n "$CA_BUNDLE" ] && [ -f "$CA_BUNDLE" ] && CURL_ARGS+=(--cacert "$CA_BUNDLE")
     CHECK_URL=$(read_env KIKAN_UPDATE_CHECK_URL)
     [ -z "$CHECK_URL" ] && CHECK_URL="https://api.github.com/repos/GabrielFotoPoto/kikan-asset-tracker/releases/latest"
     TAG=$(curl "${CURL_ARGS[@]}" "$CHECK_URL" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1 || true)
@@ -168,11 +182,34 @@ BACKUP_KEY=$(read_env KIKAN_BACKUP_RECIPIENT | tr -d '[:space:]')
 if [ "$SKIP_BACKUP" -eq 1 ]; then
   echo "Sauvegarde ignoree (--sans-sauvegarde)."
 elif [ -n "$BACKUP_KEY" ]; then
+  COMPOSE_ARGS=(-f docker-compose.yml)
   if [ "$MODE" = "ghcr" ] && [ -f docker-compose.ghcr.yml ]; then
-    docker compose -f docker-compose.yml -f docker-compose.ghcr.yml --profile backup run --rm backup backup
-  else
-    docker compose --profile backup run --rm backup backup
+    COMPOSE_ARGS+=(-f docker-compose.ghcr.yml)
   fi
+  docker compose "${COMPOSE_ARGS[@]}" --profile backup run --rm -T backup backup
+  STATUS_JSON=$(docker compose "${COMPOSE_ARGS[@]}" --profile backup run --rm -T backup status 2>/dev/null || true)
+  ARCHIVE_NAME=$(printf '%s' "$STATUS_JSON" | sed -n 's/.*"fichier":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1 || true)
+  ARCHIVE_SIZE=$(printf '%s' "$STATUS_JSON" | sed -n 's/.*"taille":[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1 || true)
+  LAST_ERR=$(printf '%s' "$STATUS_JSON" | sed -n 's/.*"dernier_echec":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1 || true)
+  if [ -z "$ARCHIVE_NAME" ] || [ -z "$ARCHIVE_SIZE" ] || [ "$ARCHIVE_SIZE" -le 0 ] || [ -n "$LAST_ERR" ]; then
+    echo "Erreur : l'etat de la sauvegarde prealable n'a pas pu etre valide (fichier : '${ARCHIVE_NAME:-aucun}', taille : '${ARCHIVE_SIZE:-0}')." >&2
+    exit 1
+  fi
+  SMB_SRV=$(read_env KIKAN_BACKUP_SMB_SERVER | tr -d '[:space:]')
+  if [ -z "$SMB_SRV" ]; then
+    BACKUP_DIR=$(read_env KIKAN_BACKUP_DIR | tr -d '[:space:]')
+    BACKUP_DIR="${BACKUP_DIR:-./backups}"
+    if [ -d "$BACKUP_DIR" ]; then
+      if [ ! -s "${BACKUP_DIR}/${ARCHIVE_NAME}" ] || [ ! -s "${BACKUP_DIR}/${ARCHIVE_NAME}.sha256" ]; then
+        echo "Erreur : archive '${BACKUP_DIR}/${ARCHIVE_NAME}' ou fichier .sha256 introuvable ou vide." >&2
+        exit 1
+      fi
+      if command -v sha256sum >/dev/null 2>&1; then
+        (cd "$BACKUP_DIR" && sha256sum -c "${ARCHIVE_NAME}.sha256" >/dev/null)
+      fi
+    fi
+  fi
+  echo "Sauvegarde verifiee : $ARCHIVE_NAME ($ARCHIVE_SIZE octets)."
 else
   echo "Erreur : aucune sauvegarde n'est configuree (KIKAN_BACKUP_RECIPIENT absent de .env)." >&2
   echo "Configurez la sauvegarde (docs/SAUVEGARDE.md) avant de mettre a jour, ou passez explicitement --sans-sauvegarde." >&2
@@ -184,7 +221,6 @@ if [ "$MODE" = "ghcr" ]; then
   [ -f docker-compose.ghcr.yml ] || { echo "docker-compose.ghcr.yml introuvable." >&2; exit 1; }
   export KIKAN_VERSION="$VERSION"
   docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
-  # Modification sur place du contenu de .env via un fichier temporaire tout en preservant exactement les permissions et le proprietaire de .env
   cp -p .env .env.tmp
   if grep -q '^KIKAN_VERSION=' .env; then
     awk -v ver="$VERSION" 'BEGIN{FS=OFS="="} $1=="KIKAN_VERSION"{$2=ver} {print}' .env > .env.tmp

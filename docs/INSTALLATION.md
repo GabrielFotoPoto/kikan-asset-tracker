@@ -160,14 +160,13 @@ docker compose --profile backup run --rm backup backup                          
 
 ## 10. Mettre à jour Kikan
 
-La page **À propos** et le **Tableau de bord** (rôle informatique) vérifient automatiquement si une nouvelle version finale est publiée sur GitHub (désactivable avec `KIKAN_UPDATE_CHECK=false` dans `.env` sur un serveur sans accès à Internet).
+La page **À propos** et le **Tableau de bord** (rôle informatique) vérifient automatiquement (actif par défaut, `KIKAN_UPDATE_CHECK=true`) si une nouvelle version finale est publiée sur GitHub. Sur un serveur sans accès à Internet, désactivez cette vérification avec `KIKAN_UPDATE_CHECK=false` dans `.env`.
 
-Vous pouvez utiliser le **script de mise à jour guidée** (qui vérifie `.env`, déclenche une sauvegarde préalable si configurée, met à jour les conteneurs et contrôle `/health`) :
+Sur un serveur Linux (Debian, Ubuntu, RHEL), vous pouvez utiliser le **script de mise à jour guidée** (qui vérifie `.env`, déclenche et contrôle une sauvegarde préalable, met à jour les conteneurs et vérifie `/health`) :
 
 ```bash
-./scripts/update.sh 0.5.0                 # Linux / macOS (images publiées)
-./scripts/update.sh --sources             # Linux / macOS (depuis un clone Git)
-.\scripts\update.ps1 -Version 0.5.0       # Windows PowerShell
+./scripts/update.sh 0.5.0                 # images publiées (méthode A)
+./scripts/update.sh --sources             # depuis un clone Git (méthode B)
 ```
 
 Ou procéder manuellement :
