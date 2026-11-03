@@ -122,7 +122,7 @@ Dans cet ordre, depuis un compte informatique (détail dans le [guide d'utilisat
 3. **Chartes** : déposer la charte informatique (Word, PDF ou Markdown), globale ou par entité.
 4. **Comptes** : un compte nominatif par personne, avec son rôle (informatique, RH, lecture) et, pour RH et lecture, le périmètre d'entités.
 5. **Salariés, matériel, accès applicatifs** : saisie, ou **Import** de l'existant (modèles CSV et Excel fournis).
-6. **E-mails** (Paramétrage, onglet E-mails) : serveur SMTP interne, expéditeur, adresse de liste, puis message de test. `KIKAN_PUBLIC_URL` doit être défini.
+6. **E-mails** (Paramétrage, onglet E-mails) : serveur SMTP interne (une adresse link-local ou de métadonnées cloud est refusée ; les adresses privées sont acceptées), expéditeur, adresse de liste, puis message de test. `KIKAN_PUBLIC_URL` doit être défini.
 7. **Stockage** et **Sauvegarde** : étapes 8 et 9.
 
 Pour **essayer avant de saisir les vraies données**, utilisez le jeu de démonstration sur une instance vide : `bash scripts/demo.sh charger` (retrait : `bash scripts/demo.sh effacer`).
