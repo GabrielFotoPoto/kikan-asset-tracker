@@ -18,10 +18,12 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from ..auth import get_current_account, writer_guard
 from ..asset_catalog import AssetCatalog
+from ..audit import audit
 from ..catalogs import canonical_type
 from ..db import get_session
 from ..models import Account, Asset, AssetBase, AssetStatus, AssetType, AssignmentAsset, EcheanceReport, Entite
@@ -147,6 +149,53 @@ def update_asset(
     session.refresh(obj)
     audit_change(account.username, "assets", obj.id, fields)
     return obj
+
+
+class SuppressionLot(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+    simulation: bool = True   # vrai : ne supprime rien, annonce seulement ce qui serait supprime ou refuse
+
+
+@router.post("/suppression-lot")
+def delete_assets_batch(
+    data: SuppressionLot, session: Session = Depends(get_session),
+    scope: Scope = Depends(scope_dep), account: Account = Depends(get_current_account),
+):
+    """Suppression de plusieurs actifs en une fois, avec les memes garde-fous que la suppression unitaire.
+
+    Un actif deja remis (affectation) ou hors du perimetre du compte est refuse et liste avec sa raison ; les autres sont
+    supprimes ensemble (une seule validation). En simulation (par defaut), rien n'est supprime : la reponse sert de recapitulatif."""
+    ids = list(dict.fromkeys(data.ids))
+    supprimables: list[Asset] = []
+    refuses: list[dict] = []
+    for asset_id in ids:
+        obj = session.get(Asset, asset_id)
+        if not obj or not scope.allows(obj.entite_id):
+            refuses.append({"id": asset_id, "raison": "Actif introuvable"})
+        elif count(session, AssignmentAsset, AssignmentAsset.asset_id == obj.id):
+            refuses.append({"id": asset_id, "raison": "Deja remis : passez-le au statut reforme", "identifiant": obj.identifiant_interne})
+        else:
+            supprimables.append(obj)
+    supprimes_ids = [o.id for o in supprimables]
+    apercu = [
+        {"id": o.id, "identifiant": o.identifiant_interne, "type": o.type, "marque": o.marque, "modele": o.modele, "numero_serie": o.numero_serie}
+        for o in supprimables
+    ]
+    if not data.simulation:
+        for obj in supprimables:
+            for report in session.exec(select(EcheanceReport).where(EcheanceReport.asset_id == obj.id)).all():
+                session.delete(report)
+            session.flush()
+            session.delete(obj)
+        session.commit()
+        for asset_id in supprimes_ids:
+            audit(account.username, "suppression", target=f"assets/{asset_id}", detail="suppression en lot")
+    return {
+        "simulation": data.simulation,
+        "supprimes": supprimes_ids,
+        "refuses": refuses,
+        "apercu": apercu if data.simulation else [],
+    }
 
 
 @router.delete("/{asset_id}", status_code=204)

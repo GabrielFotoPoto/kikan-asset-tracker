@@ -54,6 +54,7 @@ export default function Assets() {
   const q = params.get("q") || "";
   const filtre = params.get("statut") || "";
   const filtreType = params.get("type") || "";
+  const filtreTypeSauf = params.get("typesauf") === "1";   // vrai : tous les types sauf celui choisi
   const filtreEntite = params.get("entite") || "";
   const idCible = Number(params.get("asset")) || null;
   // Tri, sens, nombre de lignes et page vivent dans l'adresse (voir useTableau.js) ; les filtres ci-dessus aussi.
@@ -117,6 +118,26 @@ export default function Assets() {
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
+  // Selection multiple (informatique) : portee sur toute la liste filtree, pas seulement la page affichee.
+  // La suppression passe toujours par un apercu (simulation) qui liste ce qui serait supprime ou refuse.
+  const [sel, setSel] = useState(() => new Set());
+  const [lot, setLot] = useState(null);
+  const [lotBusy, setLotBusy] = useState(false);
+  const basculer = (id) => setSel((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const cocher = (liste, valeur) => setSel((cur) => { const n = new Set(cur); liste.forEach((a) => (valeur ? n.add(a.id) : n.delete(a.id))); return n; });
+  const apercuLot = async () => {
+    setErr(null); setMsg(null); setLotBusy(true);
+    try { setLot(await api.post("/assets/suppression-lot", { ids: [...sel], simulation: true })); } catch (ex) { setErr(errorText(ex)); } finally { setLotBusy(false); }
+  };
+  const supprimerLot = async () => {
+    setErr(null); setMsg(null); setLotBusy(true);
+    try {
+      const r = await api.post("/assets/suppression-lot", { ids: [...sel], simulation: false });
+      setMsg(`${r.supprimes.length} materiel(s) supprime(s)${r.refuses.length ? `, ${r.refuses.length} refuse(s)` : ""}.`);
+      setSel(new Set()); setLot(null); load();
+    } catch (ex) { setErr(errorText(ex)); } finally { setLotBusy(false); }
+  };
+
 
   // La saisie reste dans un etat local (sinon la valeur du champ suit l'adresse avec du retard et perd des lettres)
   // et gagne l'adresse apres 250 ms ; l'adresse ne reecrase la saisie que si elle change de l'exterieur.
@@ -133,13 +154,14 @@ export default function Assets() {
 
   const retirer = (cle) => {
     if (cle === "q") { poussee.current = ""; setSaisie(""); }
+    if (cle === "type") setParam("typesauf", "");
     setParam(cle, "");
   };
   const clearFilters = () => {
     poussee.current = ""; setSaisie("");
     setParams((prev) => {
       const p = new URLSearchParams(prev);
-      ["q", "statut", "type", "entite", "page"].forEach((k) => p.delete(k));
+      ["q", "statut", "type", "typesauf", "entite", "page"].forEach((k) => p.delete(k));
       return p;
     }, { replace: true });
   };
@@ -154,21 +176,24 @@ export default function Assets() {
     const termes = fold(saisie).split(/\s+/).filter(Boolean);
     return (items || []).filter((a) => {
       if (filtre && a.statut !== filtre) return false;
-      if (filtreType && a.type !== filtreType) return false;
+      if (filtreType && (a.type === filtreType) === filtreTypeSauf) return false;
       if (filtreEntite && String(a.entite_id ?? "") !== filtreEntite) return false;
       if (!termes.length) return true;
       const meule = fold([a.identifiant_interne, a.type, a.marque, a.modele, a.numero_serie, a.notes].filter(Boolean).join(" "));
       return termes.every((t) => meule.includes(t));
     });
-  }, [items, saisie, filtre, filtreType, filtreEntite]);
+  }, [items, saisie, filtre, filtreType, filtreTypeSauf, filtreEntite]);
   // Tri puis decoupage en pages : seules les lignes de la page affichee sont rendues (la recherche et les filtres,
   // eux, portent sur toute la liste). Le tri par defaut montre les derniers ajoutes en premier.
   const triees = useMemo(() => (tri ? trier(visibles, tri, sens) : trier(visibles, "id", "desc")), [visibles, tri, sens]);
   const pag = useMemo(() => paginer(triees, page, taille), [triees, page, taille]);
+  const selNb = sel.size;
+  const pageToute = writable && pag.tranche.length > 0 && pag.tranche.every((a) => sel.has(a.id));
+  const filtreToute = triees.length > 0 && triees.every((a) => sel.has(a.id));
   const chips = [
     saisie.trim() && { cle: "q", texte: `Recherche : ${saisie.trim()}` },
     filtre && { cle: "statut", texte: `Statut : ${filtre}` },
-    filtreType && { cle: "type", texte: `Type : ${filtreType}` },
+    filtreType && { cle: "type", texte: `Type : ${filtreTypeSauf ? "tous sauf " : ""}${filtreType}` },
     filtreEntite && { cle: "entite", texte: `Entite : ${entites.find((e) => String(e.id) === filtreEntite)?.nom || filtreEntite}` },
   ].filter(Boolean);
 
@@ -272,6 +297,11 @@ export default function Assets() {
               <option value="">tous</option>
               {typesDispos.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
+            <span className="row" style={{ gap: 6, alignItems: "center", marginTop: 4 }}>
+              <input type="checkbox" style={{ width: "auto" }} id="type-sauf" checked={filtreTypeSauf} disabled={!filtreType}
+                     onChange={(e) => setParam("typesauf", e.target.checked ? "1" : "")} />
+              <label htmlFor="type-sauf" style={{ margin: 0 }}>Tous sauf ce type</label>
+            </span>
           </label>
           <label>Filiale / entite
             <select value={filtreEntite} onChange={(e) => setParam("entite", e.target.value)}>
@@ -293,6 +323,45 @@ export default function Assets() {
           </div>
         )}
         {items && <p className="muted" role="status"><strong>{visibles.length} resultat(s)</strong> sur {items.length} actif(s)</p>}
+        {writable && items && items.length > 0 && visibles.length > 0 && (
+          <div className="row" style={{ alignItems: "center", gap: 8 }}>
+            <button type="button" className="ghost" onClick={() => cocher(triees, !filtreToute)}>
+              {filtreToute ? "Decocher les" : "Cocher les"} {triees.length} resultat(s)
+            </button>
+            {selNb > 0 && <>
+              <strong>{selNb} selectionne(s)</strong>
+              <button type="button" className="ghost" onClick={() => { setSel(new Set()); setLot(null); }}>Vider la selection</button>
+              <button type="button" onClick={apercuLot} disabled={lotBusy || selNb > 500}>Supprimer la selection...</button>
+              {selNb > 500 && <span className="err">500 materiels au plus par suppression.</span>}
+            </>}
+          </div>
+        )}
+        {lot && (
+          <div className="card" role="alertdialog" aria-label="Recapitulatif de la suppression">
+            <h3>Supprimer {lot.supprimes.length} materiel(s) ?</h3>
+            <p className="muted">Cette suppression est definitive. Un materiel deja remis n'est jamais supprime : passez-le au statut reforme.</p>
+            {lot.refuses.length > 0 && (
+              <div>
+                <strong>{lot.refuses.length} refuse(s) :</strong>
+                <ul>{lot.refuses.map((r) => <li key={r.id}>{r.identifiant ? `${r.identifiant} (n ${r.id})` : `n ${r.id}`} : {r.raison}</li>)}</ul>
+              </div>
+            )}
+            {lot.apercu.length > 0 && (
+              <div className="table-scroll" style={{ maxHeight: 260, overflowY: "auto" }}>
+                <table>
+                  <thead><tr><th>Id interne</th><th>Type</th><th>Marque</th><th>Modele</th><th>N serie</th></tr></thead>
+                  <tbody>{lot.apercu.map((a) => (
+                    <tr key={a.id}><td>{a.identifiant || "-"}</td><td>{a.type || "-"}</td><td>{a.marque || "-"}</td><td>{a.modele || "-"}</td><td>{a.numero_serie || "-"}</td></tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+            <div className="row" style={{ marginTop: 8 }}>
+              {lot.supprimes.length > 0 && <ConfirmButton confirmLabel={`Confirmer : supprimer ${lot.supprimes.length} materiel(s)`} onConfirm={supprimerLot}>Supprimer {lot.supprimes.length} materiel(s)</ConfirmButton>}
+              <button type="button" className="ghost" onClick={() => setLot(null)}>Annuler</button>
+            </div>
+          </div>
+        )}
         {items === null ? <Loading label="Chargement du materiel" />
           : items.length === 0 ? <Empty title="Aucun materiel enregistre" hint={writable ? "Ajoutez un equipement avec le formulaire ci-dessus ou importez un fichier." : "Le materiel est saisi par l'informatique."} />
           : visibles.length === 0 ? (
@@ -304,12 +373,14 @@ export default function Assets() {
         <div className="table-scroll vue-tableau">
         <table>
           <thead><tr>
+            {writable && <th><input type="checkbox" aria-label="Selectionner les lignes de la page" checked={pageToute} onChange={() => cocher(pag.tranche, !pageToute)} /></th>}
             {COLONNES.map(([cle, libelle]) => <ThTri key={cle} cle={cle} tri={tri} sens={sens} onTri={changerTri}>{libelle}</ThTri>)}
             {writable && <th></th>}
           </tr></thead>
           <tbody>
             {pag.tranche.map((a) => (
               <tr key={a.id} id={`actif-${a.id}`} className={a.id === idCible ? "row-cible" : undefined} aria-current={a.id === idCible ? "true" : undefined}>
+                {writable && <td><input type="checkbox" aria-label={`Selectionner ${a.identifiant_interne || a.numero_serie || a.id}`} checked={sel.has(a.id)} onChange={() => basculer(a.id)} /></td>}
                 <td>{a.identifiant_interne || "-"}</td>
                 <td>{a.type || "-"}</td>
                 <td>{a.marque || "-"}</td>
@@ -340,6 +411,7 @@ export default function Assets() {
         <ul className="cartes">
           {pag.tranche.map((a) => (
             <li key={a.id} className={a.id === idCible ? "carte row-cible" : "carte"}>
+              {writable && <label style={{ display: "flex", flexDirection: "row", gap: 8, alignItems: "center" }}><input type="checkbox" style={{ width: "auto" }} checked={sel.has(a.id)} onChange={() => basculer(a.id)} /> Selectionner</label>}
               <div className="carte-tete">
                 <strong>{[a.marque, a.modele].filter(Boolean).join(" ") || a.type || "Materiel"}</strong>
                 <span className="badge">{a.statut}</span>
