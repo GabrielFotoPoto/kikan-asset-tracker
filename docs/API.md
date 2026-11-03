@@ -70,6 +70,11 @@ Ajoutez `?dry_run=1` à une écriture pour une **simulation** : le résultat ann
 `matricule`, `nom`, `prenom` (obligatoires pour créer), `email`, `service`, `date_arrivee` (une date future donne le statut
 « prévu »), `entite_code`, `homonyme` (`lier` ou `creer`).
 
+### Unicité et longueurs maximales
+
+- **Unicité** garantie par la base de données : le `matricule` d'un salarié, le `numero_serie` et l'`identifiant_interne` d'un matériel (sans tenir compte de la casse, valeurs vides ignorées) et le `code` d'une entité ne peuvent pas être utilisés deux fois. Un doublon, y compris issu de deux requêtes simultanées, reçoit un `409`.
+- **Longueurs maximales** (caractères) : salarié `matricule` 50, `nom` 200, `prenom` 200, `email` 200, `service` 100 ; matériel `type`, `marque`, `modele`, `numero_serie`, `identifiant_interne` 100 et `notes` 2 000 ; entité `code` 50 et `nom` 200 ; application `nom` 200 et `description` 2 000. Un champ trop long est refusé (`422`).
+
 ## Exemples
 
 ```bash

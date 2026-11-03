@@ -45,6 +45,11 @@ Le journal d'audit enregistre la purge (nombre de salariés et de documents), ch
 changements de réglage, **sans nom ni matricule**. Pour chaque PDF supprimé, il garde son **empreinte SHA-256** : on peut prouver qu'un document a
 existé sans conserver de donnée personnelle.
 
+Le journal ne conserve pas non plus ce qu'une personne a tapé en se connectant avec un compte inconnu (parfois l'adresse d'un tiers ou un mot
+de passe saisi dans le mauvais champ) : il garde `inconnu:` suivi d'une empreinte non réversible, qui permet de reconnaître des tentatives
+répétées sans donnée personnelle. La purge d'un salarié supprime aussi sa ligne de correspondance avec un système externe (GLPI par exemple).
+Les entrées de journal enregistrées avant cette protection ne sont pas réécrites.
+
 ## Limites à connaître
 
 - **Les sauvegardes** (30 jours, puis une par mois pendant un an) contiennent encore les données purgées jusqu'à leur expiration. À mentionner dans
