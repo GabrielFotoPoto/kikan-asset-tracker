@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg2://kikan:${POSTGRES_PASSWORD}@db:5432/kikan
-      KIKAN_ENV: ${KIKAN_ENV:-development}
+      KIKAN_ENV: ${KIKAN_ENV:-production}
       KIKAN_SECRET_KEY: ${KIKAN_SECRET_KEY:-}
       KIKAN_ADMIN_USER: ${KIKAN_ADMIN_USER:-admin}
       KIKAN_ADMIN_PASSWORD: ${KIKAN_ADMIN_PASSWORD:-}

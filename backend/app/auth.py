@@ -37,7 +37,7 @@ from .models import Account, RevokedToken, Role, Setting
 
 log = logging.getLogger("kikan.security")
 
-ENV = os.environ.get("KIKAN_ENV", "development").lower()
+ENV = (os.environ.get("KIKAN_ENV") or "production").strip().lower()  # defaut sur : sans reglage, mode production
 IS_PROD = ENV == "production"
 
 ALGO = "HS256"

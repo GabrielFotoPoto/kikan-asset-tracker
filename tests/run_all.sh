@@ -25,6 +25,7 @@ export COMPOSE_PROJECT_NAME="$PFX" KIKAN_PREFIX="$PFX" KIKAN_API_PORT="${KIKAN_T
 TESTENV=".env.test.tmp"
 grep -E '^(POSTGRES_PASSWORD|KIKAN_ADMIN_USER|KIKAN_ADMIN_PASSWORD|KIKAN_SECRET_KEY)=' .env > "$TESTENV" 2>/dev/null
 echo "KIKAN_UPDATE_CHECK=false" >> "$TESTENV"
+echo "KIKAN_ENV=development" >> "$TESTENV"  # la pile de test tourne en developpement (cle de session generee, /docs expose)
 trap 'rm -f "$TESTENV"' EXIT
 dc() { docker compose --env-file "$TESTENV" "$@"; }
 
