@@ -108,6 +108,8 @@ Par défaut, l'interface n'est publiée que sur la machine locale (`127.0.0.1`).
 2. À faire **avant le premier démarrage** (le certificat est généré une fois) ; sinon supprimer le volume `kikan_webcerts` pour le régénérer.
 3. Ouvrir le port `3443` du pare-feu vers le réseau interne **uniquement**.
 
+> **Compatibilité TLS** : nginx n'accepte en TLS 1.2 que des suites ECDHE avec AES-GCM ou ChaCha20-Poly1305 (voir [SECURITY.md](../SECURITY.md)). Les navigateurs et tablettes récents n'y voient rien ; un très vieux poste ou un outil ancien qui ne sait pas les négocier ne pourra pas se connecter. Pour vérifier : `openssl s_client -connect serveur:443 -tls1_2 -cipher AES128-SHA` doit échouer, et `-cipher ECDHE-RSA-AES128-GCM-SHA256` réussir.
+
 **Certificat de l'organisation** : montez-le dans le volume `kikan_webcerts` (fichiers `kikan.crt` et `kikan.key`) à la place du certificat auto-signé ; les postes ne verront alors plus d'avertissement.
 
 **Derrière un reverse-proxy d'entreprise** : Nginx ne voit alors que l'adresse du proxy, et tous les utilisateurs partageraient la même limite de tentatives
