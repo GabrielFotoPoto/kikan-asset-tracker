@@ -15,10 +15,12 @@ Version corrective, interface seulement : **aucune migration, aucun changement d
 ### Corrigé
 - **Accueil : les compteurs ne sont plus chargés plusieurs fois.** À l'ouverture, le menu et le tableau de bord lisaient chacun `/api/stats`, `/api/revues/anomalies` et `/api/renouvellements` (soit 2 appels par route, 3 avec un retour de focus de la fenêtre). Les compteurs viennent maintenant d'un seul chargement partagé (`CompteursProvider`) : 1 appel par route à l'ouverture. Revenir sur l'accueil relit les compteurs si la dernière lecture date de plus de 5 secondes (les chiffres restent à jour), et un second retour plus rapide ne rappelle rien. Interface seulement : aucune migration, aucun changement d'API.
 - Tests : 4 tests de la règle de rechargement (`frontend/src/compteurs.test.js`).
+- **Construction de l'image web : plus d'émulation pour la compilation du front.** Lors de la publication des versions 0.6.0 et 0.6.1, l'étape `npm ci` en arm64 (sous émulation QEMU) a planté (`Illegal instruction`) et bloqué le job pendant 45 minutes ; la 0.6.0 n'est passée qu'après un relancement. La compilation (`dist`, du JavaScript statique identique pour toutes les architectures) se fait maintenant sur la machine de build (`FROM --platform=$BUILDPLATFORM`). Le contenu de l'image ne change pas.
 
 ### Vérifié
 - **Dans le navigateur** (plateforme de développement, rôle informatique), avant la fusion : 1 appel par route à l'ouverture au lieu de 2 ; retour sur l'accueil après une absence longue : les compteurs sont relus ; retour rapide : aucun appel.
 - Intégration continue de la branche : 11 contrôles réussis.
+- **Image web** : construite en local pour `linux/arm64` (l'étape Node tourne sur la machine hôte, 7 secondes) ; l'image obtenue est bien en arm64.
 
 ### Resté non vérifié
 - **Rôle RH** dans le navigateur (ce rôle ne lit pas `/stats` ni les renouvellements) : pas essayé à la main.
