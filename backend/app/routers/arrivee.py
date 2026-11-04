@@ -30,19 +30,12 @@ from sqlmodel import Session, select
 from ..auth import get_current_account
 from ..db import get_session
 from ..models import Application, Assignment, Besoin, Signature, UserApplication
+from ..parcours import _etape, _iso
 from ..scope import Scope, scope_dep, visible_user
 
 router = APIRouter(prefix="/arrivee", tags=["arrivee"], dependencies=[Depends(get_current_account)])
 
 FAIT, EN_COURS, A_FAIRE = "fait", "en_cours", "a_faire"
-
-
-def _etape(cle: str, titre: str, qui: str, etat: str, detail: str) -> dict:
-    return {"cle": cle, "titre": titre, "qui": qui, "etat": etat, "detail": detail}
-
-
-def _iso(d: datetime | None) -> str | None:
-    return d.isoformat() if d else None
 
 
 @router.get("/{user_id}")

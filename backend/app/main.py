@@ -51,6 +51,7 @@ from .routers import (
     lifecycle,
     mail_admin,
     parametres,
+    parcours,
     policies,
     previsions,
     renouvellements,
@@ -184,6 +185,7 @@ app.include_router(user_apps.router)
 app.include_router(stats.router)
 app.include_router(search.router)
 app.include_router(arrivee.router)
+app.include_router(parcours.router)
 app.include_router(branding.router)
 app.include_router(previsions.router)
 app.include_router(renouvellements.router)
