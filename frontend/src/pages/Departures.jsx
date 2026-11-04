@@ -111,7 +111,7 @@ export default function Departures() {
                     </td>
                     <td>
                       <div className="row">
-                        <Link to={`/depart/${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Parcours</Link>
+                        <Link to={`/depart/${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Suivre le parcours</Link>
                         {writable && held.length > 0 &&
                           <button className="ghost" onClick={() => restituer(u)}>Restituer et signer</button>}
                       </div>

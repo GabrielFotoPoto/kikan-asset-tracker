@@ -18,9 +18,9 @@
  */
 
 // Composants visuels partages entre le parcours d'arrivee (/arrivee/:id) et le parcours de depart (/depart/:id).
-import { QUI_LIBELLES, formaterQuand, peutAgir, resumeParcours } from "../parcours.js";
+import { QUI_LIBELLES, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours } from "../parcours.js";
 
-export { QUI_LIBELLES, formaterQuand, peutAgir, resumeParcours };
+export { QUI_LIBELLES, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours };
 
 export function PastilleParcours({ etapes, etapeCourante, reserves }) {
   const r = resumeParcours(etapes, etapeCourante, reserves);
@@ -34,6 +34,7 @@ export function EtapesParcours({ etapes = [], etapeCourante = null }) {
       {etapes.map((e, i) => {
         const courante = e.cle === etapeCourante;
         const puce = e.etat === "fait" ? "\u2713" : e.etat === "sans_objet" ? "-" : i + 1;
+        const etatSr = libelleEtatEtape(e.etat, courante);
         return (
           <li
             key={e.cle}
@@ -41,6 +42,7 @@ export function EtapesParcours({ etapes = [], etapeCourante = null }) {
             aria-current={courante ? "step" : undefined}
           >
             <span className="etape-puce" aria-hidden="true">{puce}</span>
+            <span className="visually-hidden">{`Etape ${i + 1} (${etatSr}) : `}</span>
             <strong>{e.titre}</strong>
             <span className="muted">{QUI_LIBELLES[e.qui] || e.qui}</span>
             <span className={e.retard_jours ? "etape-detail err" : "etape-detail"}>{e.detail}</span>

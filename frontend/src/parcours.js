@@ -24,6 +24,21 @@ export const QUI_LIBELLES = {
   rh_ou_informatique: "RH ou Informatique",
 };
 
+export const ETAT_LIBELLES = {
+  fait: "fait",
+  courante: "en cours",
+  en_cours: "en cours",
+  a_venir: "a venir",
+  a_faire: "a venir",
+  sans_objet: "sans objet",
+};
+
+// Libelle d'etat lu par les lecteurs d'ecran (en complement de la puce aria-hidden et de la couleur).
+export function libelleEtatEtape(etat, courante = false) {
+  if (courante && etat !== "fait") return "en cours";
+  return ETAT_LIBELLES[etat] || String(etat || "");
+}
+
 // Qui peut agir : les etapes de l'informatique lui sont reservees ; celles des RH ou mixtes sont ouvertes aux RH et a l'informatique.
 // Si le serveur fournit deja le booleen `autorise` dans `prochaine_action`, il fait foi.
 export function peutAgir(actionOuQui, role) {

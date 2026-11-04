@@ -21,7 +21,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fil } from "./nav.js";
-import { formaterQuand, peutAgir, resumeParcours } from "./parcours.js";
+import { formaterQuand, libelleEtatEtape, peutAgir, resumeParcours } from "./parcours.js";
 
 const etapesDepartRh = [
   { cle: "depart", titre: "Depart declare", etat: "fait" },
@@ -55,6 +55,16 @@ test("resumeParcours : parcours termine avec reserve (acces restants)", () => {
   assert.equal(r.avecReserve, true);
   assert.equal(r.classe, "pastille attention");
   assert.equal(r.texte, "Parcours termine (avec reserve : 1 acces a retirer)");
+});
+
+test("libelleEtatEtape : correspondance etat -> libelle pour lecteur d'ecran (depart et arrivee)", () => {
+  assert.equal(libelleEtatEtape("fait", false), "fait");
+  assert.equal(libelleEtatEtape("courante", true), "en cours");
+  assert.equal(libelleEtatEtape("en_cours", true), "en cours");
+  assert.equal(libelleEtatEtape("a_faire", true), "en cours");
+  assert.equal(libelleEtatEtape("a_venir", false), "a venir");
+  assert.equal(libelleEtatEtape("a_faire", false), "a venir");
+  assert.equal(libelleEtatEtape("sans_objet", false), "sans objet");
 });
 
 test("peutAgir : respecte le booleen autorise du serveur ou deduit selon le role", () => {
