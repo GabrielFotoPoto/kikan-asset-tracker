@@ -17,10 +17,11 @@
 
 """Parcours guides en etapes (lecture seule, tous roles authentifies dans leur portee).
 
-Lot 1 : parcours de depart d'un salarie (GET /parcours/depart/{user_id}).
+Lot 1 & 1bis : parcours de depart d'un salarie (GET /parcours/depart/{user_id}).
 L'avancement est calcule a la lecture a partir des donnees existantes, sans aucune ecriture en base.
-Hors portee ou inexistant : 404 identique. L'etape 6 (purge RGPD possible) n'est renvoyee qu'a l'informatique.
-Ni le matricule ni l'e-mail ne sont renvoyes ; le journal ne contient ni nom de compte, ni temoin, ni numero de serie.
+Hors portee ou inexistant : 404 identique. L'etape 6 (purge RGPD possible) et les motifs de non-restitution
+ne sont renvoyes qu'a l'informatique. Ni le matricule ni l'e-mail ne sont renvoyes ; le journal ne contient
+ni nom de compte, ni temoin, ni numero de serie, ni motif.
 """
 from datetime import date
 
@@ -37,7 +38,6 @@ from ..scope import Scope, scope_dep, visible_user
 router = APIRouter(prefix="/parcours", tags=["parcours"], dependencies=[Depends(get_current_account)])
 
 FAIT, COURANTE, A_VENIR, SANS_OBJET = "fait", "courante", "a_venir", "sans_objet"
-MSG_ATTENTE_CLOTURE = "Aucun materiel detenu : la cloture du depart n'est pas encore disponible dans l'application"
 
 
 def _charger_donnees_depart(session: Session, user_id: int):
@@ -59,14 +59,23 @@ def _charger_donnees_depart(session: Session, user_id: int):
     seen_assets: set[int] = set()
     actifs_detenus: list[Asset] = []
     for link, asset in rows:
-        if asset.statut == AssetStatus.affecte and link.date_retour is None and asset.id not in seen_assets:
+        if (asset.statut == AssetStatus.affecte and link.date_retour is None
+                and link.non_restitue_le is None and asset.id not in seen_assets):
             seen_assets.add(asset.id)
             actifs_detenus.append(asset)
+
     retours = [(link, asset) for link, asset in rows if link.date_retour is not None]
+    non_restitues_uniques: list[tuple[AssignmentAsset, Asset]] = []
+    seen_nr: set[int] = set()
+    for link, asset in rows:
+        if (link.non_restitue_le is not None or asset.statut == AssetStatus.non_restitue) and asset.id not in seen_nr:
+            seen_nr.add(asset.id)
+            non_restitues_uniques.append((link, asset))
+
     sigs_restit = [s for s in sigs if (s.audit_json or {}).get("type") == "restitution" and s.horodatage]
     sigs_echange = [s for s in sigs if (s.audit_json or {}).get("type") == "echange" and s.horodatage]
     nb_acces = sum(1 for r in user_apps if r.acces)
-    return actifs_detenus, retours, sigs_restit, sigs_echange, nb_acces
+    return actifs_detenus, retours, non_restitues_uniques, sigs_restit, sigs_echange, nb_acces
 
 
 def _etapes_depart(
@@ -76,6 +85,7 @@ def _etapes_depart(
     est_sorti: bool,
     nb_restants: int,
     a_eu_restitution: bool,
+    a_eu_non_restitue: bool,
     nb_acces: int,
     today: date,
 ) -> list[dict]:
@@ -112,17 +122,23 @@ def _etapes_depart(
     else:
         mat_e = (
             _etape("materiel", "Materiel a recuperer", "Automatique", FAIT, "Liste etablie")
-            if a_eu_restitution
+            if (a_eu_restitution or a_eu_non_restitue)
             else _etape("materiel", "Materiel a recuperer", "Automatique", SANS_OBJET, "Aucun materiel detenu")
         )
-        restit_e = _etape(
-            "restitution", "Materiel recupere", "RH ou informatique", FAIT,
-            "Restitue (signe)" if a_eu_restitution else "Aucun materiel",
-        )
+        if not a_eu_restitution and not a_eu_non_restitue:
+            detail_restit = "Aucun materiel"
+        elif a_eu_restitution and not a_eu_non_restitue:
+            detail_restit = "Restitue (signe)"
+        elif a_eu_non_restitue and not a_eu_restitution:
+            detail_restit = "Non restitue (constat)"
+        else:
+            detail_restit = "Restitue (signe) et non restitue (constat)"
+
+        restit_e = _etape("restitution", "Materiel recupere", "RH ou informatique", FAIT, detail_restit)
         sorti_e = (
             _etape("sorti", "Salarie sorti", "Automatique", FAIT, "Sorti")
             if est_sorti
-            else _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, MSG_ATTENTE_CLOTURE)
+            else _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, "En attente de cloture")
         )
 
     acces_e = _etape(
@@ -146,32 +162,52 @@ def _etape_purge(session: Session, user: User, today: date) -> dict:
     )
 
 
-def _prochaine_action(courante: dict | None, user_id: int, role: Role) -> dict | None:
+def _prochaine_action(
+    courante: dict | None,
+    depart_declare: bool,
+    est_sorti: bool,
+    nb_restants: int,
+    user_id: int,
+    role: Role,
+) -> dict | None:
     """Determine la prochaine action a proposer selon l'etape courante et le role."""
-    if not courante:
-        return None
     autorise = role in (Role.rh, Role.informatique)
-    cle = courante["cle"]
-    if cle == "depart":
+    if courante:
+        cle = courante["cle"]
+        if cle == "depart":
+            return {
+                "etape": cle,
+                "qui": "rh_ou_informatique",
+                "texte": "Declarer le depart du salarie.",
+                "vers": f"/sorties?user={user_id}",
+                "autorise": autorise,
+            }
+        if cle == "restitution":
+            return {
+                "etape": cle,
+                "qui": "rh_ou_informatique",
+                "texte": "Recuperer le materiel et faire signer la restitution.",
+                "vers": f"/signer/restitution/{user_id}",
+                "autorise": autorise,
+            }
+    if depart_declare and not est_sorti and nb_restants == 0:
         return {
-            "etape": cle,
+            "etape": "sorti",
             "qui": "rh_ou_informatique",
-            "texte": "Declarer le depart du salarie.",
-            "vers": f"/sorties?user={user_id}",
-            "autorise": autorise,
-        }
-    if cle == "restitution":
-        return {
-            "etape": cle,
-            "qui": "rh_ou_informatique",
-            "texte": "Recuperer le materiel et faire signer la restitution.",
-            "vers": f"/signer/restitution/{user_id}",
+            "texte": "Cloturer le depart du salarie.",
+            "vers": "",
+            "action_id": "cloturer_depart",
             "autorise": autorise,
         }
     return None
 
 
-def _journal_depart(sigs_restit: list[Signature], sigs_echange: list[Signature], retours: list[tuple[AssignmentAsset, Asset]]) -> list[dict]:
+def _journal_depart(
+    sigs_restit: list[Signature],
+    sigs_echange: list[Signature],
+    retours: list[tuple[AssignmentAsset, Asset]],
+    non_restitues: list[tuple[AssignmentAsset, Asset]],
+) -> list[dict]:
     """Construit le journal des faits dont la date est reellement stockee (jamais deduite de maj_le ou date_maj)."""
     journal = []
     for sig in sigs_restit:
@@ -180,6 +216,9 @@ def _journal_depart(sigs_restit: list[Signature], sigs_echange: list[Signature],
         journal.append({"quand": _iso(sig.horodatage), "texte": "Echange signe et scelle"})
     for link, asset in retours:
         journal.append({"quand": _iso(link.date_retour), "texte": f"Materiel restitue : {asset.type or 'materiel'}"})
+    for link, asset in non_restitues:
+        if link.non_restitue_le:
+            journal.append({"quand": _iso(link.non_restitue_le), "texte": f"Constat de non-restitution : {asset.type or 'materiel'}"})
     return sorted((j for j in journal if j["quand"]), key=lambda j: j["quand"], reverse=True)[:12]
 
 
@@ -191,7 +230,7 @@ def parcours_depart(
     scope: Scope = Depends(scope_dep),
 ):
     user = visible_user(session, scope, user_id)
-    actifs_detenus, retours, sigs_restit, sigs_echange, nb_acces = _charger_donnees_depart(session, user_id)
+    actifs_detenus, retours, non_restitues, sigs_restit, sigs_echange, nb_acces = _charger_donnees_depart(session, user_id)
 
     statut_val = user.statut.value if hasattr(user.statut, "value") else str(user.statut)
     est_sorti = statut_val == EmployeeStatus.sorti.value
@@ -200,18 +239,27 @@ def parcours_depart(
     )
     nb_restants = len(actifs_detenus)
     a_eu_restitution = bool(sigs_restit or retours)
+    a_eu_non_restitue = bool(non_restitues)
     today = date.today()
 
-    etapes = _etapes_depart(user, statut_val, depart_declare, est_sorti, nb_restants, a_eu_restitution, nb_acces, today)
+    etapes = _etapes_depart(
+        user, statut_val, depart_declare, est_sorti, nb_restants,
+        a_eu_restitution, a_eu_non_restitue, nb_acces, today,
+    )
     if account.role == Role.informatique:
         etapes.append(_etape_purge(session, user, today))
 
     courante = next((e for e in etapes if e["etat"] == COURANTE), None)
-    prochaine = _prochaine_action(courante, user_id, account.role)
-    message_attente = MSG_ATTENTE_CLOTURE if (depart_declare and not est_sorti and nb_restants == 0) else None
-    reserves = [f"{nb_acces} acces a retirer"] if (est_sorti and nb_acces > 0) else []
+    prochaine = _prochaine_action(courante, depart_declare, est_sorti, nb_restants, user_id, account.role)
 
-    return {
+    reserves = []
+    if est_sorti:
+        if nb_acces > 0:
+            reserves.append(f"{nb_acces} acces a retirer")
+        if a_eu_non_restitue:
+            reserves.append(f"{len(non_restitues)} materiel(s) non restitue(s)")
+
+    resultat = {
         "salarie": {
             "id": user.id,
             "nom": user.nom,
@@ -237,6 +285,23 @@ def parcours_depart(
         ],
         "acces_restants": nb_acces,
         "reserves": reserves,
-        "message_attente": message_attente,
-        "journal": _journal_depart(sigs_restit, sigs_echange, retours),
+        "message_attente": None,
+        "journal": _journal_depart(sigs_restit, sigs_echange, retours, non_restitues),
     }
+
+    if account.role == Role.informatique:
+        resultat["materiels_non_restitues"] = [
+            {
+                "id": a.id,
+                "identifiant_interne": a.identifiant_interne,
+                "type": a.type,
+                "marque": a.marque,
+                "modele": a.modele,
+                "numero_serie": a.numero_serie,
+                "motif": link.motif_non_restitution,
+                "constate_le": _iso(link.non_restitue_le),
+            }
+            for link, a in non_restitues
+        ]
+
+    return resultat
