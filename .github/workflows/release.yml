@@ -15,7 +15,7 @@ jobs:
   images:
     name: Image ${{ matrix.image }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 15  # une construction dure environ 5 minutes : au-dela, le job est bloque
     permissions:
       contents: read
       packages: write
