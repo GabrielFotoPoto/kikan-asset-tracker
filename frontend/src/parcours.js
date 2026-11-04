@@ -33,6 +33,19 @@ export const ETAT_LIBELLES = {
   sans_objet: "sans objet",
 };
 
+export const MOTIFS_NON_RESTITUTION = [
+  { code: "perte", label: "Perte signalee" },
+  { code: "vol", label: "Vol declare" },
+  { code: "refus_de_restituer", label: "Refus de restituer" },
+  { code: "salarie_injoignable", label: "Salarie injoignable" },
+  { code: "autre", label: "Autre motif legitime" },
+];
+
+export function libelleMotif(code) {
+  const m = MOTIFS_NON_RESTITUTION.find((x) => x.code === code);
+  return m ? m.label : (code || "");
+}
+
 // Libelle d'etat lu par les lecteurs d'ecran (en complement de la puce aria-hidden et de la couleur).
 export function libelleEtatEtape(etat, courante = false) {
   if (courante && etat !== "fait") return "en cours";

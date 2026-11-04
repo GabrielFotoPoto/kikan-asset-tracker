@@ -21,7 +21,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fil } from "./nav.js";
-import { formaterQuand, libelleEtatEtape, peutAgir, resumeParcours } from "./parcours.js";
+import {
+  MOTIFS_NON_RESTITUTION,
+  formaterQuand,
+  libelleEtatEtape,
+  libelleMotif,
+  peutAgir,
+  resumeParcours,
+} from "./parcours.js";
 
 const etapesDepartRh = [
   { cle: "depart", titre: "Depart declare", etat: "fait" },
@@ -75,6 +82,17 @@ test("peutAgir : respecte le booleen autorise du serveur ou deduit selon le role
   assert.equal(peutAgir("rh", "rh"), true);
   assert.equal(peutAgir("rh", "informatique"), true);
   assert.equal(peutAgir("rh", "lecture"), false);
+});
+
+test("MOTIFS_NON_RESTITUTION et libelleMotif : liste fermee et correspondance de libelle", () => {
+  assert.equal(MOTIFS_NON_RESTITUTION.length, 5);
+  const codes = MOTIFS_NON_RESTITUTION.map((m) => m.code);
+  assert.deepEqual(codes, ["perte", "vol", "refus_de_restituer", "salarie_injoignable", "autre"]);
+  assert.equal(libelleMotif("perte"), "Perte signalee");
+  assert.equal(libelleMotif("vol"), "Vol declare");
+  assert.equal(libelleMotif("refus_de_restituer"), "Refus de restituer");
+  assert.equal(libelleMotif("inconnu"), "inconnu");
+  assert.equal(libelleMotif(""), "");
 });
 
 test("formaterQuand : accepte une date ISO sans fuseau ou vide", () => {

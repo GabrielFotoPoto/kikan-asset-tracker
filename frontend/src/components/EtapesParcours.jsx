@@ -76,6 +76,7 @@ export function EncartProchaineAction({
   role,
   libellesBouton = {},
   onNaviguer,
+  onAction,
   messageAttente = null,
   texteTermine = "Le parcours est termine.",
   reserves = [],
@@ -88,8 +89,17 @@ export function EncartProchaineAction({
         <>
           <span><strong>Prochaine action ({libQui}) :</strong> {action.texte}</span>
           {autorise ? (
-            <button type="button" onClick={() => onNaviguer(action.vers)}>
-              {libellesBouton[action.etape] || "Ouvrir"}
+            <button
+              type="button"
+              onClick={() => {
+                if (action.action_id && onAction) {
+                  onAction(action.action_id);
+                } else if (onNaviguer) {
+                  onNaviguer(action.vers);
+                }
+              }}
+            >
+              {libellesBouton[action.etape] || (action.action_id === "cloturer_depart" ? "Cloturer le depart" : "Ouvrir")}
             </button>
           ) : (
             <span className="muted">En attente de {libQui}.</span>
