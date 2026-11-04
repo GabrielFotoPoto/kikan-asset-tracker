@@ -394,17 +394,20 @@ s, u_sans = j("POST", "/users", {
 })
 j("POST", f"/lifecycle/depart/{u_sans['id']}", {"date_sortie": sortie_future}, token=RA)
 s, r_sans = parcours(u_sans["id"], RA)
-msg_attente = "Aucun materiel detenu : la cloture du depart n'est pas encore disponible dans l'application"
+_, r_sans_la = parcours(u_sans["id"], LA)
 show(
-    "C12 - salarie en_depart sans materiel : etape 2 sans_objet, etape 3 fait, message d'attente, prochaine_action None",
+    "C12 - salarie en_depart sans materiel : etape 2 sans_objet, etape 3 fait, cloture disponible, prochaine_action autorisee pour RH mais pas pour lecture",
     s == 200 and etat(r_sans, "materiel") == "sans_objet"
     and etat(r_sans, "restitution") == "fait"
+    and etape(r_sans, "restitution")["detail"] == "Aucun materiel"
     and etat(r_sans, "sorti") == "a_venir"
-    and etape(r_sans, "sorti")["detail"] == msg_attente
-    and r_sans.get("message_attente") == msg_attente
+    and etape(r_sans, "sorti")["detail"] == "En attente de cloture"
+    and r_sans.get("message_attente") is None
     and r_sans.get("etape_courante") is None
-    and r_sans.get("prochaine_action") is None,
-    (r_sans.get("etapes"), r_sans.get("message_attente"), r_sans.get("prochaine_action")),
+    and r_sans.get("prochaine_action", {}).get("action_id") == "cloturer_depart"
+    and r_sans.get("prochaine_action", {}).get("autorise") is True
+    and r_sans_la.get("prochaine_action", {}).get("autorise") is False,
+    (r_sans.get("etapes"), r_sans.get("prochaine_action"), r_sans_la.get("prochaine_action")),
 )
 
 print("== Critere 16 : un role ne recoit aucune donnee qu'il n'obtient pas deja via les routes existantes ==")
