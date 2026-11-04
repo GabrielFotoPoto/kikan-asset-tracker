@@ -311,7 +311,7 @@ l'utilisateur voit où il en est, ce qui reste à faire, qui doit agir, et accè
 
 | Lot | Contenu | Statut |
 |---|---|---|
-| 1 | Composant partagé `EtapesParcours` (extrait de `Arrivant.jsx`), **parcours de départ en lecture seule** | à réaliser en premier |
+| 1 | Composant partagé `EtapesParcours` (extrait de `Arrivant.jsx`), **parcours de départ en lecture seule** | **réalisé** (PR #99, fusionnée le 2026-11-04) |
 | 1bis | Voie d'exception : **constat de matériel non restitué** et **clôture d'un départ sans matériel** (écritures, nouvelle valeur de statut, migration) | après validation du lot 1 |
 | 2 | Remise guidée : salarié, besoins ouverts, charte, matériel, signature, PDF | après le lot 1bis, **à décider après mesure** de l'usage des lots 1 et 1bis ; point à trancher avant : où vit le brouillon de l'assistant (voir « Points à valider ») |
 | 3 | Indicateur d'étapes, en lecture seule, sur le renouvellement existant | **abandonné (décision du 2026-11-04)** : le renouvellement est une opération unique à un seul document, un indicateur d'étapes n'apporterait presque rien |
@@ -348,8 +348,9 @@ reprendra les mêmes principes et fera l'objet d'un complément avant sa réalis
   varie si du matériel est remis après la déclaration ou rendu en plusieurs signatures. La restitution signée reste la seule preuve de
   restitution (A.5.11) ; le détail de l'étape distingue « restitué (signé) », « non restitué (constat) » et « aucun matériel ».
 - **Salarié sans matériel** : l'étape 2 est « sans objet » et l'étape 3 est faite d'office. Le seul chemin existant vers `sorti` est la signature
-  d'une restitution ; sans matériel, le départ ne peut donc pas se clôturer aujourd'hui. Le lot 1 affiche « Aucun matériel détenu : la clôture
-  du départ sera possible avec le lot 1bis » (aucune action proposée). Le lot 1bis ajoute la clôture.
+  d'une restitution ; sans matériel, le départ ne peut donc pas se clôturer aujourd'hui. Le lot 1 affiche un message d'attente (aucune action proposée). Texte cible : « Aucun matériel détenu : la clôture du départ n'est pas encore disponible dans
+  l'application ». **Écart connu** : le code du lot 1 affiche encore « ... sera possible avec le lot 1bis » (terme interne visible de l'utilisateur) ; à aligner par un petit
+  correctif de code. Le lot 1bis ajoute la clôture.
 - **Retard** : si la date de sortie est dépassée, que le salarié est encore `en_depart` et qu'il reste du matériel, l'étape 3 affiche une pastille
   « en retard de n jour(s) » (calculée, rien de stocké).
 - **Fin avec réserve** : quand le salarié est `sorti` mais qu'il reste des accès actifs ou du matériel au statut non restitué, le parcours est
@@ -362,7 +363,7 @@ reprendra les mêmes principes et fera l'objet d'un complément avant sa réalis
 - **Étape 6 : date.** Elle affiche `date_sortie` + durée de rétention (`retention_apres_sortie_mois`), soit la date à partir de laquelle la purge
   est possible (`purge.py` et `rgpd.py` : « suppression prévue »). Le **délai de grâce** (`purge_delai_grace_jours`) ne s'ajoute pas à cette date :
   il court **après** le clic sur la purge, entre la mise en quarantaine d'un PDF et sa suppression définitive (§9). La purge restant un bouton
-  manuel, l'étape se libelle « purge possible à partir du », jamais « purge prévue ».
+  manuel, l'étape se libelle « purge possible à partir du », jamais « purge prévue ». L'étape reste **toujours `a_venir`** (jamais `fait`) ; le libellé devient « Purge possible depuis le <date> » une fois la date passée.
 - L'étape 6 n'est **renvoyée par le serveur qu'au rôle informatique** ; elle est absente de la réponse pour les RH et le rôle lecture.
 - **Salarié sans départ déclaré** (statut `prevu` ou `actif`) : la route répond 200 ; l'étape 1 est la courante et les autres sont « à venir ».
   Un salarié inexistant, hors portée ou purgé répond 404.
@@ -374,8 +375,10 @@ le résultat.
 - Compte authentifié obligatoire (401 sinon). Rôles : tous en lecture, y compris le rôle lecture.
 - Portée par entité : `visible_user(...)`. Hors portée ou inexistant : **404 identique**, corps identique.
 - Réponse : `salarie`, `etapes[]` (`cle`, `titre`, `qui`, `etat` parmi `fait`, `courante`, `a_venir`, `sans_objet`, `detail`), `etape_courante`,
-  `prochaine_action`, `reserves`, `journal`.
-- `prochaine_action` porte un champ `autorise`, calculé côté serveur d'après le rôle. Le bouton n'apparaît que si `autorise` est vrai ;
+  `prochaine_action`, `materiel_a_recuperer` (`id`, `identifiant_interne`, `type`, `marque`, `modele`, `numero_serie`),
+  `acces_restants` (nombre), `reserves`, `message_attente`, `journal`. `identifiant_interne` est l'étiquette d'inventaire, utile quand un matériel n'a pas
+  de numéro de série ; `message_attente` n'est renseigné que pour un salarié en départ sans matériel détenu.
+- `prochaine_action` porte un champ `autorise`, calculé côté serveur d'après le rôle (vrai pour RH et informatique, faux pour lecture). Le bouton n'apparaît que si `autorise` est vrai ;
   la route d'écriture appelée refuse de toute façon un rôle non habilité (contrôle existant, non modifié).
 - `user_id` est un entier ; aucune entrée libre. Aucune écriture en base.
 - Liens d'action existants : `/sorties?user=...`, `/signer/restitution/{id}`.
@@ -401,7 +404,7 @@ L'URL ne contient que l'identifiant numérique du salarié, jamais son nom.
 
 **Journal : sources autorisées.** Le journal ne reprend que des événements dont la date est **déjà stockée** : date de sortie (information, pas
 un événement de déclaration), horodatage d'une signature de restitution ou d'échange, `date_retour` d'un actif, constat de non-restitution
-(lot 1bis), retrait d'accès **si** une date de retrait existe. Il n'y a **pas** d'événement « départ déclaré » : `maj_le` change à chaque
+(lot 1bis), retrait d'accès **seulement si** une date de retrait est stockée. **Ce n'est pas le cas aujourd'hui** : `UserApplication.date_maj` est la date de dernière modification (attribution, note ou retrait), pas une date de retrait ; l'événement n'est donc pas produit. Il n'y a **pas** d'événement « départ déclaré » : `maj_le` change à chaque
 modification et ne date pas la déclaration. Un événement sans date stockée est omis, jamais déduit. L'auteur ou le témoin d'un événement n'est
 jamais renvoyé.
 
@@ -445,7 +448,7 @@ passer `sorti`, et un salarié sans matériel non plus.
 
 **Interface.**
 - Composant partagé `EtapesParcours` : liste ordonnée (`<ol>`), états fait, courante, à venir, sans objet, carte « Prochaine action », bandeau « Terminé,
-  avec réserve ». Il reprend l'accessibilité d'`Arrivant.jsx` (`aria-label`, `aria-current="step"`, puce ✓ en plus de la couleur). Il reste
+  avec réserve ». Il reprend l'accessibilité d'`Arrivant.jsx` (`aria-label`, `aria-current="step"`, puce ✓ en plus de la couleur). L'état de chaque étape est aussi annoncé aux lecteurs d'écran par un texte masqué (« fait », « en cours », « a venir », « sans objet »), via une fonction pure testée. Il reste
   **présentationnel** (il reçoit des étapes et une action, il n'écrit pas) pour pouvoir servir aux lots suivants.
 - `Arrivant.jsx` est refactoré pour l'utiliser **sans aucun changement de comportement**.
 - Page `/depart/:id`, fil d'Ariane « Cycle de vie > Sorties > Parcours de départ » (à ajouter dans `nav.js`) ; lien « Suivre le
@@ -466,7 +469,7 @@ passer `sorti`, et un salarié sans matériel non plus.
 9. Le parcours d'arrivée fonctionne exactement comme avant.
 10. Après la purge RGPD, le parcours renvoie 404.
 11. La date de l'étape 6 est `date_sortie` + rétention, sans le délai de grâce.
-12. Un salarié sans matériel : étape 2 « sans objet », étape 3 faite, message « clôture possible avec le lot 1bis », aucune action proposée.
+12. Un salarié sans matériel : étape 2 « sans objet », étape 3 faite, message d'attente (texte cible ci-dessus), aucune action proposée.
 13. Une restitution en deux signatures : « 2 restants » puis « 1 restant » puis terminé.
 14. Un salarié `actif` ou `prevu` : réponse 200, étape 1 courante.
 15. Les routes `GET /lifecycle/holdings/{id}` et `POST /lifecycle/depart/{id}` restent inchangées pour tous les rôles (test de non-régression).
@@ -531,13 +534,14 @@ motif obligatoire dans une liste fermée et tracé dans le journal d'audit ; act
 restitués visible des RH et du rôle lecture (sans le motif). La variante « confirmation du RH » (quatre yeux) est écartée pour ce lot, à reconsidérer
 si un besoin d'audit l'exige. Le **lot 3 est abandonné** ; le lot 2 est à décider après mesure des lots 1 et 1bis.
 
+**Constats après réalisation du lot 1 (2026-11-04).** Le lot 1 est réalisé et fusionné (PR #99). Tel que réalisé, le RH voit la marque, le modèle et le numéro de série du
+matériel à récupérer (valeur par défaut, comme dans l'écran « Sorties » ; à infirmer si besoin). Le nom de route `/parcours/depart/{user_id}` est celui du code fusionné.
+Les champs `materiel_a_recuperer`, `acces_restants` et `message_attente` sont ajoutés au contrat. Le texte du message d'attente doit être reformulé (écart connu ci-dessus).
+
 **Points à valider avant réalisation.**
-1. **RH et marque/modèle** : décidé, le RH identifie formellement le matériel avec le numéro de série. Reste à confirmer : voit-il aussi la marque
-   et le modèle (par défaut oui, comme dans l'écran « Sorties » actuel) ?
-2. **Emplacement des nouvelles colonnes** du lot 1bis (`assignment_assets`) et nom des motifs : propositions.
-3. **Lot 2** : le brouillon de l'assistant de remise vit-il dans le navigateur (perdu au rechargement ou au passage de la main à la tablette) ou sur le serveur
+1. **Emplacement des nouvelles colonnes** du lot 1bis (`assignment_assets`) et nom des motifs : propositions.
+2. **Lot 2** : le brouillon de l'assistant de remise vit-il dans le navigateur (perdu au rechargement ou au passage de la main à la tablette) ou sur le serveur
    (donnée nouvelle, cinq questions) ? Cela décide du contrat de `EtapesParcours`.
-4. **Nom de la route** `/parcours/depart/{user_id}` : proposition.
 
 ### 6.4 Import initial du parc (Excel/CSV)
 
