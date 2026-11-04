@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Documentation
+- **README : Kikan et GLPI, complémentaires.** Nouvelle section sous « Intégrations » (tableau des rôles respectifs de Kikan et de GLPI) et phrase d'introduction ; la colonne GLPI décrit GLPI de base, hors plugins, d'après notre connaissance de l'outil, sans vérification contre un GLPI.
+
 ## [0.6.1] - 2026-11-04
 
 Version corrective, interface seulement : **aucune migration, aucun changement d'API, aucun point de vigilance à la mise à jour**. Elle traite les appels en double de l'accueil signalés dans les points non vérifiés de la 0.6.0.
