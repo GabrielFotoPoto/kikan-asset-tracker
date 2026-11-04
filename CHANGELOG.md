@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Modifié
+- **Publication : délai du job de construction ramené de 45 à 15 minutes** (`release.yml`). Une construction des images dure environ 5 minutes ; un job bloqué (comme celui de la 0.6.0) est maintenant arrêté au bout de 15 minutes au lieu de 45. Aucun effet sur les images.
+
 ### Documentation
 - **README : Kikan et GLPI, complémentaires.** Nouvelle section sous « Intégrations » (tableau des rôles respectifs de Kikan et de GLPI) et phrase d'introduction ; la colonne GLPI décrit GLPI de base, hors plugins, d'après notre connaissance de l'outil, sans vérification contre un GLPI.
 
