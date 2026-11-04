@@ -93,7 +93,7 @@ Page **Matériel** (ou **Importer un fichier** en haut à droite pour reprendre 
 - Les champs **Type**, **Marque** et **Modèle** proposent des suggestions pendant la saisie (insensibles à la casse et aux accents) ; une valeur nouvelle est acceptée.
 - Un matériel porte un **identifiant interne**, un **numéro de série**, des dates (achat, fin de garantie, **échéance de renouvellement**), un statut et une entité.
 - L'identifiant interne et le numéro de série sont **uniques**, majuscules et minuscules confondues (une valeur vide n'est pas comparée). Il en va de même du **matricule** d'un salarié et du **code** d'une entité : un doublon est refusé avec un message clair, même si deux personnes saisissent la même valeur au même instant. Les champs texte ont une longueur maximale (par exemple 200 caractères pour un nom, 2 000 pour une note) ; un texte trop long est refusé.
-- Les statuts **affecté** et **rendu** viennent des remises et restitutions : on ne les saisit pas. Un matériel qui a déjà été remis ne se supprime pas ; on le passe en **réformé**.
+- Les statuts **affecté**, **rendu** et **non restitué** viennent des remises, restitutions et constats de départ : on ne les saisit pas directement. Un matériel qui a déjà été remis ne se supprime pas ; on le passe en **réformé** (un matériel non restitué ne peut être ni réaffecté ni réformé tant qu'il n'est pas retrouvé).
 - **Sélection multiple** : une case par ligne, *Cocher les N résultats* (jusqu'à 500) et le filtre de type *Tous sauf ce type*. *Supprimer la sélection* affiche d'abord un récapitulatif (ce qui serait supprimé, ce qui est refusé et pourquoi) ; *Réformer la sélection* fonctionne de la même façon.
 - **Retours en stock** : un matériel qui a déjà été remis, puis restitué et remis en stock, porte la pastille *Déjà remis, retour du …*. Le filtre *Retours en stock* les isole pour décider, matériel par matériel ou en lot, de les remettre en circulation ou de les réformer. Ce repérage est calculé à partir de l'historique des remises : il n'y a rien à saisir, et la pastille disparaît quand le matériel repart ou est réformé.
 
@@ -132,6 +132,11 @@ Page **Sorties** :
 Tant que du matériel n'est pas revenu, le salarié reste affiché dans **Départs en cours - matériel à récupérer** et les rappels continuent.
 
 Le bouton **Suivre le parcours** de la liste (adresse `/depart/:id`) ouvre le **parcours de départ guidé en étapes** : il rassemble sur une seule page en lecture seule l'avancement du départ (départ déclaré, matériel à récupérer avec son numéro de série pour l'identifier formellement à la remise en main propre, restitution signée, nombre d'accès applicatifs encore actifs, passage au statut « sorti » et, pour l'informatique uniquement, la date à partir de laquelle la purge RGPD sera possible), le journal des faits horodatés et le bouton vers la prochaine action.
+
+#### Cas particuliers : matériel non restitué et clôture sans matériel
+
+- **Matériel non restitué (informatique)** : en cas de perte, de vol, de refus de restituer ou de salarié injoignable, l'informatique peut enregistrer un **constat de non-restitution** depuis le parcours de départ (`/depart/:id`). Vous cochez les matériels concernés, choisissez le motif dans la liste fermée (*perte*, *vol*, *refus de restituer*, *salarié injoignable*, *autre*) et confirmez. Le matériel passe au statut **non restitué** et sort des détentions du salarié. Ce statut bloque toute réaffectation ou réforme directe. Le motif reste confidentiel : seule l'informatique y a accès. Si tous les matériels restants sont constatés non restitués, le salarié passe automatiquement au statut **sorti**.
+- **Clôture du départ sans matériel (RH ou informatique)** : lorsqu'un salarié part sans détenir aucun matériel (par exemple un collaborateur disposant uniquement d'accès applicatifs), le bouton **Clôturer le départ** dans le parcours de départ permet aux RH et à l'informatique de passer directement le salarié au statut **sorti** à sa date de sortie.
 
 ### 5.6 Accès aux applications (RH et informatique)
 
@@ -289,6 +294,8 @@ L'icône de la page de connexion est lisible **sans être connecté** : n'y mett
 | retrouver le PDF d'une remise | Remises, bouton « PDF scellé » | informatique, RH, lecture |
 | déclarer un départ | Sorties, Déclarer un départ | RH, informatique |
 | récupérer le matériel d'un partant | Sorties, Restituer et signer | RH, informatique |
+| constater du matériel non restitué (perte, vol, refus, injoignable) | Parcours de départ | informatique |
+| clôturer le départ d'un salarié sans matériel | Parcours de départ | RH, informatique |
 | savoir qui détient quoi aujourd'hui | Rapports | tous |
 | connaître les matériels à renouveler | Statistiques, Prévisions ou rappels e-mail | informatique |
 | chiffrer le budget de renouvellement | Prévisions (coûts à renseigner dans Paramétrage, Coûts de remplacement) | tous (coûts : informatique) |

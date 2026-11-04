@@ -8,6 +8,25 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ### Ajouté
 - **Parcours de départ guidé en étapes (lot 1)** : nouvelle route `GET /parcours/depart/{user_id}` et page `/depart/:id` (accessible depuis la page *Sorties* via le bouton *Suivre le parcours*). Affiche en lecture seule les étapes du départ (départ déclaré, matériel à récupérer avec numéro de série pour l'identification formelle par les RH ou l'informatique, restitution signée avec signalement d'un éventuel retard après la date de sortie, nombre d'accès applicatifs encore actifs, passage au statut « sorti » avec réserve éventuelle sur les accès restants, et étape « Purge RGPD possible » réservée au rôle informatique), le journal des faits horodatés stockés et l'encart de prochaine action. Composant visuel `EtapesParcours` partagé avec le parcours d'arrivée (`/arrivee/:id`). Aucune écriture en base à la lecture, aucune nouvelle table ni migration, aucune donnée personnelle supplémentaire stockée (5 questions RGPD : données déjà existantes sur le salarié, ses affectations, ses signatures et ses accès ; finalité = suivi coordonné du départ entre RH et informatique ; visibilité = tous les rôles authentifiés dans leur portée d'entité, ni matricule ni e-mail renvoyés, étape de purge réservée à l'informatique ; conservation et effacement = identiques à la fiche salarié, `404` après purge RGPD).
 - Tests : nouvelle suite `tests/parcours_depart_check.py` (29 vérifications couvrant les 19 critères d'acceptation du lot 1) et `frontend/src/parcours.test.js` (7 tests unitaires).
+- **Matériel non restitué et clôture de départ sans matériel (lot 1bis)** :
+  - **Migration `0023_materiel_non_restitue`** : valeur `non_restitue` ajoutée au type enum `assetstatus` ; colonnes `non_restitue_le` (date) et `motif_non_restitution` (varchar) ajoutées à la table `assignment_assets` pour tracer l'événement dans l'affectation sans altérer l'intégrité de la charte ou du PDF scellé d'origine. Rétrogradation (downgrade) réversible vérifiant qu'aucun matériel n'est au statut `non_restitue`.
+  - **Routes API du cycle de vie** :
+    - `POST /lifecycle/non-restitue` : enregistrement du constat de non-restitution par l'informatique pour un salarié en départ (`en_depart`). Motifs en liste fermée (`perte`, `vol`, `refus_de_restituer`, `salarie_injoignable`, `autre`). L'actif passe au statut `non_restitue` et quitte les détentions du salarié. Si aucun matériel ne reste détenu, le salarié passe automatiquement au statut `sorti`. Audit consigné sans nom de salarié ni numéro de série.
+    - `POST /lifecycle/depart/{user_id}/cloturer` : clôture du départ sans matériel par les RH ou l'informatique pour un salarié `en_depart` ne détenant aucun matériel (par exemple aucun matériel attribué ou après constat de non-restitution). Transition immédiate vers le statut `sorti`.
+  - **Règles de gestion du statut `non_restitue`** :
+    - Un matériel non restitué ne peut être ni réaffecté (`POST /assignments`), ni échangé (`POST /assignments/echange`), ni réformé en lot (`POST /assets/reforme-lot`), ni modifié directement vers ou depuis ce statut (`POST /assets`, `PUT /assets/{id}`) sous peine de conflit (`409`).
+    - Énumération des statuts de statistiques (`/stats`) complétée avec `non_restitue` (« Non restitué ») et `rendu` (« Rendu »).
+  - **Parcours de départ guidé (`GET /parcours/depart/{user_id}`)** :
+    - Étape 3 (Restitution) : passe à l'état `fait` avec le détail adapté (« Non restitué (constat) », « Restitué (signé) », mixte ou « Aucun matériel ») lorsque 0 matériel reste affecté.
+    - Journal des événements : ajout de l'événement « Matériel non restitué (constat) » avec date sans divulgation du motif ni données d'identification.
+    - Prochaine action : propose l'action `cloturer_depart` (« Clôturer le départ ») dès que le salarié est `en_depart` et ne détient aucun matériel.
+    - Motifs de non-restitution réservés au rôle informatique (`materiels_non_restitues` omis pour les rôles RH et lecture).
+  - **Interface utilisateur (`/depart/:id` et `/materiel`)** :
+    - Formulaire de constat de non-restitution pour l'informatique avec sélection de matériel, choix du motif, case de confirmation explicite et gestion d'erreur accessible (`role="alert"`).
+    - Dialogue de confirmation pour la clôture du départ sans matériel (RH et informatique).
+    - Affichage de l'encart des matériels non restitués avec motif et date (informatique uniquement).
+    - Filtre par statut dans la liste du matériel complété par `non_restitue` avec verrouillage explicatif lors de la consultation.
+- Tests : nouvelle suite `tests/depart_exception_check.py` (33 tests couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` étendu à 27 tests), actualisation de `tests/parcours_depart_check.py`.
 
 ### Modifié
 - **Publication : délai du job de construction ramené de 45 à 15 minutes** (`release.yml`). Une construction des images dure environ 5 minutes ; un job bloqué (comme celui de la 0.6.0) est maintenant arrêté au bout de 15 minutes au lieu de 45. Aucun effet sur les images.
