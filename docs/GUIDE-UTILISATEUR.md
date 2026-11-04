@@ -131,6 +131,8 @@ Page **Sorties** :
 
 Tant que du matériel n'est pas revenu, le salarié reste affiché dans **Départs en cours - matériel à récupérer** et les rappels continuent.
 
+Le bouton **Suivre le parcours** de la liste (adresse `/depart/:id`) ouvre le **parcours de départ guidé en étapes** : il rassemble sur une seule page en lecture seule l'avancement du départ (départ déclaré, matériel à récupérer avec son numéro de série pour l'identifier formellement à la remise en main propre, restitution signée, nombre d'accès applicatifs encore actifs, passage au statut « sorti » et, pour l'informatique uniquement, la date à partir de laquelle la purge RGPD sera possible), le journal des faits horodatés et le bouton vers la prochaine action.
+
 ### 5.6 Accès aux applications (RH et informatique)
 
 Page **Accès applicatifs** : le **catalogue des applications** (informatique) et, par salarié, les **accès accordés** avec une précision (profil, droits). Les applications peuvent être
