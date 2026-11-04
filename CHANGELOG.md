@@ -5,9 +5,24 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.6.1] - 2026-11-04
+
+Version corrective, interface seulement : **aucune migration, aucun changement d'API, aucun point de vigilance à la mise à jour**. Elle traite les appels en double de l'accueil signalés dans les points non vérifiés de la 0.6.0.
+
+### Mise à jour depuis 0.6.0
+- Faire une sauvegarde par précaution ([SAUVEGARDE.md](docs/SAUVEGARDE.md)), changer `KIKAN_VERSION` dans `.env` pour `0.6.1`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.6.1` sous Linux) ; les quatre images ensemble. Seul le code de l'interface change.
+
 ### Corrigé
 - **Accueil : les compteurs ne sont plus chargés plusieurs fois.** À l'ouverture, le menu et le tableau de bord lisaient chacun `/api/stats`, `/api/revues/anomalies` et `/api/renouvellements` (soit 2 appels par route, 3 avec un retour de focus de la fenêtre). Les compteurs viennent maintenant d'un seul chargement partagé (`CompteursProvider`) : 1 appel par route à l'ouverture. Revenir sur l'accueil relit les compteurs si la dernière lecture date de plus de 5 secondes (les chiffres restent à jour), et un second retour plus rapide ne rappelle rien. Interface seulement : aucune migration, aucun changement d'API.
 - Tests : 4 tests de la règle de rechargement (`frontend/src/compteurs.test.js`).
+
+### Vérifié
+- **Dans le navigateur** (plateforme de développement, rôle informatique), avant la fusion : 1 appel par route à l'ouverture au lieu de 2 ; retour sur l'accueil après une absence longue : les compteurs sont relus ; retour rapide : aucun appel.
+- Intégration continue de la branche : 11 contrôles réussis.
+
+### Resté non vérifié
+- **Rôle RH** dans le navigateur (ce rôle ne lit pas `/stats` ni les renouvellements) : pas essayé à la main.
+- Aucune installation de production n'a été mise à jour.
 
 ## [0.6.0] - 2026-11-03
 
