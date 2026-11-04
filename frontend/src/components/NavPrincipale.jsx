@@ -19,8 +19,8 @@
 
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { api } from "../api.js";
 import { ACCUEIL, SECTIONS, sectionDe, visible } from "../nav.js";
+import { useCompteurs } from "../compteurs.jsx";
 import { usePalette } from "./Palette.jsx";
 
 const CLE = "kikan_nav";
@@ -32,29 +32,10 @@ const ecrire = (pref) => {
   try { localStorage.setItem(CLE, JSON.stringify(pref)); } catch { /* navigation privee : le repli n'est pas memorise */ }
 };
 
-// Compteurs des entrees de menu : relus a l'ouverture, au retour sur l'onglet et toutes les 5 minutes.
-function useCompteurs(role) {
-  const [c, setC] = useState({});
-  useEffect(() => {
-    let vivant = true;
-    const mettre = (cle) => (valeur) => { if (vivant) setC((o) => ({ ...o, [cle]: valeur })); };
-    const charger = () => {
-      if (role !== "rh") api.get("/stats").then((s) => mettre("besoins")(s.besoins_a_traiter || 0)).catch(() => {});
-      api.get("/revues/anomalies").then((r) => mettre("anomalies")(r.count || 0)).catch(() => {});
-      if (role === "informatique") api.get("/renouvellements?horizon_mois=0").then((r) => mettre("retard")(r.totaux.en_retard)).catch(() => {});
-    };
-    charger();
-    const minuteur = setInterval(charger, 5 * 60 * 1000);
-    window.addEventListener("focus", charger);
-    return () => { vivant = false; clearInterval(minuteur); window.removeEventListener("focus", charger); };
-  }, [role]);
-  return c;
-}
-
 export default function NavPrincipale({ role }) {
   const { pathname } = useLocation();
   const { ouvrir } = usePalette();
-  const compteurs = useCompteurs(role);
+  const { valeurs: compteurs } = useCompteurs();
   const [pref, setPref] = useState(lire);
   const actuelle = sectionDe(pathname)?.section.id;
   const touche = /Mac/i.test(navigator.platform || "") ? "Cmd K" : "Ctrl K";
