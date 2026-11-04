@@ -28,7 +28,8 @@
 **Kikan** (機器管理, *kiki-kanri*, « gestion des équipements ») est une application de
 **suivi des actifs** (PC, smartphones...) par utilisateur et par entité, avec **remise et
 restitution de matériel signées et scellées** (sans papier), import de l'existant, reporting,
-gestion et **revue des accès applicatifs**, rappels et purge RGPD.
+gestion et **revue des accès applicatifs**, rappels et purge RGPD. Elle ne remplace pas un outil d'assistance et d'inventaire
+comme **GLPI** : elle le complète et s'y connecte ([voir ci-dessous](#kikan-et-glpi--complémentaires-pas-concurrents)).
 
 Elle soutient plusieurs contrôles de l'ISO/IEC 27001:2022 :
 A.5.9 (inventaire des actifs), A.5.10 (usage acceptable), A.5.11 (restitution des actifs)
@@ -347,6 +348,23 @@ retient le matériel exact selon le stock, le prépare puis le remet. Les RH n'o
 ![Import : Kikan propose, vous choisissez](docs/captures/glpi-import.png)
 
 ![Export : salariés et matériel avec numéros de série](docs/captures/glpi-export.png)
+
+### Kikan et GLPI : complémentaires, pas concurrents
+
+Kikan **ne remplace pas GLPI** et ne cherche pas à le faire : il couvre le cycle de vie du matériel d'un salarié, avec preuve
+signée, là où GLPI est un outil d'assistance et d'inventaire technique. Les deux se parlent par le connecteur ci-dessus.
+
+| | Kikan | GLPI |
+|---|---|---|
+| **Cœur de métier** | Remise et restitution **signées et scellées**, revue des accès applicatifs, purge RGPD | Tickets d'assistance, inventaire technique, parc, licences et contrats |
+| **Inventaire** | Saisi, importé (CSV, Excel, GLPI) ou envoyé par l'API ; ordinateurs, téléphones et autres matériels | Inventaire automatique par agent, parc complet |
+| **Preuve de remise** | Signature manuscrite sur tablette, PDF scellé, charte annexée, archivage dans votre GED | Pas de remise signée et scellée native à notre connaissance |
+| **Public** | RH, informatique, lecture ; chaque RH voit son périmètre d'entités | Équipes informatique et support |
+| **Tickets, supervision** | Aucun : Kikan n'en fait pas | Oui |
+
+En pratique : GLPI reste l'outil du support et de l'inventaire technique ; Kikan tient le **qui détient quoi, avec preuve**, la
+relation RH et informatique, et la conformité (ISO 27001, RGPD). La colonne GLPI décrit GLPI de base, hors plugins, d'après notre
+connaissance de l'outil.
 
 ![Jetons de l'API d'import](docs/captures/api-jetons.png)
 
