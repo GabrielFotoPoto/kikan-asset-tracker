@@ -5,6 +5,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **Parcours de départ guidé en étapes (lot 1)** : nouvelle route GET /parcours/depart/{user_id} et page /depart/:id (accessible depuis la page *Sorties* via le bouton *Parcours*). Affiche en lecture seule les étapes du départ (départ déclaré, matériel à récupérer avec numéro de série pour l'identification formelle par les RH ou l'informatique, restitution signée avec signalement d'un éventuel retard après la date de sortie, nombre d'accès applicatifs encore actifs, passage au statut « sorti » avec réserve éventuelle sur les accès restants, et étape « Purge RGPD possible » réservée au rôle informatique), le journal des faits horodatés stockés et l'encart de prochaine action. Composant visuel EtapesParcours partagé avec le parcours d'arrivée (/arrivee/:id). Aucune écriture en base à la lecture, aucune nouvelle table ni migration, aucune donnée personnelle supplémentaire stockée (5 questions RGPD : données déjà existantes sur le salarié, ses affectations, ses signatures et ses accès ; finalité = suivi coordonné du départ entre RH et informatique ; visibilité = tous les rôles authentifiés dans leur portée d'entité, ni matricule ni e-mail renvoyés, étape de purge réservée à l'informatique ; conservation et effacement = identiques à la fiche salarié, 404 après purge RGPD).
+- Tests : nouvelle suite 	ests/parcours_depart_check.py (26 vérifications couvrant les 19 critères d'acceptation du lot 1) et rontend/src/parcours.test.js (6 tests unitaires).
+
 ### Modifié
 - **Publication : délai du job de construction ramené de 45 à 15 minutes** (`release.yml`). Une construction des images dure environ 5 minutes ; un job bloqué (comme celui de la 0.6.0) est maintenant arrêté au bout de 15 minutes au lieu de 45. Aucun effet sur les images.
 
