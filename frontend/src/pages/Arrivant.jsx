@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import { EncartProchaineAction, EtapesParcours, JournalParcours, PastilleParcours } from "../components/EtapesParcours.jsx";
 import { ErrorState, Loading } from "../components/State.jsx";
 
 // Parcours d'arrivee d'un salarie : les cinq etapes, de la fiche RH a la remise signee et aux acces. Meme vue pour les
@@ -32,14 +33,6 @@ const ACTIONS = {
   remise: "Ouvrir la remise",
   acces: "Accorder les acces",
 };
-const QUI = { rh: "RH", informatique: "Informatique", rh_ou_informatique: "RH ou Informatique" };
-
-// Qui peut agir : les etapes RH sont ouvertes aux RH et a l'informatique, celles de l'informatique a elle seule.
-const peutAgir = (qui, role) => (qui === "informatique" ? role === "informatique" : role === "rh" || role === "informatique");
-
-// Les dates du serveur sont en UTC sans fuseau : on le precise pour l'afficher en heure locale.
-const quand = (iso) => new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + "Z")
-  .toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
 export default function Arrivant() {
   const { id } = useParams();
@@ -58,8 +51,6 @@ export default function Arrivant() {
   if (!data) return <div><h2>Parcours d'arrivee</h2><Loading label="Chargement du parcours" /></div>;
 
   const s = data.salarie;
-  const indice = data.etapes.findIndex((e) => e.cle === data.etape_courante);
-  const action = data.prochaine_action;
 
   return (
     <div>
@@ -70,24 +61,10 @@ export default function Arrivant() {
             {[s.matricule && `Matricule ${s.matricule}`, s.service, s.date_arrivee && `arrive le ${s.date_arrivee}`].filter(Boolean).join(" - ")}
           </p>
         </div>
-        <span className={data.etape_courante ? "pastille attention" : "pastille ok"}>
-          {data.etape_courante ? `Etape ${indice + 1} sur ${data.etapes.length} : ${data.etapes[indice].titre}` : "Parcours termine"}
-        </span>
+        <PastilleParcours etapes={data.etapes} etapeCourante={data.etape_courante} />
       </div>
 
-      <ol className="etapes" aria-label="Avancement du parcours">
-        {data.etapes.map((e, i) => {
-          const courante = e.cle === data.etape_courante;
-          return (
-            <li key={e.cle} className={`etape ${e.etat}${courante ? " courante" : ""}`} aria-current={courante ? "step" : undefined}>
-              <span className="etape-puce" aria-hidden="true">{e.etat === "fait" ? "\u2713" : i + 1}</span>
-              <strong>{e.titre}</strong>
-              <span className="muted">{QUI[e.qui] || e.qui}</span>
-              <span className="etape-detail">{e.detail}</span>
-            </li>
-          );
-        })}
-      </ol>
+      <EtapesParcours etapes={data.etapes} etapeCourante={data.etape_courante} />
 
       <div className="deux-colonnes">
         <div className="card">
@@ -103,26 +80,16 @@ export default function Arrivant() {
             </ul>
           )}
         </div>
-        <div className="card">
-          <h3>Journal du parcours</h3>
-          {data.journal.length === 0 ? <p className="muted">Rien pour l'instant.</p> : (
-            <ol className="journal">
-              {data.journal.map((j, i) => <li key={i}><span className="muted">{quand(j.quand)}</span><span>{j.texte}</span></li>)}
-            </ol>
-          )}
-        </div>
+        <JournalParcours journal={data.journal} />
       </div>
 
-      <div className="card action-suivante" role="region" aria-label="Prochaine action">
-        {action ? (
-          <>
-            <span><strong>Prochaine action ({QUI[action.qui] || action.qui}) :</strong> {action.texte}</span>
-            {peutAgir(action.qui, user.role)
-              ? <button type="button" onClick={() => navigate(action.vers)}>{ACTIONS[action.etape] || "Ouvrir"}</button>
-              : <span className="muted">En attente de {QUI[action.qui] || action.qui}.</span>}
-          </>
-        ) : <span><strong>Le parcours est termine :</strong> remise signee et acces accordes.</span>}
-      </div>
+      <EncartProchaineAction
+        action={data.prochaine_action}
+        role={user.role}
+        libellesBouton={ACTIONS}
+        onNaviguer={navigate}
+        texteTermine="remise signee et acces accordes."
+      />
     </div>
   );
 }

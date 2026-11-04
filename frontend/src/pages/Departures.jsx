@@ -18,7 +18,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
 import { canWrite, useAuth } from "../auth.jsx";
 import { Feedback } from "../components/Notifications.jsx";
@@ -26,11 +26,12 @@ import { Empty } from "../components/State.jsx";
 
 export default function Departures() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { user } = useAuth();
   const writable = canWrite(user.role, "users"); // RH ou informatique
   const [users, setUsers] = useState([]);
   const [holdings, setHoldings] = useState({});
-  const [depId, setDepId] = useState("");
+  const [depId, setDepId] = useState(params.get("user") || "");
   const [depDate, setDepDate] = useState("");
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -44,6 +45,9 @@ export default function Departures() {
     setHoldings(h);
   };
   useEffect(() => { load().catch((e) => setErr(e.message)); }, []);
+
+  const userParam = params.get("user");
+  useEffect(() => { if (userParam) setDepId(userParam); }, [userParam]);
 
   const actifs = users.filter((u) => u.statut === "actif" || u.statut === "prevu");
   const partants = users.filter((u) => u.statut === "en_depart");
@@ -106,8 +110,11 @@ export default function Departures() {
                         held.map((a) => <div key={a.id}>{a.type} {a.marque} {a.modele} ({a.numero_serie || a.identifiant_interne})</div>)}
                     </td>
                     <td>
-                      {writable && held.length > 0 &&
-                        <button className="ghost" onClick={() => restituer(u)}>Restituer et signer</button>}
+                      <div className="row">
+                        <Link to={`/depart/${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Suivre le parcours</Link>
+                        {writable && held.length > 0 &&
+                          <button className="ghost" onClick={() => restituer(u)}>Restituer et signer</button>}
+                      </div>
                     </td>
                   </tr>
                 );
