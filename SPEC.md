@@ -348,9 +348,8 @@ reprendra les mêmes principes et fera l'objet d'un complément avant sa réalis
   varie si du matériel est remis après la déclaration ou rendu en plusieurs signatures. La restitution signée reste la seule preuve de
   restitution (A.5.11) ; le détail de l'étape distingue « restitué (signé) », « non restitué (constat) » et « aucun matériel ».
 - **Salarié sans matériel** : l'étape 2 est « sans objet » et l'étape 3 est faite d'office. Le seul chemin existant vers `sorti` est la signature
-  d'une restitution ; sans matériel, le départ ne peut donc pas se clôturer aujourd'hui. Le lot 1 affiche un message d'attente (aucune action proposée). Texte cible : « Aucun matériel détenu : la clôture du départ n'est pas encore disponible dans
-  l'application ». **Écart connu** : le code du lot 1 affiche encore « ... sera possible avec le lot 1bis » (terme interne visible de l'utilisateur) ; à aligner par un petit
-  correctif de code. Le lot 1bis ajoute la clôture.
+  d'une restitution ; sans matériel, le départ ne peut donc pas se clôturer aujourd'hui. Le lot 1 affiche un message d'attente (aucune action proposée). Message affiché : « Aucun matériel détenu : la clôture du départ n'est pas encore disponible dans
+  l'application » (sans terme interne ; aligné dans le code par la PR #101). Le lot 1bis ajoute la clôture.
 - **Retard** : si la date de sortie est dépassée, que le salarié est encore `en_depart` et qu'il reste du matériel, l'étape 3 affiche une pastille
   « en retard de n jour(s) » (calculée, rien de stocké).
 - **Fin avec réserve** : quand le salarié est `sorti` mais qu'il reste des accès actifs ou du matériel au statut non restitué, le parcours est
@@ -469,7 +468,7 @@ passer `sorti`, et un salarié sans matériel non plus.
 9. Le parcours d'arrivée fonctionne exactement comme avant.
 10. Après la purge RGPD, le parcours renvoie 404.
 11. La date de l'étape 6 est `date_sortie` + rétention, sans le délai de grâce.
-12. Un salarié sans matériel : étape 2 « sans objet », étape 3 faite, message d'attente (texte cible ci-dessus), aucune action proposée.
+12. Un salarié sans matériel : étape 2 « sans objet », étape 3 faite, message d'attente (texte ci-dessus), aucune action proposée.
 13. Une restitution en deux signatures : « 2 restants » puis « 1 restant » puis terminé.
 14. Un salarié `actif` ou `prevu` : réponse 200, étape 1 courante.
 15. Les routes `GET /lifecycle/holdings/{id}` et `POST /lifecycle/depart/{id}` restent inchangées pour tous les rôles (test de non-régression).
@@ -536,7 +535,7 @@ si un besoin d'audit l'exige. Le **lot 3 est abandonné** ; le lot 2 est à déc
 
 **Constats après réalisation du lot 1 (2026-11-04).** Le lot 1 est réalisé et fusionné (PR #99). Tel que réalisé, le RH voit la marque, le modèle et le numéro de série du
 matériel à récupérer (valeur par défaut, comme dans l'écran « Sorties » ; à infirmer si besoin). Le nom de route `/parcours/depart/{user_id}` est celui du code fusionné.
-Les champs `materiel_a_recuperer`, `acces_restants` et `message_attente` sont ajoutés au contrat. Le texte du message d'attente doit être reformulé (écart connu ci-dessus).
+Les champs `materiel_a_recuperer`, `acces_restants` et `message_attente` sont ajoutés au contrat. Le message d'attente a été reformulé sans le terme interne « lot 1bis » (PR #101).
 
 **Points à valider avant réalisation.**
 1. **Emplacement des nouvelles colonnes** du lot 1bis (`assignment_assets`) et nom des motifs : propositions.
