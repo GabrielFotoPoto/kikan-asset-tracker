@@ -37,7 +37,7 @@ from ..scope import Scope, scope_dep, visible_user
 router = APIRouter(prefix="/parcours", tags=["parcours"], dependencies=[Depends(get_current_account)])
 
 FAIT, COURANTE, A_VENIR, SANS_OBJET = "fait", "courante", "a_venir", "sans_objet"
-MSG_ATTENTE_LOT1BIS = "Aucun materiel detenu : la cloture du depart sera possible avec le lot 1bis"
+MSG_ATTENTE_CLOTURE = "Aucun materiel detenu : la cloture du depart n'est pas encore disponible dans l'application"
 
 
 def _charger_donnees_depart(session: Session, user_id: int):
@@ -122,7 +122,7 @@ def _etapes_depart(
         sorti_e = (
             _etape("sorti", "Salarie sorti", "Automatique", FAIT, "Sorti")
             if est_sorti
-            else _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, MSG_ATTENTE_LOT1BIS)
+            else _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, MSG_ATTENTE_CLOTURE)
         )
 
     acces_e = _etape(
@@ -208,7 +208,7 @@ def parcours_depart(
 
     courante = next((e for e in etapes if e["etat"] == COURANTE), None)
     prochaine = _prochaine_action(courante, user_id, account.role)
-    message_attente = MSG_ATTENTE_LOT1BIS if (depart_declare and not est_sorti and nb_restants == 0) else None
+    message_attente = MSG_ATTENTE_CLOTURE if (depart_declare and not est_sorti and nb_restants == 0) else None
     reserves = [f"{nb_acces} acces a retirer"] if (est_sorti and nb_acces > 0) else []
 
     return {

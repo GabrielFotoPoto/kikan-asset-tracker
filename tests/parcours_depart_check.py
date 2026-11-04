@@ -394,14 +394,14 @@ s, u_sans = j("POST", "/users", {
 })
 j("POST", f"/lifecycle/depart/{u_sans['id']}", {"date_sortie": sortie_future}, token=RA)
 s, r_sans = parcours(u_sans["id"], RA)
-msg_lot1bis = "Aucun materiel detenu : la cloture du depart sera possible avec le lot 1bis"
+msg_attente = "Aucun materiel detenu : la cloture du depart n'est pas encore disponible dans l'application"
 show(
-    "C12 - salarie en_depart sans materiel : etape 2 sans_objet, etape 3 fait, message lot 1bis, prochaine_action None",
+    "C12 - salarie en_depart sans materiel : etape 2 sans_objet, etape 3 fait, message d'attente, prochaine_action None",
     s == 200 and etat(r_sans, "materiel") == "sans_objet"
     and etat(r_sans, "restitution") == "fait"
     and etat(r_sans, "sorti") == "a_venir"
-    and etape(r_sans, "sorti")["detail"] == msg_lot1bis
-    and r_sans.get("message_attente") == msg_lot1bis
+    and etape(r_sans, "sorti")["detail"] == msg_attente
+    and r_sans.get("message_attente") == msg_attente
     and r_sans.get("etape_courante") is None
     and r_sans.get("prochaine_action") is None,
     (r_sans.get("etapes"), r_sans.get("message_attente"), r_sans.get("prochaine_action")),
