@@ -37,10 +37,10 @@ from PIL import Image, ImageDraw  # noqa: E402
 from sqlalchemy import event  # noqa: E402
 from sqlmodel import Session, func, select  # noqa: E402
 from app.db import engine  # noqa: E402
-from app.models import Account, AuditLog, User  # noqa: E402
+from app.models import Account, Asset, Assignment, AssignmentAsset, AuditLog, Signature, User, UserApplication  # noqa: E402
 from app.purge import add_months  # noqa: E402
 from app.routers.parcours import parcours_depart  # noqa: E402
-from app.scope import Scope  # noqa: E402
+from app.scope import compute_scope  # noqa: E402
 
 B = os.environ.get("TEST_BASE_URL", "http://localhost:8000")
 ADMIN = os.environ.get("TEST_ADMIN_USER", "admin")
@@ -261,17 +261,23 @@ for role_label, tok in [("IT", IT), ("RH", RA), ("lecture", LA)]:
     )
 
 print("== Critere 5 : etape 6 (purge) presente pour IT, absente pour RH et lecture ==")
+_, b_rh_raw = call("GET", f"/parcours/depart/{UA}", token=RA)
+_, b_la_raw = call("GET", f"/parcours/depart/{UA}", token=LA)
 _, r_it = parcours(UA, IT)
 _, r_la = parcours(UA, LA)
 cles_it = [e["cle"] for e in r_it["etapes"]]
 cles_rh = [e["cle"] for e in r_rh["etapes"]]
 cles_la = [e["cle"] for e in r_la["etapes"]]
 show(
-    "C5 - etape purge presente pour informatique (6 etapes), absente pour RH et lecture (5 etapes)",
+    "C5a - etape purge presente pour informatique (6 etapes), absente pour RH et lecture (5 etapes)",
     cles_it == ["depart", "materiel", "restitution", "acces", "sorti", "purge"]
     and cles_rh == ["depart", "materiel", "restitution", "acces", "sorti"]
     and cles_la == ["depart", "materiel", "restitution", "acces", "sorti"],
     (cles_it, cles_rh, cles_la),
+)
+show(
+    "C5b - la reponse d'un RH et du role lecture ne contient jamais date_purge_possible",
+    "date_purge_possible" not in b_rh_raw.decode() and "date_purge_possible" not in b_la_raw.decode(),
 )
 
 print("== Critere 6 : role lecture voit le parcours avec prochaine_action.autorise = false ==")
@@ -283,32 +289,37 @@ show(
 )
 
 print("== Critere 8 : aucune ecriture en base lors de GET /parcours/depart/{id} ==")
-with Session(engine) as ss:
-    u_before = ss.get(User, UA)
-    maj_before = u_before.maj_le
-    audit_before = ss.exec(select(func.count()).select_from(AuditLog)).one()
+TABLES_SURVEILLEES = (User, Asset, Assignment, AssignmentAsset, Signature, UserApplication, AuditLog)
+
+
+def snapshot_db(uid):
+    with Session(engine) as ss:
+        u = ss.get(User, uid)
+        counts = {m.__tablename__: ss.exec(select(func.count()).select_from(m)).one() for m in TABLES_SURVEILLEES}
+        return u.maj_le, counts
+
+
+maj_before, counts_before = snapshot_db(UA)
 for _ in range(3):
     parcours(UA, IT)
     parcours(UA, RA)
     parcours(UA, LA)
-with Session(engine) as ss:
-    u_after = ss.get(User, UA)
-    maj_after = u_after.maj_le
-    audit_after = ss.exec(select(func.count()).select_from(AuditLog)).one()
+maj_after, counts_after = snapshot_db(UA)
 show(
-    "C8 - GET /parcours/depart/{id} ne modifie ni maj_le ni le journal d'audit",
-    maj_before == maj_after and audit_before == audit_after,
-    (str(maj_before), str(maj_after), audit_before, audit_after),
+    "C8 - GET /parcours/depart/{id} ne modifie ni maj_le ni aucune des 7 tables surveillees",
+    maj_before == maj_after and counts_before == counts_after,
+    (str(maj_before), str(maj_after), counts_before, counts_after),
 )
 
-print("== Critere 11 : date de l'etape 6 = date_sortie + retention_apres_sortie_mois (sans delai_grace) ==")
+print("== Critere 11 : date de l'etape 6 = date_sortie + retention_apres_sortie_mois (sans delai_grace), toujours a_venir ==")
 j("PUT", "/rgpd/retention", {"mois": 18, "delai_grace_jours": 45})
 _, r_it_ret = parcours(UA, IT)
 e_purge = etape(r_it_ret, "purge")
 attendu_purge = add_months(date.fromisoformat(sortie_future), 18).isoformat()
 show(
-    "C11 - date_purge_possible = date_sortie + 18 mois (sans les 45 jours de grace)",
-    e_purge is not None and e_purge.get("date_purge_possible") == attendu_purge
+    "C11a - avant l'echeance : etat a_venir, detail 'Purge possible a partir du <date>' (sans delai de grace)",
+    e_purge is not None and e_purge.get("etat") == "a_venir"
+    and e_purge.get("date_purge_possible") == attendu_purge
     and f"Purge possible a partir du {attendu_purge}" == e_purge.get("detail"),
     e_purge,
 )
@@ -354,15 +365,15 @@ show(
     (r_apres_2["salarie"]["statut"], r_apres_2["etape_courante"], r_apres_2["reserves"]),
 )
 
-print("== Critere 19 : journal horodate uniquement sur faits stockes, sans donnees sensibles ni 'depart declare' ==")
+print("== Critere 19 : journal horodate uniquement sur faits stockes, sans donnees sensibles ni 'depart declare' ni retrait d'acces deduit ==")
 journal = r_apres_2.get("journal", [])
 journal_txt = json.dumps(journal)
 show(
-    "C19a - journal contient les restitutions signees, les retours par type et le retrait d'acces",
+    "C19a - journal contient les restitutions signees et les retours par type, et omet le retrait d'acces sans date stockee",
     any(x["texte"] == "Restitution signee et scellee" for x in journal)
     and any(x["texte"] == "Materiel restitue : Ordinateur portable" for x in journal)
     and any(x["texte"] == "Materiel restitue : Ecran" for x in journal)
-    and any(x["texte"] == "Acces applicatif retire" for x in journal),
+    and not any("Acces applicatif retire" in x["texte"] for x in journal),
     journal,
 )
 show(
@@ -378,7 +389,7 @@ show(
 
 print("== Critere 12 : salarie en_depart sans aucun materiel detenu ==")
 s, u_sans = j("POST", "/users", {
-    "matricule": "ZZDP-USANS", "nom": "ZZDPSans", "prenom": " Sophie",
+    "matricule": "ZZDP-USANS", "nom": "ZZDPSans", "prenom": "Sophie",
     "entite_id": EA, "statut": "actif",
 })
 j("POST", f"/lifecycle/depart/{u_sans['id']}", {"date_sortie": sortie_future}, token=RA)
@@ -407,7 +418,7 @@ show(
     (sorted(r_sans_la["salarie"].keys()), [e["cle"] for e in r_sans_la["etapes"]]),
 )
 
-print("== Critere 18 : nombre de requetes SQL borne et independant du nombre d'actifs ==")
+print("== Critere 18 : nombre de requetes SQL borne et independant du nombre d'actifs (IT global et RH restreint) ==")
 s, u_1 = j("POST", "/users", {"matricule": "ZZDP-UQ1", "nom": "ZZDPQ1", "prenom": "Un", "entite_id": EA, "statut": "actif"})
 s, u_10 = j("POST", "/users", {"matricule": "ZZDP-UQ10", "nom": "ZZDPQ10", "prenom": "Dix", "entite_id": EA, "statut": "actif"})
 s, aq1 = j("POST", "/assets", {"type": "PC", "marque": "ZZDP", "numero_serie": "ZZDP-SN-Q0", "entite_id": EA})
@@ -422,39 +433,54 @@ j("POST", "/assignments", {"user_id": u_10["id"], "asset_ids": ids_10, "sans_cha
 j("POST", f"/lifecycle/depart/{u_10['id']}", {"date_sortie": sortie_future})
 
 
-def count_queries(uid):
+def count_queries(uid, username):
     cnt = [0]
 
     def before_exec(conn, cursor, statement, parameters, context, executemany):
         cnt[0] += 1
 
     with Session(engine) as ss:
-        acc_it = ss.exec(select(Account).where(Account.username == "sec_dp_it")).first()
-        sc = Scope(globale=True)
+        acc = ss.exec(select(Account).where(Account.username == username)).first()
         event.listen(engine, "before_cursor_execute", before_exec)
         try:
-            parcours_depart(uid, session=ss, account=acc_it, scope=sc)
+            sc = compute_scope(ss, acc)
+            parcours_depart(uid, session=ss, account=acc, scope=sc)
         finally:
             event.remove(engine, "before_cursor_execute", before_exec)
     return cnt[0]
 
 
-q1 = count_queries(u_1["id"])
-q10 = count_queries(u_10["id"])
+q1_it = count_queries(u_1["id"], "sec_dp_it")
+q10_it = count_queries(u_10["id"], "sec_dp_it")
+q1_rh = count_queries(u_1["id"], "sec_dp_rha")
+q10_rh = count_queries(u_10["id"], "sec_dp_rha")
 show(
-    "C18 - nombre de requetes SQL constant entre 1 actif et 10 actifs (<= 6 requetes)",
-    q1 == q10 and q1 <= 6,
-    f"1 actif: {q1} requetes, 10 actifs: {q10} requetes",
+    "C18a - IT (portee globale) : nombre de requetes SQL constant entre 1 actif et 10 actifs (<= 6 requetes)",
+    q1_it == q10_it and q1_it <= 6,
+    f"1 actif: {q1_it} requetes, 10 actifs: {q10_it} requetes",
+)
+show(
+    "C18b - RH (portee limitee a une entite) : nombre de requetes SQL constant entre 1 actif et 10 actifs (<= 8 requetes)",
+    q1_rh == q10_rh and q1_rh <= 8,
+    f"1 actif: {q1_rh} requetes, 10 actifs: {q10_rh} requetes",
 )
 
-print("== Critere 10 : apres purge RGPD du salarie, GET /parcours/depart/{id} renvoie 404 ==")
+print("== Critere 11b & Critere 10 : etape 6 apres la date de purge (reste a_venir, 'depuis le') puis 404 apres purge RGPD ==")
 s, u_purge = j("POST", "/users", {"matricule": "ZZDP-UPG", "nom": "ZZDPPurge", "prenom": "Pia", "entite_id": EA, "statut": "actif"})
 s, apg = j("POST", "/assets", {"type": "PC", "marque": "ZZDP", "numero_serie": "ZZDP-SN-PG", "entite_id": EA})
 s, asg_pg = j("POST", "/assignments", {"user_id": u_purge["id"], "asset_ids": [apg["id"]], "sans_charte": True})
 j("POST", f"/assignments/{asg_pg['id']}/sign", SIGN)
 j("POST", f"/lifecycle/depart/{u_purge['id']}", {"date_sortie": "2019-01-01"})
 j("POST", "/lifecycle/restituer", {"user_id": u_purge["id"], **SIGN})
-s_av, _ = parcours(u_purge["id"], IT)
+s_av, r_av = parcours(u_purge["id"], IT)
+e_pg_echu = etape(r_av, "purge")
+show(
+    "C11b - apres l'echeance de retention : l'etape 6 reste a_venir avec 'Purge possible depuis le 2020-01-01'",
+    s_av == 200 and e_pg_echu is not None and e_pg_echu.get("etat") == "a_venir"
+    and e_pg_echu.get("detail") == "Purge possible depuis le 2020-01-01"
+    and e_pg_echu.get("date_purge_possible") == "2020-01-01",
+    e_pg_echu,
+)
 s_pg, r_pg = j("POST", "/rgpd/purge", {"ids": [u_purge["id"]]}, token=IT)
 s_ap_it, _ = parcours(u_purge["id"], IT)
 s_ap_rh, _ = parcours(u_purge["id"], RA)
