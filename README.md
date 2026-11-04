@@ -357,7 +357,7 @@ signée, là où GLPI est un outil d'assistance et d'inventaire technique. Les d
 | | Kikan | GLPI |
 |---|---|---|
 | **Cœur de métier** | Remise et restitution **signées et scellées**, revue des accès applicatifs, purge RGPD | Tickets d'assistance, inventaire technique, parc, licences et contrats |
-| **Inventaire** | Saisi, importé (CSV, Excel, GLPI) ou envoyé par l'API ; ordinateurs, téléphones et autres matériels | Inventaire automatique par agent, parc complet |
+| **Inventaire** | Saisi, importé (CSV, Excel, GLPI) ou envoyé par l'API ; tout type d'actif (liste de types paramétrable) | Inventaire automatique par agent, parc complet |
 | **Preuve de remise** | Signature manuscrite sur tablette, PDF scellé, charte annexée, archivage dans votre GED | Pas de remise signée et scellée native à notre connaissance |
 | **Public** | RH, informatique, lecture ; chaque RH voit son périmètre d'entités | Équipes informatique et support |
 | **Tickets, supervision** | Aucun : Kikan n'en fait pas | Oui |
