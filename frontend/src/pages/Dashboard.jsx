@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import { useCompteurs } from "../compteurs.jsx";
 import { Feedback } from "../components/Notifications.jsx";
 
 export default function Dashboard() {
@@ -29,9 +30,12 @@ export default function Dashboard() {
   const [maj, setMaj] = useState(null);
   const [users, setUsers] = useState([]);
   const [assets, setAssets] = useState([]);
-  const [besoins, setBesoins] = useState(0);
-  const [anomalies, setAnomalies] = useState(0);
-  const [retard, setRetard] = useState(0);
+  // Besoins, anomalies et echeances depassees sont partages avec le menu (une seule lecture) ; revenir sur l'accueil
+  // les relit si la derniere lecture n'est pas toute recente.
+  const { valeurs, recharger } = useCompteurs();
+  const besoins = valeurs.besoins ?? 0;
+  const anomalies = valeurs.anomalies ?? 0;
+  const retard = valeurs.retard ?? 0;
   const [err, setErr] = useState(null);
 
   useEffect(() => {
@@ -42,9 +46,7 @@ export default function Dashboard() {
       api.get("/backup/status").then(setBackup).catch(() => {});
       api.get("/apropos/mise-a-jour").then(setMaj).catch(() => {});
     }
-    api.get("/stats").then((s) => setBesoins(s.besoins_a_traiter || 0)).catch(() => {});
-    if (user.role === "informatique") api.get("/renouvellements?horizon_mois=0").then((r) => setRetard(r.totaux.en_retard)).catch(() => {});
-    api.get("/revues/anomalies").then((r) => setAnomalies(r.count || 0)).catch(() => {});
+    recharger();
   }, []);
 
   const byStatus = (s) => assets.filter((a) => a.statut === s).length;

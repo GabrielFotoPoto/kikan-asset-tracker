@@ -25,6 +25,7 @@ import { NotificationsProvider } from "./components/Notifications.jsx";
 import { ConfirmProvider } from "./components/ConfirmDialog.jsx";
 import { PaletteProvider } from "./components/Palette.jsx";
 import NavPrincipale from "./components/NavPrincipale.jsx";
+import { CompteursProvider } from "./compteurs.jsx";
 import Breadcrumb from "./components/Breadcrumb.jsx";
 import ThemeSwitch from "./components/ThemeSwitch.jsx";
 import BarreMobile from "./components/BarreMobile.jsx";
@@ -111,6 +112,7 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ user }}>
+     <CompteursProvider role={user.role}>
      <NotificationsProvider>
       <ConfirmProvider>
       <PaletteProvider>
@@ -192,6 +194,7 @@ export default function App() {
       </PaletteProvider>
       </ConfirmProvider>
      </NotificationsProvider>
+     </CompteursProvider>
     </AuthContext.Provider>
   );
 }
