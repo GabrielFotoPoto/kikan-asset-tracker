@@ -183,7 +183,7 @@ def _mouvements(session: Session, scope: Scope, assets: list[Asset], du: date | 
     }
 
 
-STATUTS = {"stock": "En stock", "affecte": "Affecte", "reforme": "Reforme"}
+STATUTS = {"stock": "En stock", "affecte": "Affecte", "reforme": "Reforme", "rendu": "Rendu", "non_restitue": "Non restitue"}
 
 
 def _sections(s: dict) -> list[tuple[str, list[str], list[list]]]:

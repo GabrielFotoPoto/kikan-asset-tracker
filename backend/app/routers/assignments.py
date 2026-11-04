@@ -119,6 +119,8 @@ def create_assignment(data: AssignmentCreate, session: Session = Depends(get_ses
             raise HTTPException(404, f"Actif {aid} introuvable")
         if asset.statut == AssetStatus.affecte:
             raise HTTPException(409, f"Actif {aid} deja affecte")
+        if asset.statut in (AssetStatus.reforme, AssetStatus.non_restitue):
+            raise HTTPException(409, f"Actif {aid} non disponible ({asset.statut.value})")
         assets.append(asset)
 
     policy_id = None
@@ -269,8 +271,8 @@ def echange(data: EchangeRequest, request: Request, session: Session = Depends(g
             raise HTTPException(404, f"Actif {aid} introuvable")
         if asset.statut == AssetStatus.affecte:
             raise HTTPException(409, f"Actif {aid} deja affecte")
-        if asset.statut == AssetStatus.reforme:
-            raise HTTPException(409, f"Actif {aid} reforme : il ne peut pas etre remis")
+        if asset.statut in (AssetStatus.reforme, AssetStatus.non_restitue):
+            raise HTTPException(409, f"Actif {aid} non disponible ({asset.statut.value})")
         nouveaux.append(asset)
     detenus = _detenus(session, user.id)
     anciens: list[Asset] = []
