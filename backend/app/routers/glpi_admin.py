@@ -42,6 +42,7 @@ class GlpiConfigIn(BaseModel):
     types_computer: list[str] = Field(default_factory=list, max_length=10)
     types_phone: list[str] = Field(default_factory=list, max_length=10)
     entites: dict[str, int] = Field(default_factory=dict)
+    champs: dict[str, str] = Field(default_factory=dict)
     entite_kikan: int | None = None
     entite_glpi: int = Field(default=0, ge=0)
     profil: str = Field(default="", max_length=60)
@@ -51,7 +52,7 @@ def _view(session: Session) -> dict:
     cfg = glpi.load_config(session)
     return {
         "config": {"actif": cfg.actif, "url": cfg.url, "verifier_cert": cfg.verifier_cert, "types_computer": cfg.types_computer,
-                   "types_phone": cfg.types_phone, "entites": cfg.entites, "entite_kikan": cfg.entite_kikan, "entite_glpi": cfg.entite_glpi,
+                   "types_phone": cfg.types_phone, "entites": cfg.entites, "champs": cfg.champs, "entite_kikan": cfg.entite_kikan, "entite_glpi": cfg.entite_glpi,
                    "profil": cfg.profil},
         "jeton_defini": bool(glpi.user_token()), "jeton_application_defini": bool(glpi.app_token()),
         "pret": cfg.pret and glpi.url_problem(cfg.url) is None,
@@ -82,7 +83,9 @@ def put_config(data: GlpiConfigIn, session: Session = Depends(get_session), admi
     kikan_ids = {e.id for e in session.exec(select(Entite)).all()}
     if any(v not in kikan_ids for v in data.entites.values()) or (data.entite_kikan is not None and data.entite_kikan not in kikan_ids):
         raise HTTPException(400, "Entite Kikan inconnue")
-    values = {"glpi_actif": "1" if data.actif else "0", "glpi_url": url, "glpi_verifier_cert": "1" if data.verifier_cert else "0",
+    if any(k not in glpi.CHAMPS_DEFAUT or v not in glpi.CHAMPS_GLPI for k, v in data.champs.items()):
+        raise HTTPException(400, "Correspondance de champ invalide")
+    values = {"glpi_champs": json.dumps(data.champs), "glpi_actif": "1" if data.actif else "0", "glpi_url": url, "glpi_verifier_cert": "1" if data.verifier_cert else "0",
               "glpi_types_computer": "|".join(computers), "glpi_types_phone": "|".join(phones),
               "glpi_entites": json.dumps({str(int(k)): v for k, v in data.entites.items()}),
               "glpi_entite_kikan": "" if data.entite_kikan is None else str(data.entite_kikan),
