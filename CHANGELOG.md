@@ -5,6 +5,16 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.7.0] - 2026-11-05
+
+Version de fonctionnalités : import GLPI avec le nom du PC comme identifiant interne, suppression de salariés en lot, parcours de départ guidé, et une correction qui rend de nouveau réimportables les éléments GLPI supprimés. **Aucune migration de base de données** ; l'API gagne deux routes (compatibles), donc les quatre images sont à mettre à jour ensemble.
+
+### Mise à jour depuis 0.6.1
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.7.0`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.7.0` sous Linux) ; les quatre images ensemble.
+- **Aucune migration.** Retour arrière : repasser `KIKAN_VERSION` à `0.6.1` ; aucune restauration n'est nécessaire.
+- **Rien ne change sans action de votre part** : la correspondance des champs GLPI garde le *Numéro d'inventaire* par défaut. Pour utiliser le nom du PC, choisissez *Nom (nom du PC)* dans *Paramétrage, Intégrations, GLPI, Correspondance des champs*, puis enregistrez.
+- **Si vous avez supprimé du matériel ou des salariés importés de GLPI avant cette version**, leurs liens GLPI sont restés en base et ces éléments apparaissent « Déjà lié » sans pouvoir être réimportés. La mise à jour ne les nettoie pas : lancez la procédure de [docs/GLPI.md](docs/GLPI.md) (section « Liens orphelins après une suppression »), après la sauvegarde.
+
 ### Ajouté
 - **Suppression de salariés en lot** (rôle informatique) : cases à cocher dans la liste des utilisateurs, *Cocher les N affichés* (jusqu'à 500), puis récapitulatif obligatoire avant la suppression (`POST /users/suppression-lot`, simulation par défaut). Un salarié ayant une affectation de matériel, un accès applicatif ou un besoin est refusé avec le même message que la suppression unitaire (conservation par le statut « sorti », effacement définitif par la purge RGPD) ; un salarié hors périmètre ou inexistant est refusé comme introuvable sans rien révéler. Chaque suppression est journalisée sans aucune donnée personnelle (`users/{id}`, détail « suppression en lot »). Aucune migration.
 - **GLPI : correspondance du champ vers l'identifiant interne.** Dans *Paramétrage, onglet Intégrations, section GLPI*, nouveau bloc *Correspondance des champs* permettant de choisir quel champ GLPI alimente l'identifiant interne Kikan (`identifiant_interne`, réglage `glpi_champs`) à l'import : *Numéro d'inventaire* (`otherserial`, valeur par défaut : aucun changement pour l'existant), *Nom (nom du PC)* (`name`) ou *Numéro de série* (`serial`). Avec *Nom*, si le nom est déjà pris comme identifiant interne (sans tenir compte de la casse), Kikan attribue `nom-ANNÉE` (année en cours), puis `nom-ANNÉE-2`, `-3`, etc. (100 caractères au plus) ; l'aperçu d'import affiche une colonne *ID interne proposé*. Avec *Numéro d'inventaire* ou *Numéro de série*, un doublon reste refusé. Un matériel déjà connu par son numéro de série est lié sans modifier son identifiant interne. À l'export vers GLPI, `otherserial` n'est renseigné que si le réglage vaut `otherserial`. Aucune migration.
@@ -21,6 +31,16 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ### Documentation
 - **README : Kikan et GLPI, complémentaires.** Nouvelle section sous « Intégrations » (tableau des rôles respectifs de Kikan et de GLPI) et phrase d'introduction ; la colonne GLPI décrit GLPI de base, hors plugins, d'après notre connaissance de l'outil, sans vérification contre un GLPI.
+
+### Vérifié
+- Intégration continue de chaque PR de la version (#102 à #105) : 11 contrôles réussis, suite de tests complète comprise.
+- Suites `glpi_check`, `users_suppression_lot_check`, `assets_suppression_lot_check` et `scope_check` (inventaire des routes) sans échec sur la pile de test ; tests unitaires de sélection multiple (`tableau.test.js`) réussis.
+- Plateforme de développement et préproduction mises à jour en **0.6.1** (migration `0022` appliquée, API en mode production), sauvegarde faite avant.
+
+### Resté non vérifié
+- **Cette version n'est installée ni sur la plateforme de développement ni sur la préproduction** au moment de la rédaction : l'usage dans le navigateur de la correspondance des champs, de la suppression de salariés en lot et du parcours de départ n'a pas été essayé à la main.
+- La correspondance du nom du PC n'a été testée que contre le faux GLPI intégré aux tests, pas contre un GLPI réel.
+- Les deux requêtes de nettoyage des liens orphelins documentées dans `docs/GLPI.md` n'ont pas été exécutées telles quelles : sur la préproduction, les liens ont été supprimés avec les fiches par une autre requête.
 
 ## [0.6.1] - 2026-11-04
 
