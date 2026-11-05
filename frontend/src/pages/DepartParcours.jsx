@@ -26,7 +26,7 @@ import { ErrorState, Loading } from "../components/State.jsx";
 import { MOTIFS_NON_RESTITUTION, formaterQuand, libelleMotif } from "../parcours.js";
 
 // Parcours de depart d'un salarie (SPEC.md 6.3bis) : parcours calcule par GET /parcours/depart/{id}.
-// Voie d'exception Lot 1bis : constat de non-restitution (informatique) et cloture sans materiel (RH/informatique).
+// Voie d'exception : constat de non-restitution (informatique) et cloture sans materiel (RH/informatique).
 const ACTIONS_DEPART = {
   depart: "Declarer le depart",
   restitution: "Restituer et signer",

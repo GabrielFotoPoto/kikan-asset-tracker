@@ -17,7 +17,7 @@
 
 """Parcours guides en etapes (lecture seule, tous roles authentifies dans leur portee).
 
-Lot 1 & 1bis : parcours de depart d'un salarie (GET /parcours/depart/{user_id}).
+Parcours de depart d'un salarie (GET /parcours/depart/{user_id}).
 L'avancement est calcule a la lecture a partir des donnees existantes, sans aucune ecriture en base.
 Hors portee ou inexistant : 404 identique. L'etape 6 (purge RGPD possible) et les motifs de non-restitution
 ne sont renvoyes qu'a l'informatique. Ni le matricule ni l'e-mail ne sont renvoyes ; le journal ne contient
@@ -70,7 +70,7 @@ def _charger_donnees_depart(session: Session, user_id: int):
     non_restitues_uniques: list[tuple[AssignmentAsset, Asset]] = []
     seen_nr: set[int] = set()
     for link, asset in rows:
-        if (link.non_restitue_le is not None or asset.statut == AssetStatus.non_restitue) and asset.id not in seen_nr:
+        if link.non_restitue_le is not None and asset.id not in seen_nr:
             seen_nr.add(asset.id)
             non_restitues_uniques.append((link, asset))
 
@@ -111,6 +111,18 @@ def _construire_etat_depart(
     )
 
 
+DETAILS_RESTITUTION = {
+    (False, False): "Aucun materiel",
+    (True, False): "Restitue (signe)",
+    (False, True): "Non restitue (constat)",
+    (True, True): "Restitue (signe) et non restitue (constat)",
+}
+
+
+def _detail_restitution(restitue: bool, non_restitue: bool) -> str:
+    return DETAILS_RESTITUTION[(bool(restitue), bool(non_restitue))]
+
+
 def _etapes_materiel_et_sortie(user: User, etat: EtatDepart) -> tuple[dict, dict, dict]:
     """Construit les etapes 2 (materiel), 3 (restitution) et 5 (sorti) lorsque le depart est declare."""
     if etat.nb_restants > 0:
@@ -136,15 +148,7 @@ def _etapes_materiel_et_sortie(user: User, etat: EtatDepart) -> tuple[dict, dict
         if (etat.a_eu_restitution or etat.a_eu_non_restitue)
         else _etape("materiel", "Materiel a recuperer", "Automatique", SANS_OBJET, "Aucun materiel detenu")
     )
-    if not etat.a_eu_restitution and not etat.a_eu_non_restitue:
-        detail_restit = "Aucun materiel"
-    elif etat.a_eu_restitution and not etat.a_eu_non_restitue:
-        detail_restit = "Restitue (signe)"
-    elif etat.a_eu_non_restitue and not etat.a_eu_restitution:
-        detail_restit = "Non restitue (constat)"
-    else:
-        detail_restit = "Restitue (signe) et non restitue (constat)"
-
+    detail_restit = _detail_restitution(etat.a_eu_restitution, etat.a_eu_non_restitue)
     restit_e = _etape("restitution", "Materiel recupere", "RH ou informatique", FAIT, detail_restit)
     sorti_e = (
         _etape("sorti", "Salarie sorti", "Automatique", FAIT, "Sorti")
@@ -246,8 +250,7 @@ def _journal_depart(
     for link, asset in retours:
         journal.append({"quand": _iso(link.date_retour), "texte": f"Materiel restitue : {asset.type or 'materiel'}"})
     for link, asset in non_restitues:
-        if link.non_restitue_le:
-            journal.append({"quand": _iso(link.non_restitue_le), "texte": f"Constat de non-restitution : {asset.type or 'materiel'}"})
+        journal.append({"quand": _iso(link.non_restitue_le), "texte": f"Constat de non-restitution : {asset.type or 'materiel'}"})
     return sorted((j for j in journal if j["quand"]), key=lambda j: j["quand"], reverse=True)[:12]
 
 
