@@ -24,7 +24,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
     - Dialogue de confirmation pour la clôture du départ sans matériel (RH et informatique).
     - Affichage de l'encart des matériels non restitués avec motif et date (informatique uniquement).
     - Filtre par statut dans la liste du matériel complété par `non_restitue` avec verrouillage explicatif lors de la consultation.
-- Tests : nouvelle suite `tests/depart_exception_check.py` (35 vérifications couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` à 9 tests, 28 au total), actualisation de `tests/parcours_depart_check.py`.
+- Tests : nouvelle suite `tests/depart_exception_check.py` (35 vérifications couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` à 9 tests, 36 au total), actualisation de `tests/parcours_depart_check.py`.
 
 ## [0.7.1] - 2026-11-05
 
