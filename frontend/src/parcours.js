@@ -75,8 +75,9 @@ export function declencherAction(action, { onAction, onNaviguer } = {}) {
   }
 }
 
-// Etat de la pastille d'en-tete d'un parcours.
-export function resumeParcours(etapes = [], etapeCourante = null, reserves = []) {
+// Etat de la pastille d'en-tete d'un parcours. `action` : prochaine action du serveur ; une action locale (action_id) encore a faire
+// (cloture du depart) empeche d'afficher « termine ».
+export function resumeParcours(etapes = [], etapeCourante = null, reserves = [], action = null) {
   const liste = Array.isArray(etapes) ? etapes : [];
   const indice = etapeCourante ? liste.findIndex((e) => e.cle === etapeCourante) : -1;
   if (indice >= 0) {
@@ -86,6 +87,9 @@ export function resumeParcours(etapes = [], etapeCourante = null, reserves = [])
       classe: "pastille attention",
       texte: `Etape ${indice + 1} sur ${liste.length} : ${liste[indice].titre}`,
     };
+  }
+  if (action && action.action_id) {
+    return { termine: false, avecReserve: false, classe: "pastille attention", texte: "Cloture du depart en attente" };
   }
   const nbReserves = Array.isArray(reserves) ? reserves.length : 0;
   if (nbReserves > 0) {
