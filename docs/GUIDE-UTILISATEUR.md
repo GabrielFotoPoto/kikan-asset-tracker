@@ -7,7 +7,7 @@ Les captures viennent du **jeu de données de démonstration** (personnes et mat
 
 Kikan garde la trace de **qui détient quel matériel** (ordinateurs portables, smartphones) et **quels accès** il a, de l'arrivée au départ,
 avec une **preuve** : chaque remise et chaque restitution est signée à l'écran par le salarié, puis le PDF est **scellé** (signature électronique de l'organisation).
-Le tout est tracé dans un journal d'audit, pour la démarche ISO 27001.
+Le tout est tracé dans un journal d'audit, pour faciliter la démarche ISO 27001.
 
 Principe à retenir : **ce qui a une histoire ne se supprime pas** ; on le désactive, on le passe en « sorti » ou en « réformé ». La suppression définitive des salariés
 partis se fait par une **purge RGPD** encadrée (voir la section 7).
@@ -290,14 +290,17 @@ L'icône de la page de connexion est lisible **sans être connecté** : n'y mett
 | renouveler le matériel d'un salarié (remettre du neuf, récupérer l'ancien) | Matériel ou Utilisateurs, bouton Renouveler | informatique |
 | retrouver le PDF d'une remise | Remises, bouton « PDF scellé » | informatique, RH, lecture |
 | déclarer un départ | Sorties, Déclarer un départ | RH, informatique |
+| suivre l'avancement d'un départ | Sorties, Suivre le parcours (lecture seule) | tous |
 | récupérer le matériel d'un partant | Sorties, Restituer et signer | RH, informatique |
 | savoir qui détient quoi aujourd'hui | Rapports | tous |
-| connaître les matériels à renouveler | Statistiques, Prévisions ou rappels e-mail | informatique |
+| connaître les matériels à renouveler | Renouvellements, Statistiques, Prévisions ou rappels e-mail | informatique |
 | chiffrer le budget de renouvellement | Prévisions (coûts à renseigner dans Paramétrage, Coûts de remplacement) | tous (coûts : informatique) |
 | donner ou retirer un accès applicatif | Accès applicatifs | RH, informatique |
 | repérer les accès à retirer | Revue des accès, onglet Anomalies | tous |
 | reprendre mon parc existant | Import (simulation puis import réel) | informatique |
 | corriger un import raté | Import, « Annuler cet import » | informatique |
+| importer depuis GLPI (avec filtres et correspondance des champs) | Paramétrage, Intégrations, GLPI (voir [GLPI.md](GLPI.md)) | informatique |
+| supprimer plusieurs salariés ou matériels d'un coup | Utilisateurs ou Matériel, cocher puis Supprimer la sélection | informatique |
 | créer le compte d'une nouvelle personne | Comptes | informatique |
 | limiter un compte à une filiale | Comptes, périmètre | informatique |
 | changer mon mot de passe | Mon compte | tous |

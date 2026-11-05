@@ -62,7 +62,7 @@ Autres réglages utiles (tous facultatifs, commentés dans `.env.example`) : `KI
 **Méthode A** (images publiées) :
 
 ```bash
-export KIKAN_VERSION=0.5.0       # la version voulue ; par défaut : la dernière version finale
+export KIKAN_VERSION=0.7.0       # la version voulue ; par défaut : la dernière version finale
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml pull
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
 ```
@@ -83,7 +83,7 @@ docker compose ps                      # db, api, web et converter : "Up" (healt
 curl -sk https://localhost:3443/api/health
 ```
 
-La réponse attendue est `{"status":"ok","app":"Kikan","version":"0.5.0"}`. La base est créée et les migrations s'appliquent seules au démarrage de l'API.
+La réponse attendue est `{"status":"ok","app":"Kikan","version":"0.7.0"}`. La base est créée et les migrations s'appliquent seules au démarrage de l'API.
 
 ## 5. Première connexion
 
@@ -167,7 +167,7 @@ La page **À propos** et le **Tableau de bord** (rôle informatique) vérifient 
 Sur un serveur Linux (Debian, Ubuntu, RHEL), vous pouvez utiliser le **script de mise à jour guidée** (qui vérifie `.env`, déclenche et contrôle une sauvegarde préalable, met à jour les conteneurs et vérifie `/health`) :
 
 ```bash
-./scripts/update.sh 0.5.0                 # images publiées (méthode A)
+./scripts/update.sh 0.7.0                 # images publiées (méthode A)
 ./scripts/update.sh --sources             # depuis un clone Git (méthode B)
 ```
 

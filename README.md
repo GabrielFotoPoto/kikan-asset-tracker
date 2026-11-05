@@ -45,7 +45,7 @@ La dernière version publiée figure dans les [versions GitHub](https://github.c
 **Cycle de vie du matériel et des salariés**
 - **Cycle de vie du salarié** : formulaire d'entrée (RH) avec le **matériel souhaité** à cocher (et la gamme à préciser), départ avec liste automatique du matériel à récupérer et rappels, passage en « sorti » une fois tout rendu.
 - **Besoins de matériel** : souhaits exprimés par les RH (catégorie et **gamme**), préparés par l'informatique qui choisit le matériel exact, **soldés automatiquement par la remise** ; rappels avant les arrivées.
-- **Remise signée** : accusé PDF (matériel + charte informatique annexée), **signature manuscrite sur tablette**, puis **scellement PAdES** (certificat de l'organisation, horodatage RFC 3161 optionnel). Document infalsifiable et vérifiable ; nom de fichier lisible et sans hasard (`AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf`).
+- **Remise signée** : accusé PDF (matériel + charte informatique annexée), **signature manuscrite sur tablette**, puis **scellement PAdES** (certificat de l'organisation, horodatage RFC 3161 optionnel). Document scellé : toute modification invalide la signature (PAdES) ; nom de fichier lisible et sans hasard (`AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf`).
 - **Restitution signée** (A.5.11), avec la même signature, conduite par l'informatique ou les RH.
 - **Renouvellement du matériel** d'un salarié en poste : l'informatique remet le nouveau matériel et récupère l'ancien **en une seule opération**, avec **un seul document signé et scellé** (« accusé d'échange »). Devenir de l'ancien matériel choisi à l'échange (rendu, retour en stock, à réformer), charte annexée au choix, lien conservé entre ancien et nouveau matériel. L'échéance de renouvellement n'est qu'un repère : l'informatique décide quand renouveler (avant ou après) et peut **reporter** une échéance avec un motif ; une page **Renouvellements** liste le matériel à renouveler, en retard ou à venir, avec son détenteur.
 - **Accès applicatifs** (A.5.18) : catalogue d'applications, attribution par salarié avec précision de niveau.
@@ -363,7 +363,7 @@ signée, là où GLPI est un outil d'assistance et d'inventaire technique. Les d
 | **Tickets, supervision** | Aucun : Kikan n'en fait pas | Oui |
 
 En pratique : GLPI reste l'outil du support et de l'inventaire technique ; Kikan tient le **qui détient quoi, avec preuve**, la
-relation RH et informatique, et la conformité (ISO 27001, RGPD). La colonne GLPI décrit GLPI de base, hors plugins, d'après notre
+relation RH et informatique, et la démarche de conformité (ISO 27001, RGPD). La colonne GLPI décrit GLPI de base, hors plugins, d'après notre
 connaissance de l'outil.
 
 ![Jetons de l'API d'import](docs/captures/api-jetons.png)
@@ -404,7 +404,7 @@ désactive ou on l'archive** (traçabilité ISO 27001).
 | Élément | Suppression autorisée si | Sinon |
 |---|---|---|
 | Entité | aucun salarié, actif, application, charte ni entité fille | la désactiver |
-| Salarié (informatique seule) | jamais d'affectation ni d'accès | statut « sorti » via la page Sorties ; effacement définitif par la purge RGPD |
+| Salarié (informatique seule) | aucune affectation, aucun accès, aucun besoin | statut « sorti » via la page Sorties ; effacement définitif par la purge RGPD |
 | Actif | jamais remis | statut « réformé » |
 | Application | aucun accès attribué | la désactiver |
 
@@ -540,7 +540,7 @@ Si le nom du serveur ou du partage est faux, l'opération est abandonnée au bou
 (30 s par défaut) avec un message explicite, et la signature reste possible (dépôt différé).
 
 SharePoint et DocuWare : un partage WebDAV (par exemple SharePoint sur site) ou un lecteur réseau SMB fonctionnent
-directement. L'accès par l'API propre à SharePoint Online ou à DocuWare n'est pas géré (voir la feuille de route).
+directement. Le dépôt par l'API de SharePoint Online et de DocuWare est géré : voir [docs/SHAREPOINT.md](docs/SHAREPOINT.md) et [docs/DOCUWARE.md](docs/DOCUWARE.md).
 Alternative sans code : monter le partage sur le serveur Docker (volume `cifs`) et laisser `KIKAN_STORAGE_BACKEND=local`.
 
 ## Sauvegarde et restauration
@@ -649,9 +649,8 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   renouvellements (C3, **fait**), étiquettes et QR codes (C4), pièces jointes (C5).
 - **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).
 - **Sécurité et exploitation, en continu** : MFA locale (E1), certificat de scellement reconnu et clé dans un coffre
-  (E2), journal d'audit infalsifiable (E3), révocation des sessions (E4), intégration continue, Dependabot et images
-  publiées (E5), tests unitaires et d'interface (E6), sauvegarde et restauration (E7, **fait**), GitHub Actions et images publiées (E5, **fait**), accessibilité et thème
-  sombre (E8).
+  (E2), journal d'audit infalsifiable (E3), révocation des sessions (E4, **fait**), intégration continue, Dependabot et images
+  publiées (E5), tests unitaires et d'interface (E6), sauvegarde et restauration (E7, **fait**), GitHub Actions et images publiées (E5, **fait**), accessibilité (E8 ; le thème sombre est **fait**).
 
 ## Développement et intégration continue
 

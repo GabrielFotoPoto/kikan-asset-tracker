@@ -11,7 +11,7 @@
 #   scripts/update.sh [version] [--sources] [--oui] [--sans-sauvegarde] [--forcer-version]
 #
 # Exemples :
-#   scripts/update.sh 0.5.0                  # met a jour vers la version 0.5.0 (images publiees ghcr.io)
+#   scripts/update.sh 0.7.0                  # met a jour vers la version 0.7.0 (images publiees ghcr.io)
 #   scripts/update.sh                        # interroge GitHub pour trouver la derniere version publiee
 #   scripts/update.sh --sources              # git pull --ff-only de main puis recompilation locale (methode B)
 #
@@ -37,7 +37,7 @@ for arg in "$@"; do
     --forcer-version) FORCE_VERSION=1 ;;
     -h|--help)
       echo "Usage : scripts/update.sh [version] [--sources] [--oui] [--sans-sauvegarde] [--forcer-version]"
-      echo "  [version]          Version cible (ex. 0.5.0) pour le mode images publiees (ghcr.io)."
+      echo "  [version]          Version cible (ex. 0.7.0) pour le mode images publiees (ghcr.io)."
       echo "  --sources          Met a jour la branche Git courante (git pull --ff-only) et recompile les images."
       echo "  --oui              Ne demande pas de confirmation interactive."
       echo "  --sans-sauvegarde  Ne lance pas de sauvegarde prealable (deconseille en production)."

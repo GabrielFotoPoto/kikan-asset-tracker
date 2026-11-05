@@ -6,6 +6,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Documentation
+- **Contrôle de la documentation (0.7.0)** : versions d'exemple passées de 0.5.0 à 0.7.0 (installation, publication, `update.sh`) ; `.env.example` (clé secrète obligatoire en production) ; SSO décrit en rôles d'application `Kikan.IT` / `Kikan.RH` ; paragraphe SharePoint/DocuWare du README corrigé (dépôt par API déjà géré) ; suppression en lot, suppression des liens externes, import GLPI et parcours de départ ajoutés au guide, à `SECURITY.md` et à la feuille de route ; formulations « infalsifiable », « stockage immuable » et « conformité » ramenées à ce que fait réellement Kikan ; `docs/API.md` (longueurs) ; références à des outils personnels retirées de `SPEC.md`.
 - **Modèle de registre des traitements RGPD** ([docs/modeles/registre-traitements-rgpd.md](docs/modeles/registre-traitements-rgpd.md)) : registre de l'article 30 prérempli pour Kikan (quatre traitements, données, destinataires, durées de conservation, sous-traitants, mesures de sécurité, droits des personnes), avec les points à compléter ou à faire valider par le DPO. Relu contre le code et la documentation ; une durée de conservation du journal d'audit et le moyen d'exercer le droit d'accès restent à décider. Lien depuis [docs/RGPD.md](docs/RGPD.md).
 
 ### Vérifié
