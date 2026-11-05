@@ -27,7 +27,7 @@ import { Feedback } from "../components/Notifications.jsx";
 import { useConfirm } from "../components/ConfirmDialog.jsx";
 import Pagination from "../components/Pagination.jsx";
 import ThTri from "../components/ThTri.jsx";
-import { paginer, trier } from "../tableau.js";
+import { basculerId, cocherListe, paginer, touteCochee, trier } from "../tableau.js";
 import { useTableau } from "../useTableau.js";
 
 // Le depart (en_depart, sorti) se declare depuis la page Sorties, avec restitution du materiel.
@@ -143,6 +143,33 @@ export default function Users() {
     } catch (ex) { setErr(errorText(ex)); }
   };
 
+  // Selection multiple (informatique) : survit au changement de page et de tri.
+  // La suppression passe toujours par un apercu (simulation) qui liste ce qui serait supprime ou refuse.
+  const [sel, setSel] = useState(() => new Set());
+  const [lot, setLot] = useState(null);
+  const [lotBusy, setLotBusy] = useState(false);
+  const basculer = (id) => setSel((cur) => basculerId(cur, id));
+  const cocher = (liste, valeur) => setSel((cur) => cocherListe(cur, liste, valeur));
+  const apercuLot = async () => {
+    setErr(null); setMsg(null); setLotBusy(true);
+    try {
+      const r = await api.post("/users/suppression-lot", { ids: [...sel], simulation: true });
+      setLot({ ...r, ok: r.supprimes });
+    } catch (ex) { setErr(errorText(ex)); } finally { setLotBusy(false); }
+  };
+  const appliquerLot = async () => {
+    setErr(null); setMsg(null); setLotBusy(true);
+    try {
+      const r = await api.post("/users/suppression-lot", { ids: [...sel], simulation: false });
+      setMsg(`${r.supprimes.length} salarie(s) supprime(s)${r.refuses.length ? `, ${r.refuses.length} refuse(s)` : ""}.`);
+      if (editing && r.supprimes.includes(editing.id)) cancel();
+      setSel(new Set()); setLot(null); load();
+    } catch (ex) { setErr(errorText(ex)); } finally { setLotBusy(false); }
+  };
+  const selNb = sel.size;
+  const pageToute = canDelete && touteCochee(sel, pag.tranche);
+  const filtreToute = canDelete && touteCochee(sel, triees);
+
   return (
     <div>
       <h2>Utilisateurs</h2>
@@ -211,14 +238,55 @@ export default function Users() {
         <div className="row" style={{ marginBottom: 12 }}>
           <input placeholder="Rechercher nom / prenom / matricule" value={q} onChange={(e) => { setQ(e.target.value); setParam("page", ""); }} />
         </div>
+        {canDelete && items.length > 0 && (
+          <div className="row" style={{ alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <button type="button" className="ghost" onClick={() => cocher(triees, !filtreToute)}>
+              {filtreToute ? "Decocher les" : "Cocher les"} {triees.length} affiche(s)
+            </button>
+            {selNb > 0 && <>
+              <strong>{selNb} selectionne(s)</strong>
+              <button type="button" className="ghost" onClick={() => { setSel(new Set()); setLot(null); }}>Vider la selection</button>
+              <button type="button" onClick={apercuLot} disabled={lotBusy || selNb > 500}>Supprimer la selection...</button>
+              {selNb > 500 && <span className="err">500 salaries au plus par suppression.</span>}
+            </>}
+          </div>
+        )}
+        {lot && (
+          <div className="card" role="alertdialog" aria-label="Recapitulatif de la suppression">
+            <h3>Supprimer {lot.ok.length} salarie(s) ?</h3>
+            <p className="muted">Cette suppression est definitive. Un salarie avec historique se conserve (statut sorti via la page Sorties) ; son effacement definitif releve de la purge RGPD.</p>
+            {lot.refuses.length > 0 && (
+              <div>
+                <strong>{lot.refuses.length} refuse(s) :</strong>
+                <ul>{lot.refuses.map((r) => <li key={r.id}>n {r.id} : {r.raison}</li>)}</ul>
+              </div>
+            )}
+            {lot.apercu.length > 0 && (
+              <div className="table-scroll" style={{ maxHeight: 260, overflowY: "auto" }}>
+                <table>
+                  <thead><tr><th>Matricule</th><th>Nom</th><th>Prenom</th></tr></thead>
+                  <tbody>{lot.apercu.map((u) => (
+                    <tr key={u.id}><td>{u.matricule || "-"}</td><td>{u.nom || "-"}</td><td>{u.prenom || "-"}</td></tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+            <div className="row" style={{ marginTop: 8 }}>
+              {lot.ok.length > 0 && <ConfirmButton confirmLabel={`Confirmer : supprimer ${lot.ok.length} salarie(s)`} onConfirm={appliquerLot}>Supprimer {lot.ok.length} salarie(s)</ConfirmButton>}
+              <button type="button" className="ghost" onClick={() => setLot(null)}>Annuler</button>
+            </div>
+          </div>
+        )}
         <table>
           <thead><tr>
+            {canDelete && <th><input type="checkbox" aria-label="Selectionner les lignes de la page" checked={pageToute} onChange={() => cocher(pag.tranche, !pageToute)} /></th>}
             {COLONNES.map(([c, libelle]) => <ThTri key={c} cle={c} tri={tri} sens={sens} onTri={changerTri}>{libelle}</ThTri>)}
             {writable && <th></th>}
           </tr></thead>
           <tbody>
             {pag.tranche.map((u) => (
               <tr key={u.id}>
+                {canDelete && <td><input type="checkbox" aria-label={`Selectionner ${u.prenom} ${u.nom}`} checked={sel.has(u.id)} onChange={() => basculer(u.id)} /></td>}
                 <td>{u.matricule || "-"}</td>
                 <td>{u.prenom} {u.nom}</td>
                 <td>{entiteNom(u.entite_id)}</td>
