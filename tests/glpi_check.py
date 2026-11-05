@@ -35,6 +35,7 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, "/app")
@@ -360,6 +361,7 @@ CONF = {"actif": True, "url": GLPI_URL, "verifier_cert": True, "types_computer":
 print("== Reglages ==")
 s, r = j("GET", "/glpi/config")
 show("par defaut : connecteur desactive, jeton non expose", s == 200 and r["config"]["actif"] is False and "token" not in json.dumps(r).lower().replace("jeton_", ""), r)
+show("par defaut : identifiant interne = otherserial", r["config"].get("champs") == {"identifiant_interne": "otherserial"}, r["config"].get("champs"))
 show("l'API connait le jeton GLPI (variable d'environnement)", r["jeton_defini"] is True, r)
 for name, payload, codes in [
     ("adresse sans schema", {**CONF, "url": "glpi.local"}, (400,)),
@@ -371,6 +373,8 @@ for name, payload, codes in [
     ("nom de type avec separateur", {**CONF, "types_computer": ["a|b"]}, (400,)),
     ("entite Kikan inconnue", {**CONF, "entite_kikan": 999999}, (400,)),
     ("correspondance d'entite inconnue", {**CONF, "entites": {"0": 999999}}, (400,)),
+    ("champ Kikan inconnu dans champs", {**CONF, "champs": {"inconnu": "name"}}, (400,)),
+    ("valeur de champ GLPI invalide", {**CONF, "champs": {"identifiant_interne": "invalide"}}, (400,)),
 ]:
     s, r = j("PUT", "/glpi/config", payload)
     show("refuse : " + name, s in codes, s)
@@ -471,6 +475,60 @@ show("apres import : deja lies", st["Computer:%d" % pc1] == "deja_lie" and st["C
 s, r = j("POST", "/glpi/import/appliquer", {"actifs": [{"externe_id": "Computer:%d" % pc3, "entite_id": EB}], "salaries": []})
 nb = j("GET", "/assets/%d" % r["resultats"][0]["id"])[1] if r["resultats"][0].get("id") else {}
 show("l'entite choisie a l'import l'emporte sur l'entite par defaut", nb.get("entite_id") == EB, r["resultats"])
+
+print("== Correspondance du champ identifiant interne ==")
+annee = date.today().year
+pc_inv_a = G.item("Computer", "ZZ-PC-INV-A", "ZZGLSNINVA", 0, otherserial="ZZGL-INV-DUP")
+pc_inv_b = G.item("Computer", "ZZ-PC-INV-B", "ZZGLSNINVB", 0, otherserial="zzgl-inv-dup")
+s, r = j("POST", "/glpi/import/appliquer", {"actifs": [{"externe_id": "Computer:%d" % pc_inv_a}, {"externe_id": "Computer:%d" % pc_inv_b}], "salaries": []})
+res_inv = {x["id_externe"]: x for x in r["resultats"]}
+show("otherserial libre : cree avec le numero d'inventaire", res_inv["Computer:%d" % pc_inv_a]["resultat"] == "cree"
+     and j("GET", "/assets/%d" % res_inv["Computer:%d" % pc_inv_a]["id"])[1]["identifiant_interne"] == "ZZGL-INV-DUP", res_inv["Computer:%d" % pc_inv_a])
+show("otherserial en doublon : refuse sans suffixe", res_inv["Computer:%d" % pc_inv_b]["resultat"] == "refuse"
+     and "deja utilise" in (res_inv["Computer:%d" % pc_inv_b].get("message") or "").lower(), res_inv["Computer:%d" % pc_inv_b])
+
+s, r = j("PUT", "/glpi/config", {**CONF, "champs": {"identifiant_interne": "name"}})
+show("reglage champs identifiant_interne = name enregistre", s == 200 and r["config"]["champs"] == {"identifiant_interne": "name"}, r["config"].get("champs"))
+s, ex_known = j("POST", "/assets", {"type": "ZZGL portable", "marque": "ZZManuel", "modele": "MK", "numero_serie": "ZZGLSNKNOWN", "identifiant_interne": "ZZGL-ID-GARDE", "entite_id": EA})
+pc_free = G.item("Computer", "ZZ-PC-LIBRE", "ZZGLSNFREE", 0)
+pc_dup1 = G.item("Computer", "ZZ-PC-NOM", "ZZGLSNDUP1", 0)
+pc_dup2 = G.item("Computer", "zz-pc-nom", "ZZGLSNDUP2", 0)
+pc_dup3 = G.item("Computer", "ZZ-PC-NOM", "ZZGLSNDUP3", 0)
+pc_known = G.item("Computer", "ZZ-PC-CONNU", "zzglsnknown", 0)
+
+s, prop_n1 = j("POST", "/glpi/import/apercu")
+by_n1 = {a["externe_id"]: a for a in prop_n1["actifs"]}
+prop_free = by_n1["Computer:%d" % pc_free]["id_interne_propose"]
+show("name libre : apercu propose le nom exact", prop_free == "ZZ-PC-LIBRE", by_n1["Computer:%d" % pc_free])
+show("materiel deja connu par numero de serie : aucun ID interne propose", by_n1["Computer:%d" % pc_known]["etat_import"] == "correspondance"
+     and by_n1["Computer:%d" % pc_known]["id_interne_propose"] is None, by_n1["Computer:%d" % pc_known])
+
+s, r = j("POST", "/glpi/import/appliquer", {"actifs": [{"externe_id": "Computer:%d" % pc_free}, {"externe_id": "Computer:%d" % pc_dup1}, {"externe_id": "Computer:%d" % pc_known}], "salaries": []})
+res_n1 = {x["id_externe"]: x for x in r["resultats"]}
+a_free = j("GET", "/assets/%d" % res_n1["Computer:%d" % pc_free]["id"])[1]
+show("name libre : l'application produit le meme ID interne que l'apercu", a_free["identifiant_interne"] == prop_free == "ZZ-PC-LIBRE", a_free)
+a_dup1 = j("GET", "/assets/%d" % res_n1["Computer:%d" % pc_dup1]["id"])[1]
+show("premier ZZ-PC-NOM : prend ZZ-PC-NOM", a_dup1["identifiant_interne"] == "ZZ-PC-NOM", a_dup1)
+a_known = j("GET", "/assets/%d" % ex_known["id"])[1]
+show("materiel deja connu par numero de serie : lie sans modifier son ID interne", res_n1["Computer:%d" % pc_known]["resultat"] == "lie"
+     and a_known["identifiant_interne"] == "ZZGL-ID-GARDE", a_known)
+
+s, prop_n2 = j("POST", "/glpi/import/apercu")
+by_n2 = {a["externe_id"]: a for a in prop_n2["actifs"]}
+prop_dup2 = by_n2["Computer:%d" % pc_dup2]["id_interne_propose"]
+show("name en doublon (casse differente) : apercu propose nom-ANNEE", prop_dup2 == "zz-pc-nom-%d" % annee, by_n2["Computer:%d" % pc_dup2])
+s, r = j("POST", "/glpi/import/appliquer", {"actifs": [{"externe_id": "Computer:%d" % pc_dup2}], "salaries": []})
+a_dup2 = j("GET", "/assets/%d" % r["resultats"][0]["id"])[1]
+show("name en doublon : applique nom-ANNEE (meme ID que l'apercu)", a_dup2["identifiant_interne"] == prop_dup2 == "zz-pc-nom-%d" % annee, a_dup2)
+
+s, prop_n3 = j("POST", "/glpi/import/apercu")
+by_n3 = {a["externe_id"]: a for a in prop_n3["actifs"]}
+prop_dup3 = by_n3["Computer:%d" % pc_dup3]["id_interne_propose"]
+show("name en doublon avec nom-ANNEE deja pris : apercu propose nom-ANNEE-2", prop_dup3 == "ZZ-PC-NOM-%d-2" % annee, by_n3["Computer:%d" % pc_dup3])
+s, r = j("POST", "/glpi/import/appliquer", {"actifs": [{"externe_id": "Computer:%d" % pc_dup3}], "salaries": []})
+a_dup3 = j("GET", "/assets/%d" % r["resultats"][0]["id"])[1]
+show("name en doublon : applique nom-ANNEE-2 (meme ID que l'apercu)", a_dup3["identifiant_interne"] == prop_dup3 == "ZZ-PC-NOM-%d-2" % annee, a_dup3)
+j("PUT", "/glpi/config", CONF)
 
 print("== Export vers GLPI ==")
 j("PUT", "/glpi/config", {**CONF, "entites": {"0": EA}})

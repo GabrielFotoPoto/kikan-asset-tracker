@@ -136,7 +136,7 @@ def upsert_asset(session: Session, systeme: str, scope: Scope, item: dict, *, al
         if serial and session.exec(select(Asset).where(func.lower(Asset.numero_serie) == serial.lower(), Asset.id != asset.id)).first():
             return _result(ext, "refuse", asset.id, "Numero de serie deja utilise par un autre materiel")
         interne = changes.get("identifiant_interne")
-        if interne and session.exec(select(Asset).where(Asset.identifiant_interne == interne, Asset.id != asset.id)).first():
+        if interne and session.exec(select(Asset).where(func.lower(Asset.identifiant_interne) == interne.lower(), Asset.id != asset.id)).first():
             return _result(ext, "refuse", asset.id, "Identifiant interne deja utilise par un autre materiel")
         if not changes:
             return _result(ext, "inchange", asset.id)
@@ -161,7 +161,7 @@ def upsert_asset(session: Session, systeme: str, scope: Scope, item: dict, *, al
         session.flush()
         return _result(ext, "lie", found.id, "Materiel existant (meme numero de serie) : lie sans modification")
     interne = values["identifiant_interne"]
-    if interne and session.exec(select(Asset).where(Asset.identifiant_interne == interne)).first():
+    if interne and session.exec(select(Asset).where(func.lower(Asset.identifiant_interne) == interne.lower())).first():
         return _result(ext, "refuse", message="Identifiant interne deja utilise")
 
     asset = Asset(**values, statut=AssetStatus.stock, source=systeme, id_externe=ext, entite_id=entite_id)
