@@ -74,10 +74,11 @@ Messages d'erreur courants : *GLPI exige un jeton d'application* (renseignez `KI
 
 Lorsque la **correspondance des champs** associe l'identifiant interne au *Nom (nom du PC)*, Kikan reprend le nom s'il est libre ; s'il est déjà utilisé comme identifiant interne (sans tenir compte de la casse), il propose et attribue `nom-ANNÉE` (année en cours), puis `nom-ANNÉE-2`, `-3`, etc. Avec *Numéro d'inventaire* (par défaut) ou *Numéro de série*, aucun suffixe n'est ajouté et un doublon est refusé. Un matériel déjà connu dans Kikan par son numéro de série est lié sans modifier son identifiant interne.
 
-Pour le matériel, des filtres aident à trier une longue liste : recherche libre (nom, numéro de série, modèle, utilisateur), type, état
-d'import et fabricant, avec la case *Tous sauf ce fabricant* pour exclure par exemple les machines virtuelles. *Cocher les N affichés*,
-*Décocher les affichés* et *Tout décocher* ne touchent que ce qui est visible ; le compteur indique ce qui est sélectionné au total, y
-compris hors de l'écran.
+Pour le matériel et les salariés, des filtres aident à trier une longue liste :
+- **Matériel** : recherche libre (nom, numéro de série, modèle, utilisateur), type, état d'import et fabricant, avec la case *Tous sauf ce fabricant* pour exclure par exemple les machines virtuelles.
+- **Salariés** : recherche libre (identifiant GLPI, prénom, nom, e-mail, matricule), état d'import et entité GLPI, avec la case *Tous sauf cette entité*.
+
+*Cocher les N affichés*, *Décocher les affichés* et *Tout décocher* ne touchent que ce qui est visible (pour les salariés, un homonyme n'est jamais coché en masse car il exige de choisir *lier* ou *créer*, et le décocher remet son choix à *Ne pas importer*) ; le compteur indique ce qui est sélectionné au total, y compris hors de l'écran.
 
 Cochez ce que vous voulez, choisissez au besoin l'entité Kikan, puis **Importer la sélection**.
 

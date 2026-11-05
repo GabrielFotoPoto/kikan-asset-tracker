@@ -5,6 +5,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **GLPI : filtres et sélection en masse des salariés à l'import.** Dans *Paramétrage, onglet Intégrations, section GLPI*, l'aperçu d'import offre désormais pour les salariés les mêmes contrôles que pour le matériel : recherche libre (identifiant GLPI, prénom, nom, e-mail, matricule, sans accent ni casse), filtre par état d'import, filtre par entité GLPI avec *Tous sauf cette entité*, boutons *Cocher les N affichés*, *Décocher les affichés*, *Tout décocher* et *Effacer les filtres*, et compteur *N affichés sur M, K sélectionné(s)*. Les homonymes restent exclus du cochage en masse (ils exigent un choix *lier* ou *créer*) ; les décocher remet leur liste déroulante à *Ne pas importer*. Interface seulement : aucune migration, aucun changement d'API.
+- Tests : 6 tests unitaires dans `frontend/src/glpiSelection.test.js` (`npm test`).
+
 ## [0.7.0] - 2026-11-05
 
 Version de fonctionnalités : import GLPI avec le nom du PC comme identifiant interne, suppression de salariés en lot, parcours de départ guidé, et une correction qui rend de nouveau réimportables les éléments GLPI supprimés. **Aucune migration de base de données** ; l'API gagne deux routes (compatibles), donc les quatre images sont à mettre à jour ensemble.
