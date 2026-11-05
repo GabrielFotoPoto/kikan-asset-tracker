@@ -261,6 +261,35 @@ def _restant(session: Session, user_id: int, just_returned: list[Asset]) -> list
     return [a for a, _ in _holdings(session, user_id) if a.id not in returned_ids]
 
 
+def _marquer_actifs_non_restitues(
+    session: Session, cibles: list[tuple[Asset, int]], motif: str, now: datetime
+) -> set[int]:
+    """Passe les actifs verrouilles au statut non_restitue et renseigne le constat sur les lignes d'affectation."""
+    assignment_ids: set[int] = set()
+    for asset, assignment_id in cibles:
+        asset.statut = AssetStatus.non_restitue
+        asset.maj_le = now
+        session.add(asset)
+        assignment_ids.add(assignment_id)
+        link = session.get(AssignmentAsset, (assignment_id, asset.id))
+        if link is not None:
+            link.non_restitue_le = now
+            link.motif_non_restitution = motif
+            session.add(link)
+    return assignment_ids
+
+
+def _cloturer_affectations_soldees(session: Session, assignment_ids: set[int]) -> None:
+    """Marque restitue les affectations dont plus aucun actif n'est au statut affecte (sans renseigner date_restitution)."""
+    for asg_id in assignment_ids:
+        links = session.exec(select(AssignmentAsset).where(AssignmentAsset.assignment_id == asg_id)).all()
+        if all(session.get(Asset, l.asset_id).statut != AssetStatus.affecte for l in links):
+            assignment = session.get(Assignment, asg_id)
+            if assignment and assignment.statut != "restitue":
+                assignment.statut = "restitue"
+                session.add(assignment)
+
+
 @router.post("/non-restitue", dependencies=[Depends(require_roles("informatique"))])
 def constat_non_restitue(
     data: NonRestitueRequest,
@@ -270,49 +299,24 @@ def constat_non_restitue(
 ):
     """Constat d'impossibilite de restitution d'actifs (reserve a l'informatique seule)."""
     user = visible_user(session, scope, data.user_id)
-    # Verrou sur le salarie : deux constats/restitutions simultanes se suivent
     session.exec(select(User).where(User.id == data.user_id).with_for_update()).first()
-
     if user.statut != EmployeeStatus.en_depart:
         raise HTTPException(409, "Le salarie doit etre en cours de depart")
 
-    held = _holdings(session, data.user_id)
-    held_map = {a.id: (a, aid) for a, aid in held}
+    held_map = {a.id: (a, aid) for a, aid in _holdings(session, data.user_id)}
     for aid in data.asset_ids:
         if aid not in held_map:
             raise HTTPException(409, f"Actif {aid} non detenu ou deja restitue/constate")
 
     ids_sorted = sorted(set(data.asset_ids))
-    locked_assets = {
+    locked = {
         a.id: a
         for a in session.exec(select(Asset).where(Asset.id.in_(ids_sorted)).order_by(Asset.id).with_for_update()).all()
     }
-
     now = datetime.utcnow()
-    assignment_ids: set[int] = set()
-    for aid in ids_sorted:
-        asset = locked_assets[aid]
-        asset.statut = AssetStatus.non_restitue
-        asset.maj_le = now
-        session.add(asset)
-        _, assignment_id = held_map[aid]
-        assignment_ids.add(assignment_id)
-        link = session.get(AssignmentAsset, (assignment_id, asset.id))
-        if link is not None:
-            link.non_restitue_le = now
-            link.motif_non_restitution = data.motif
-            session.add(link)
-
-    # Cloture les affectations dont tous les actifs sont rendus ou non restitues
-    for asg_id in assignment_ids:
-        links = session.exec(
-            select(AssignmentAsset).where(AssignmentAsset.assignment_id == asg_id)
-        ).all()
-        if all(session.get(Asset, l.asset_id).statut != AssetStatus.affecte for l in links):
-            assignment = session.get(Assignment, asg_id)
-            if assignment and assignment.statut != "restitue":
-                assignment.statut = "restitue"
-                session.add(assignment)
+    cibles = [(locked[aid], held_map[aid][1]) for aid in ids_sorted]
+    assignment_ids = _marquer_actifs_non_restitues(session, cibles, data.motif, now)
+    _cloturer_affectations_soldees(session, assignment_ids)
 
     session.flush()
     _cloturer_si_vide(session, user)
@@ -321,7 +325,6 @@ def constat_non_restitue(
     statut_str = user.statut.value if hasattr(user.statut, "value") else str(user.statut)
     audit(account.username, "constat_non_restitution", target=f"user:{user.id}",
           detail=f"{len(ids_sorted)} actif(s), motif:{data.motif}")
-
     return {
         "user_id": user.id,
         "statut_salarie": statut_str,

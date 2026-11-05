@@ -24,6 +24,7 @@ ne sont renvoyes qu'a l'informatique. Ni le matricule ni l'e-mail ne sont renvoy
 ni nom de compte, ni temoin, ni numero de serie, ni motif.
 """
 from datetime import date
+from typing import NamedTuple
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
@@ -79,26 +80,90 @@ def _charger_donnees_depart(session: Session, user_id: int):
     return actifs_detenus, retours, non_restitues_uniques, sigs_restit, sigs_echange, nb_acces
 
 
-def _etapes_depart(
-    user: User,
-    statut_val: str,
-    depart_declare: bool,
-    est_sorti: bool,
-    nb_restants: int,
-    a_eu_restitution: bool,
-    a_eu_non_restitue: bool,
-    nb_acces: int,
-    today: date,
-) -> list[dict]:
+class EtatDepart(NamedTuple):
+    statut_val: str
+    depart_declare: bool
+    est_sorti: bool
+    nb_restants: int
+    a_eu_restitution: bool
+    a_eu_non_restitue: bool
+    nb_acces: int
+    today: date
+
+
+def _construire_etat_depart(
+    user: User, nb_restants: int, a_eu_restitution: bool, a_eu_non_restitue: bool, nb_acces: int
+) -> EtatDepart:
+    statut_val = user.statut.value if hasattr(user.statut, "value") else str(user.statut)
+    est_sorti = statut_val == EmployeeStatus.sorti.value
+    depart_declare = statut_val in (EmployeeStatus.en_depart.value, EmployeeStatus.sorti.value) and (
+        user.date_sortie is not None or est_sorti
+    )
+    return EtatDepart(
+        statut_val=statut_val,
+        depart_declare=depart_declare,
+        est_sorti=est_sorti,
+        nb_restants=nb_restants,
+        a_eu_restitution=a_eu_restitution,
+        a_eu_non_restitue=a_eu_non_restitue,
+        nb_acces=nb_acces,
+        today=date.today(),
+    )
+
+
+def _etapes_materiel_et_sortie(user: User, etat: EtatDepart) -> tuple[dict, dict, dict]:
+    """Construit les etapes 2 (materiel), 3 (restitution) et 5 (sorti) lorsque le depart est declare."""
+    if etat.nb_restants > 0:
+        mat_e = _etape("materiel", "Materiel a recuperer", "Automatique", FAIT, f"{etat.nb_restants} materiel(s) a recuperer")
+        retard_jours = (
+            (etat.today - user.date_sortie).days
+            if (etat.statut_val == EmployeeStatus.en_depart.value and user.date_sortie and user.date_sortie < etat.today)
+            else None
+        )
+        detail_r = f"{etat.nb_restants} materiel(s) restant(s)"
+        if retard_jours:
+            detail_r += f" - en retard de {retard_jours} jour(s)"
+        restit_e = _etape("restitution", "Materiel recupere", "RH ou informatique", COURANTE, detail_r, retard_jours=retard_jours)
+        sorti_e = _etape(
+            "sorti", "Salarie sorti", "Automatique",
+            FAIT if etat.est_sorti else A_VENIR,
+            "Sorti" if etat.est_sorti else "En attente de restitution",
+        )
+        return mat_e, restit_e, sorti_e
+
+    mat_e = (
+        _etape("materiel", "Materiel a recuperer", "Automatique", FAIT, "Liste etablie")
+        if (etat.a_eu_restitution or etat.a_eu_non_restitue)
+        else _etape("materiel", "Materiel a recuperer", "Automatique", SANS_OBJET, "Aucun materiel detenu")
+    )
+    if not etat.a_eu_restitution and not etat.a_eu_non_restitue:
+        detail_restit = "Aucun materiel"
+    elif etat.a_eu_restitution and not etat.a_eu_non_restitue:
+        detail_restit = "Restitue (signe)"
+    elif etat.a_eu_non_restitue and not etat.a_eu_restitution:
+        detail_restit = "Non restitue (constat)"
+    else:
+        detail_restit = "Restitue (signe) et non restitue (constat)"
+
+    restit_e = _etape("restitution", "Materiel recupere", "RH ou informatique", FAIT, detail_restit)
+    sorti_e = (
+        _etape("sorti", "Salarie sorti", "Automatique", FAIT, "Sorti")
+        if etat.est_sorti
+        else _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, DETAIL_ATTENTE_CLOTURE)
+    )
+    return mat_e, restit_e, sorti_e
+
+
+def _etapes_depart(user: User, etat: EtatDepart) -> list[dict]:
     """Construit les 5 etapes communes (1 a 5) du parcours de depart."""
-    if not depart_declare:
+    if not etat.depart_declare:
         return [
             _etape("depart", "Depart declare", "RH ou informatique", COURANTE, "Aucun depart declare"),
             _etape("materiel", "Materiel a recuperer", "Automatique", A_VENIR,
-                   f"{nb_restants} materiel(s) detenu(s)" if nb_restants else "Aucun materiel detenu"),
+                   f"{etat.nb_restants} materiel(s) detenu(s)" if etat.nb_restants else "Aucun materiel detenu"),
             _etape("restitution", "Materiel recupere", "RH ou informatique", A_VENIR, "En attente du depart"),
             _etape("acces", "Acces applicatifs retires", "RH ou informatique", A_VENIR,
-                   f"{nb_acces} acces a retirer" if nb_acces else "Aucun acces actif"),
+                   f"{etat.nb_acces} acces a retirer" if etat.nb_acces else "Aucun acces actif"),
             _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, "En attente du depart"),
         ]
 
@@ -106,46 +171,11 @@ def _etapes_depart(
         "depart", "Depart declare", "RH ou informatique", FAIT,
         f"Sortie le {user.date_sortie.isoformat()}" if user.date_sortie else "Depart declare",
     )
-    if nb_restants > 0:
-        mat_e = _etape("materiel", "Materiel a recuperer", "Automatique", FAIT, f"{nb_restants} materiel(s) a recuperer")
-        retard_jours = (
-            (today - user.date_sortie).days
-            if (statut_val == EmployeeStatus.en_depart.value and user.date_sortie and user.date_sortie < today)
-            else None
-        )
-        detail_r = f"{nb_restants} materiel(s) restant(s)"
-        if retard_jours:
-            detail_r += f" - en retard de {retard_jours} jour(s)"
-        restit_e = _etape("restitution", "Materiel recupere", "RH ou informatique", COURANTE, detail_r, retard_jours=retard_jours)
-        sorti_e = _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, "Sorti" if est_sorti else "En attente de restitution")
-        if est_sorti:
-            sorti_e["etat"] = FAIT
-    else:
-        mat_e = (
-            _etape("materiel", "Materiel a recuperer", "Automatique", FAIT, "Liste etablie")
-            if (a_eu_restitution or a_eu_non_restitue)
-            else _etape("materiel", "Materiel a recuperer", "Automatique", SANS_OBJET, "Aucun materiel detenu")
-        )
-        if not a_eu_restitution and not a_eu_non_restitue:
-            detail_restit = "Aucun materiel"
-        elif a_eu_restitution and not a_eu_non_restitue:
-            detail_restit = "Restitue (signe)"
-        elif a_eu_non_restitue and not a_eu_restitution:
-            detail_restit = "Non restitue (constat)"
-        else:
-            detail_restit = "Restitue (signe) et non restitue (constat)"
-
-        restit_e = _etape("restitution", "Materiel recupere", "RH ou informatique", FAIT, detail_restit)
-        sorti_e = (
-            _etape("sorti", "Salarie sorti", "Automatique", FAIT, "Sorti")
-            if est_sorti
-            else _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, DETAIL_ATTENTE_CLOTURE)
-        )
-
+    mat_e, restit_e, sorti_e = _etapes_materiel_et_sortie(user, etat)
     acces_e = _etape(
         "acces", "Acces applicatifs retires", "RH ou informatique",
-        FAIT if nb_acces == 0 else A_VENIR,
-        "Aucun acces actif" if nb_acces == 0 else f"{nb_acces} acces a retirer",
+        FAIT if etat.nb_acces == 0 else A_VENIR,
+        "Aucun acces actif" if etat.nb_acces == 0 else f"{etat.nb_acces} acces a retirer",
     )
     return [depart_e, mat_e, restit_e, acces_e, sorti_e]
 
@@ -165,9 +195,7 @@ def _etape_purge(session: Session, user: User, today: date) -> dict:
 
 def _prochaine_action(
     courante: dict | None,
-    depart_declare: bool,
-    est_sorti: bool,
-    nb_restants: int,
+    etat: EtatDepart,
     user_id: int,
     role: Role,
 ) -> dict | None:
@@ -191,7 +219,7 @@ def _prochaine_action(
                 "vers": f"/signer/restitution/{user_id}",
                 "autorise": autorise,
             }
-    if depart_declare and not est_sorti and nb_restants == 0:
+    if etat.depart_declare and not etat.est_sorti and etat.nb_restants == 0:
         return {
             "etape": "sorti",
             "qui": "rh_ou_informatique",
@@ -223,6 +251,28 @@ def _journal_depart(
     return sorted((j for j in journal if j["quand"]), key=lambda j: j["quand"], reverse=True)[:12]
 
 
+def _serialiser_actif(a: Asset) -> dict:
+    return {
+        "id": a.id,
+        "identifiant_interne": a.identifiant_interne,
+        "type": a.type,
+        "marque": a.marque,
+        "modele": a.modele,
+        "numero_serie": a.numero_serie,
+    }
+
+
+def _reserves_depart(etat: EtatDepart, nb_non_restitues: int) -> list[str]:
+    if not etat.est_sorti:
+        return []
+    reserves = []
+    if etat.nb_acces > 0:
+        reserves.append(f"{etat.nb_acces} acces a retirer")
+    if etat.a_eu_non_restitue:
+        reserves.append(f"{nb_non_restitues} materiel(s) non restitue(s)")
+    return reserves
+
+
 @router.get("/depart/{user_id}")
 def parcours_depart(
     user_id: int,
@@ -232,34 +282,14 @@ def parcours_depart(
 ):
     user = visible_user(session, scope, user_id)
     actifs_detenus, retours, non_restitues, sigs_restit, sigs_echange, nb_acces = _charger_donnees_depart(session, user_id)
-
-    statut_val = user.statut.value if hasattr(user.statut, "value") else str(user.statut)
-    est_sorti = statut_val == EmployeeStatus.sorti.value
-    depart_declare = statut_val in (EmployeeStatus.en_depart.value, EmployeeStatus.sorti.value) and (
-        user.date_sortie is not None or est_sorti
+    etat = _construire_etat_depart(
+        user, len(actifs_detenus), bool(sigs_restit or retours), bool(non_restitues), nb_acces
     )
-    nb_restants = len(actifs_detenus)
-    a_eu_restitution = bool(sigs_restit or retours)
-    a_eu_non_restitue = bool(non_restitues)
-    today = date.today()
-
-    etapes = _etapes_depart(
-        user, statut_val, depart_declare, est_sorti, nb_restants,
-        a_eu_restitution, a_eu_non_restitue, nb_acces, today,
-    )
+    etapes = _etapes_depart(user, etat)
     if account.role == Role.informatique:
-        etapes.append(_etape_purge(session, user, today))
+        etapes.append(_etape_purge(session, user, etat.today))
 
     courante = next((e for e in etapes if e["etat"] == COURANTE), None)
-    prochaine = _prochaine_action(courante, depart_declare, est_sorti, nb_restants, user_id, account.role)
-
-    reserves = []
-    if est_sorti:
-        if nb_acces > 0:
-            reserves.append(f"{nb_acces} acces a retirer")
-        if a_eu_non_restitue:
-            reserves.append(f"{len(non_restitues)} materiel(s) non restitue(s)")
-
     resultat = {
         "salarie": {
             "id": user.id,
@@ -267,41 +297,20 @@ def parcours_depart(
             "prenom": user.prenom,
             "service": user.service,
             "entite_id": user.entite_id,
-            "statut": statut_val,
+            "statut": etat.statut_val,
             "date_sortie": user.date_sortie.isoformat() if user.date_sortie else None,
         },
         "etapes": etapes,
         "etape_courante": courante["cle"] if courante else None,
-        "prochaine_action": prochaine,
-        "materiel_a_recuperer": [
-            {
-                "id": a.id,
-                "identifiant_interne": a.identifiant_interne,
-                "type": a.type,
-                "marque": a.marque,
-                "modele": a.modele,
-                "numero_serie": a.numero_serie,
-            }
-            for a in actifs_detenus
-        ],
+        "prochaine_action": _prochaine_action(courante, etat, user_id, account.role),
+        "materiel_a_recuperer": [_serialiser_actif(a) for a in actifs_detenus],
         "acces_restants": nb_acces,
-        "reserves": reserves,
+        "reserves": _reserves_depart(etat, len(non_restitues)),
         "journal": _journal_depart(sigs_restit, sigs_echange, retours, non_restitues),
     }
-
     if account.role == Role.informatique:
         resultat["materiels_non_restitues"] = [
-            {
-                "id": a.id,
-                "identifiant_interne": a.identifiant_interne,
-                "type": a.type,
-                "marque": a.marque,
-                "modele": a.modele,
-                "numero_serie": a.numero_serie,
-                "motif": link.motif_non_restitution,
-                "constate_le": _iso(link.non_restitue_le),
-            }
+            {**_serialiser_actif(a), "motif": link.motif_non_restitution, "constate_le": _iso(link.non_restitue_le)}
             for link, a in non_restitues
         ]
-
     return resultat
