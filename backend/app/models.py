@@ -53,6 +53,16 @@ class AssetStatus(str, Enum):
     affecte = "affecte"
     rendu = "rendu"
     reforme = "reforme"
+    non_restitue = "non_restitue"
+
+
+MOTIFS_NON_RESTITUTION = (
+    "perte",
+    "vol",
+    "refus_de_restituer",
+    "salarie_injoignable",
+    "autre",
+)
 
 
 class Role(str, Enum):
@@ -204,6 +214,8 @@ class AssignmentAsset(SQLModel, table=True):
     assignment_id: int = Field(foreign_key="assignments.id", primary_key=True)
     asset_id: int = Field(foreign_key="assets.id", primary_key=True)
     date_retour: Optional[NaiveDatetime] = None   # restitution de cet actif (l'affectation, elle, ne se cloture que lorsque tout est rendu)
+    non_restitue_le: Optional[NaiveDatetime] = None   # constat d'impossibilite de restitution (lot 1bis)
+    motif_non_restitution: Optional[str] = None      # motif parmi MOTIFS_NON_RESTITUTION
 
 
 class EcheanceReport(SQLModel, table=True):

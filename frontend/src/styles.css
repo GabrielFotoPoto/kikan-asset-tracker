@@ -368,3 +368,22 @@ dialog.palette::backdrop { background: rgba(20, 27, 38, 0.5); }
 @media (max-width: 720px) {
   .etapes, .etapes.etapes-6, .deux-colonnes { grid-template-columns: 1fr; }
 }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.panneau-confirmation { border-color: var(--brand); }
+.panneau-constat { border-color: var(--warn-line); }
+.panneau-constat h3, .panneau-confirmation h3 { margin-top: 0; margin-bottom: 6px; }
+.constat-bloc { margin-bottom: 12px; }
+.constat-actifs { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.constat-choix { flex-direction: row; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); }
+.constat-motif { margin-top: 4px; display: block; max-width: 300px; }
+.constat-consent { flex-direction: row; align-items: flex-start; gap: 8px; margin-bottom: 16px; font-size: 14px; color: var(--ink); }
+.constat-consent input { margin-top: 3px; }
+.bloc-non-restitues { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.bloc-non-restitues h4 { margin: 0 0 8px; font-size: 15px; }
+.btn-petit { font-size: 13px; padding: 5px 10px; }
+.entete-parcours { justify-content: space-between; align-items: flex-end; }
+.entete-carte { justify-content: space-between; align-items: center; }
+.m0 { margin: 0; }
+.mb4 { margin-bottom: 4px; }
+.mt8 { margin-top: 8px; }
+.mt12 { margin-top: 12px; }

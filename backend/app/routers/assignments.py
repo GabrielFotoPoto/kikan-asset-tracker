@@ -95,7 +95,8 @@ def _assets_of(session: Session, assignment_id: int) -> list[Asset]:
 
 @router.post("", response_model=Assignment, status_code=201)
 def create_assignment(data: AssignmentCreate, session: Session = Depends(get_session),
-                      account: Account = Depends(get_current_account)):
+                      account: Account = Depends(get_current_account),
+                      scope: Scope = Depends(scope_dep)):
     user = session.get(User, data.user_id)
     if not user:
         raise HTTPException(404, "Utilisateur introuvable")
@@ -119,6 +120,11 @@ def create_assignment(data: AssignmentCreate, session: Session = Depends(get_ses
             raise HTTPException(404, f"Actif {aid} introuvable")
         if asset.statut == AssetStatus.affecte:
             raise HTTPException(409, f"Actif {aid} deja affecte")
+        if asset.statut == AssetStatus.reforme:
+            raise HTTPException(409, f"Actif {aid} reforme : il ne peut pas etre remis")
+        if asset.statut == AssetStatus.non_restitue:
+            etiq = asset.identifiant_interne if (scope.allows(asset.entite_id) and asset.identifiant_interne) else "selectionne"
+            raise HTTPException(409, f"Materiel {etiq} non restitue : il ne peut pas etre remis")
         assets.append(asset)
 
     policy_id = None
@@ -235,7 +241,8 @@ def echange_recap(user_id: int, session: Session = Depends(get_session), scope: 
 
 @router.post("/echange", response_model=Signature, status_code=201)
 def echange(data: EchangeRequest, request: Request, session: Session = Depends(get_session),
-            account: Account = Depends(get_current_account)):
+            account: Account = Depends(get_current_account),
+            scope: Scope = Depends(scope_dep)):
     """Renouvellement : le nouveau materiel est remis et l'ancien restitue dans une seule operation, un seul document signe
     et scelle, un seul numero. Tout ou rien : rien ne change tant que la signature n'est pas enregistree."""
     user = session.get(User, data.user_id)
@@ -271,6 +278,9 @@ def echange(data: EchangeRequest, request: Request, session: Session = Depends(g
             raise HTTPException(409, f"Actif {aid} deja affecte")
         if asset.statut == AssetStatus.reforme:
             raise HTTPException(409, f"Actif {aid} reforme : il ne peut pas etre remis")
+        if asset.statut == AssetStatus.non_restitue:
+            etiq = asset.identifiant_interne if (scope.allows(asset.entite_id) and asset.identifiant_interne) else "selectionne"
+            raise HTTPException(409, f"Materiel {etiq} non restitue : il ne peut pas etre remis")
         nouveaux.append(asset)
     detenus = _detenus(session, user.id)
     anciens: list[Asset] = []
