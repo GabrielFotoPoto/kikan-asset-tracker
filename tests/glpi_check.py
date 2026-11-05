@@ -362,7 +362,7 @@ CONF = {"actif": True, "url": GLPI_URL, "verifier_cert": True, "types_computer":
 print("== Reglages ==")
 s, r = j("GET", "/glpi/config")
 show("par defaut : connecteur desactive, jeton non expose", s == 200 and r["config"]["actif"] is False and "token" not in json.dumps(r).lower().replace("jeton_", ""), r)
-show("par defaut : identifiant interne = otherserial", r["config"].get("champs") == {"identifiant_interne": "otherserial"}, r["config"].get("champs"))
+show("par defaut : identifiant interne = name (nom du PC)", r["config"].get("champs") == {"identifiant_interne": "name"}, r["config"].get("champs"))
 show("l'API connait le jeton GLPI (variable d'environnement)", r["jeton_defini"] is True, r)
 for name, payload, codes in [
     ("adresse sans schema", {**CONF, "url": "glpi.local"}, (400,)),
@@ -479,6 +479,7 @@ show("l'entite choisie a l'import l'emporte sur l'entite par defaut", nb.get("en
 
 print("== Correspondance du champ identifiant interne ==")
 annee = datetime.now(ZoneInfo("Europe/Paris")).year
+j("PUT", "/glpi/config", {**CONF, "champs": {"identifiant_interne": "otherserial"}})
 pc_inv_a = G.item("Computer", "ZZ-PC-INV-A", "ZZGLSNINVA", 0, otherserial="ZZGL-INV-DUP")
 pc_inv_b = G.item("Computer", "ZZ-PC-INV-B", "ZZGLSNINVB", 0, otherserial="zzgl-inv-dup")
 s, r = j("POST", "/glpi/import/appliquer", {"actifs": [{"externe_id": "Computer:%d" % pc_inv_a}, {"externe_id": "Computer:%d" % pc_inv_b}], "salaries": []})
