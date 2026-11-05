@@ -27,12 +27,12 @@ Version corrective : les limites de connexion et d'import réglables par `.env` 
 ### Vérifié
 - Intégration continue de chaque PR de la version (#111 à #115) : 11 contrôles réussis.
 - `docker compose config` rend les valeurs par défaut des quatre limites (5, 900, 5, 20 000) et applique les surcharges d'un `.env`.
+- **Plateforme de développement et préproduction mises à jour en 0.7.1** (via la 0.7.1-rc.1 puis la 0.7.1, sauvegarde faite avant chaque mise à jour, fichiers compose de la préproduction remplacés) : API en mode production, migration `0022` inchangée, données intactes, et les quatre variables visibles dans l'environnement du conteneur `api`.
 - **Dans le navigateur, sur la préproduction en 0.7.0** (essai à la main, 2026-11-05) : la suppression de salariés en lot et les filtres de sélection des salariés à l'import GLPI fonctionnent. Le SSO Microsoft 365, la tablette de signature (TLS restreint) et la connexion à GLPI, qui n'avaient pas été retestés depuis la 0.6.1, fonctionnent aussi.
 
 ### Resté non vérifié
-- **L'effet des quatre limites dans un conteneur démarré** (pas de pile redémarrée avec une valeur modifiée).
+- **L'effet d'une valeur modifiée** pour les quatre limites : seules les valeurs par défaut ont été vues dans le conteneur démarré, aucune surcharge n'a été essayée de bout en bout.
 - Le parcours de départ guidé (`/depart/:id`) et le suffixe `nom-ANNÉE` des doublons de nom de PC contre un vrai GLPI n'ont pas été essayés à la main. Le nettoyage des liens orphelins documenté dans `docs/GLPI.md` n'a pas été exécuté tel quel.
-- La mise à jour de la préproduction en 0.7.1 : la préproduction n'était pas joignable (VPN) au moment de la rédaction.
 
 ## [0.7.0] - 2026-11-05
 
