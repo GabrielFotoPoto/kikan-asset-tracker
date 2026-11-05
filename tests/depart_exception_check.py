@@ -310,6 +310,23 @@ show(
     r_reassign,
 )
 
+# Identifiants dans les erreurs : l'identifiant interne d'un actif non_restitue est donne a l'informatique (portee globale), jamais le numero de serie
+s, u_nrb = j("POST", "/users", {"matricule": "ZZEX-UNRB", "nom": "ZZEXUNRB", "prenom": "Dora", "entite_id": EB, "statut": "actif"})
+s, a_nrb = j("POST", "/assets", {"type": "PC", "marque": "ZZEX", "modele": "M5", "numero_serie": "ZZEX-SN-NRB",
+                                 "identifiant_interne": "ZZEX-INV-NRB", "entite_id": EB})
+j("POST", "/assignments", {"user_id": u_nrb["id"], "asset_ids": [a_nrb["id"]], "sans_charte": True})
+j("POST", f"/lifecycle/depart/{u_nrb['id']}", {"date_sortie": sortie_future})
+s_nrb, _ = j("POST", "/lifecycle/non-restitue", {"user_id": u_nrb["id"], "asset_ids": [a_nrb["id"]], "motif": "perte"}, token=IT_GL)
+s, u_dest = j("POST", "/users", {"matricule": "ZZEX-UDST", "nom": "ZZEXUDST", "prenom": "Eve", "entite_id": EA, "statut": "actif"})
+corps = {"user_id": u_dest["id"], "asset_ids": [a_nrb["id"]], "sans_charte": True}
+s_rh, _ = j("POST", "/assignments", corps, token=RH_A)
+s_gl, r_gl = j("POST", "/assignments", corps, token=IT_GL)
+show(
+    "C1bis-5c2 - remise d'un actif non_restitue : RH refuse (403, ecriture reservee a l'informatique), informatique 409 avec l'identifiant interne et sans numero de serie",
+    s_nrb == 200 and s_rh == 403 and s_gl == 409 and "ZZEX-INV-NRB" in str(r_gl) and "ZZEX-SN-NRB" not in str(r_gl),
+    (s_nrb, s_rh, s_gl, r_gl),
+)
+
 # Modification manuelle du statut refusee
 s_mod, _ = j("PUT", f"/assets/{a1['id']}", {**a1_get, "statut": "stock"}, token=IT_GL)
 show("C1bis-5d - modification manuelle de statut depuis non_restitue refusee (409)", s_mod == 409, s_mod)

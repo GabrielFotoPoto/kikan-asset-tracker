@@ -24,7 +24,13 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
     - Dialogue de confirmation pour la clôture du départ sans matériel (RH et informatique).
     - Affichage de l'encart des matériels non restitués avec motif et date (informatique uniquement).
     - Filtre par statut dans la liste du matériel complété par `non_restitue` avec verrouillage explicatif lors de la consultation.
-- Tests : nouvelle suite `tests/depart_exception_check.py` (35 vérifications couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` à 9 tests, 36 au total), actualisation de `tests/parcours_depart_check.py`.
+  - **Cinq questions RGPD (nouvelle donnée : constat de non-restitution)** : 1) *Quelle donnée ?* la date du constat et un motif en liste fermée (`perte`, `vol`, `refus_de_restituer`, `salarie_injoignable`, `autre`, sans texte libre), par matériel, sur la ligne d'affectation du salarié. 2) *Pourquoi ?* tracer qu'un matériel n'a pas été récupéré après un départ (suivi des actifs) et le sortir des rappels et renouvellements. 3) *Qui la voit ?* le motif et la liste des matériels non restitués (avec numéro de série) : l'informatique seule ; l'existence d'un constat (nombre, journal daté sans motif) : les trois rôles dans leur portée d'entité ; les RH voient déjà le numéro de série du matériel encore détenu (décision du parcours de départ) ; jamais de matricule ni d'e-mail. 4) *Combien de temps ?* comme l'affectation du salarié ; l'actif, lui, reste dans l'inventaire. 5) *Comment l'effacer ?* par la purge RGPD du salarié, qui supprime ses lignes d'affectation et donc le constat et le motif (vérifié par `C1bis-8a`) ; aucun numéro de série ni nom de salarié dans l'entrée du journal d'audit.
+- Tests : nouvelle suite `tests/depart_exception_check.py` (36 vérifications couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` à 9 tests, 36 au total), actualisation de `tests/parcours_depart_check.py`.
+
+### Modifié
+- **Contrat de `GET /parcours/depart/{user_id}`** : le champ `message_attente` est retiré (il n'avait de sens que tant que la clôture d'un départ n'existait pas) ; le champ `prochaine_action` peut maintenant porter `"vers": null` avec un `action_id` (`cloturer_depart`), pour une action exécutée dans la page. Les champs `materiels_non_restitues` (informatique seule) et `reserves` (« n materiel(s) non restitue(s) ») sont ajoutés.
+- **Rapport mensuel par e-mail** : la ligne « Parc » compte les matériels « non restitués », et le compteur « Renouvellements dans les 12 prochains mois » n'inclut plus les matériels non restitués (les autres statuts sont inchangés).
+- **Messages d'erreur 409 de la remise et de l'échange** : un matériel non restitué est désigné par son identifiant interne (jamais par son numéro de série) ; le constat de non-restitution ne donne aucun identifiant pour un matériel refusé.
 
 ## [0.7.1] - 2026-11-05
 
