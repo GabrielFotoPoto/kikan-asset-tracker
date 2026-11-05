@@ -35,13 +35,14 @@ Version de fonctionnalités : import GLPI avec le nom du PC comme identifiant in
 - **README : Kikan et GLPI, complémentaires.** Nouvelle section sous « Intégrations » (tableau des rôles respectifs de Kikan et de GLPI) et phrase d'introduction ; la colonne GLPI décrit GLPI de base, hors plugins, d'après notre connaissance de l'outil, sans vérification contre un GLPI.
 
 ### Vérifié
-- Intégration continue de chaque PR de la version (#102 à #105) : 11 contrôles réussis, suite de tests complète comprise.
-- Suites `glpi_check`, `users_suppression_lot_check`, `assets_suppression_lot_check` et `scope_check` (inventaire des routes) sans échec sur la pile de test ; tests unitaires de sélection multiple (`tableau.test.js`) réussis.
-- Plateforme de développement et préproduction mises à jour en **0.6.1** (migration `0022` appliquée, API en mode production), sauvegarde faite avant.
+- Intégration continue de chaque PR de la version (#102 à #109) : 11 contrôles réussis, suite de tests complète comprise.
+- Suites `glpi_check`, `users_suppression_lot_check`, `assets_suppression_lot_check` et `scope_check` (inventaire des routes) sans échec sur la pile de test ; tests unitaires de sélection multiple (`tableau.test.js`) et de sélection des salariés GLPI réussis.
+- Plateforme de développement et préproduction mises à jour en **0.7.0-rc.3** (aucune migration, API en mode production), sauvegarde faite avant chaque mise à jour.
+- **Dans le navigateur, sur la préproduction (0.7.0-rc.3)** : la correspondance des champs GLPI (nom du PC par défaut, enregistrement dès le changement) et l'import qui en découle fonctionnent, constaté par l'utilisateur.
 
 ### Resté non vérifié
-- **Seule la préversion 0.7.0-rc.1 a été installée** (développement et préproduction), et elle ne contenait pas les filtres de sélection des salariés GLPI. L'usage dans le navigateur de la correspondance des champs, de la suppression de salariés en lot, du parcours de départ et de ces filtres n'a pas été essayé à la main au moment de la rédaction.
-- La correspondance du nom du PC n'a été testée que contre le faux GLPI intégré aux tests, pas contre un GLPI réel.
+- Le cas des doublons de nom de PC (`nom-ANNÉE`) n'a été testé que contre le faux GLPI intégré aux tests, pas contre un GLPI réel.
+- La suppression de salariés en lot, le parcours de départ et les filtres de sélection des salariés GLPI n'ont pas été essayés à la main dans le navigateur au moment de la rédaction.
 - Les deux requêtes de nettoyage des liens orphelins documentées dans `docs/GLPI.md` n'ont pas été exécutées telles quelles : sur la préproduction, les liens ont été supprimés avec les fiches par une autre requête.
 
 ## [0.6.1] - 2026-11-04
