@@ -117,3 +117,16 @@ docker compose -f tests/glpi-test.yml down -v ; docker compose up -d --force-rec
 ```
 
 L'interface de ce GLPI de test est sur http://127.0.0.1:8088 (compte `glpi` / `glpi`, instance **de test uniquement**).
+
+## Liens orphelins après une suppression
+
+Avant la version qui corrige ce point, supprimer un matériel ou un salarié laissait son lien GLPI en base : l'élément apparaissait « Déjà lié » et
+ne pouvait plus être réimporté. Les suppressions faites depuis ne laissent plus de lien, mais celles d'avant en ont laissé. Pour les retirer
+(après une sauvegarde, [SAUVEGARDE.md](SAUVEGARDE.md)) :
+
+```
+docker exec -i kikan-db psql -U kikan kikan -c "DELETE FROM external_links WHERE objet = 'asset' AND kikan_id NOT IN (SELECT id FROM assets)"
+docker exec -i kikan-db psql -U kikan kikan -c "DELETE FROM external_links WHERE objet = 'user' AND kikan_id NOT IN (SELECT id FROM users)"
+```
+
+Cela ne touche que les liens dont la fiche Kikan n'existe plus ; les éléments liés à une fiche existante restent « Déjà lié ».

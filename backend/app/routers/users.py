@@ -23,6 +23,7 @@ from sqlmodel import Session, select
 
 from ..audit import audit
 from ..auth import get_current_account, require_roles, writer_guard
+from .. import integration
 from ..catalogs import canonical_service
 from ..db import get_session
 from ..docname import acronyme_defaut, assurer_acronyme
@@ -180,6 +181,8 @@ def delete_users_batch(
     ]
     if not data.simulation:
         for obj in supprimables:
+            integration.retirer_liens(session, "user", obj.id)
+            session.flush()
             session.delete(obj)
         session.commit()
         for user_id in supprimes_ids:
@@ -203,5 +206,7 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
         "Un salarie avec historique se conserve (statut sorti via la page Sorties) ; "
         "son effacement definitif releve de la purge RGPD.",
     )
+    integration.retirer_liens(session, "user", obj.id)
+    session.flush()
     session.delete(obj)
     session.commit()

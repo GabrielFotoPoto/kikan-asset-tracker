@@ -531,6 +531,33 @@ a_dup3 = j("GET", "/assets/%d" % r["resultats"][0]["id"])[1]
 show("name en doublon : applique nom-ANNEE-2 (meme ID que l'apercu)", a_dup3["identifiant_interne"] == prop_dup3 == "ZZ-PC-NOM-%d-2" % annee, a_dup3)
 j("PUT", "/glpi/config", CONF)
 
+print("== Suppression : le lien GLPI disparait avec le materiel ==")
+s, _ = j("DELETE", "/assets/%d" % a_free["id"])
+show("materiel importe supprime", s == 204, s)
+s, prop_s = j("POST", "/glpi/import/apercu")
+st = {a["externe_id"]: a for a in prop_s["actifs"]}["Computer:%d" % pc_free]["etat_import"]
+show("apres suppression, le PC n'est plus 'deja lie' (reimportable)", st == "nouveau", st)
+s, r = j("POST", "/glpi/import/appliquer", {"actifs": [{"externe_id": "Computer:%d" % pc_free}], "salaries": []})
+show("le PC supprime se reimporte", r["resultats"][0]["resultat"] == "cree", r["resultats"])
+
+gone = G.user("zzdel.gl", "DelZZ", "ZZGone", "zzgone@exemple.test", "ZZ-GL-DEL")
+s, r = j("POST", "/glpi/import/appliquer", {"actifs": [], "salaries": [{"externe_id": "User:%d" % gone}]})
+gone_id = r["resultats"][0].get("id")
+show("salarie GLPI importe", r["resultats"][0]["resultat"] == "cree" and gone_id, r["resultats"])
+s, _ = j("DELETE", "/users/%d" % gone_id)
+show("salarie importe supprime", s == 204, s)
+s, prop_u = j("POST", "/glpi/import/apercu")
+st = {u["externe_id"]: u for u in prop_u["salaries"]}["User:%d" % gone]["etat_import"]
+show("apres suppression, le salarie n'est plus 'deja lie'", st != "deja_lie", st)
+s, r = j("POST", "/glpi/import/appliquer", {"actifs": [], "salaries": [{"externe_id": "User:%d" % gone}]})
+gone_id = r["resultats"][0].get("id")
+show("le salarie supprime se reimporte", r["resultats"][0]["resultat"] == "cree" and gone_id, r["resultats"])
+s, r = j("POST", "/users/suppression-lot", {"ids": [gone_id], "simulation": False})
+show("suppression en lot du salarie", s == 200 and r["supprimes"] == [gone_id], r)
+s, prop_u = j("POST", "/glpi/import/apercu")
+st = {u["externe_id"]: u for u in prop_u["salaries"]}["User:%d" % gone]["etat_import"]
+show("apres suppression en lot, le salarie n'est plus 'deja lie'", st != "deja_lie", st)
+
 print("== Export vers GLPI ==")
 j("PUT", "/glpi/config", {**CONF, "entites": {"0": EA}})
 s, du = j("POST", "/users", {"matricule": "ZZ-GL-9", "nom": "ExportZZ", "prenom": "ZZZoe", "email": "zoe.export@exemple.test", "entite_id": EA})

@@ -66,6 +66,14 @@ def link_of(session: Session, systeme: str, objet: str, kikan_id: int) -> Extern
                                                    ExternalLink.kikan_id == kikan_id)).first()
 
 
+def retirer_liens(session: Session, objet: str, kikan_id: int) -> None:
+    """Supprime les liens avec un systeme externe (GLPI...) d'un materiel ("asset") ou d'un salarie ("user") en cours de suppression.
+
+    Sans cela le lien survit, pointe vers une fiche disparue et l'element reste « deja lie » : impossible a reimporter."""
+    for lien in session.exec(select(ExternalLink).where(ExternalLink.objet == objet, ExternalLink.kikan_id == kikan_id)).all():
+        session.delete(lien)
+
+
 def resolve_entite(session: Session, scope: Scope, item: dict) -> tuple[int | None, str | None]:
     """(id d'entite, motif de refus). Un jeton limite a des entites doit toujours en preciser une."""
     entite = None
