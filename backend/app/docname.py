@@ -26,7 +26,7 @@ Deux homonymes ont chacun leur compteur : si le nom est tout de meme deja pris, 
 import os
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import update
@@ -46,6 +46,11 @@ def fuseau() -> ZoneInfo:
 def heure_locale(when: datetime) -> datetime:
     """Heure UTC naive du stockage -> heure murale du fuseau de l'organisation (naive)."""
     return when.replace(tzinfo=timezone.utc).astimezone(fuseau()).replace(tzinfo=None)
+
+
+def jour_local(maintenant: datetime | None = None) -> date:
+    """Jour de l'organisation (fuseau de KIKAN_TIMEZONE) : date.today() du conteneur est en UTC et differe apres minuit a Paris."""
+    return heure_locale(maintenant or datetime.utcnow()).date()
 
 
 def ascii_maj(value: str | None) -> str:
