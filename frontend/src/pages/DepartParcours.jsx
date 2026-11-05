@@ -301,7 +301,6 @@ export default function DepartParcours() {
             setClotureOpen(true);
           }
         }}
-        messageAttente={data.message_attente}
         reserves={data.reserves}
         texteTermine="materiel restitue et salarie sorti."
       />

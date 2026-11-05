@@ -402,7 +402,7 @@ show(
     and etape(r_sans, "restitution")["detail"] == "Aucun materiel"
     and etat(r_sans, "sorti") == "a_venir"
     and etape(r_sans, "sorti")["detail"] == "En attente de cloture"
-    and r_sans.get("message_attente") is None
+    and "message_attente" not in r_sans
     and r_sans.get("etape_courante") is None
     and r_sans.get("prochaine_action", {}).get("action_id") == "cloturer_depart"
     and r_sans.get("prochaine_action", {}).get("autorise") is True

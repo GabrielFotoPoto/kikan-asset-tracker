@@ -38,6 +38,7 @@ from ..scope import Scope, scope_dep, visible_user
 router = APIRouter(prefix="/parcours", tags=["parcours"], dependencies=[Depends(get_current_account)])
 
 FAIT, COURANTE, A_VENIR, SANS_OBJET = "fait", "courante", "a_venir", "sans_objet"
+DETAIL_ATTENTE_CLOTURE = "En attente de cloture"
 
 
 def _charger_donnees_depart(session: Session, user_id: int):
@@ -138,7 +139,7 @@ def _etapes_depart(
         sorti_e = (
             _etape("sorti", "Salarie sorti", "Automatique", FAIT, "Sorti")
             if est_sorti
-            else _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, "En attente de cloture")
+            else _etape("sorti", "Salarie sorti", "Automatique", A_VENIR, DETAIL_ATTENTE_CLOTURE)
         )
 
     acces_e = _etape(
@@ -285,7 +286,6 @@ def parcours_depart(
         ],
         "acces_restants": nb_acces,
         "reserves": reserves,
-        "message_attente": None,
         "journal": _journal_depart(sigs_restit, sigs_echange, retours, non_restitues),
     }
 

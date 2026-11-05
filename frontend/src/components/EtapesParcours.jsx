@@ -77,7 +77,6 @@ export function EncartProchaineAction({
   libellesBouton = {},
   onNaviguer,
   onAction,
-  messageAttente = null,
   texteTermine = "Le parcours est termine.",
   reserves = [],
 }) {
@@ -105,8 +104,6 @@ export function EncartProchaineAction({
             <span className="muted">En attente de {libQui}.</span>
           )}
         </>
-      ) : messageAttente ? (
-        <span><strong>En attente :</strong> {messageAttente}</span>
       ) : reserves && reserves.length > 0 ? (
         <span><strong>Parcours termine avec reserve :</strong> {reserves.join(" - ")}.</span>
       ) : (
