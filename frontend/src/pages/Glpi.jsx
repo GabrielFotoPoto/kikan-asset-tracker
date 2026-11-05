@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { api, errorText } from "../api.js";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { ETATS_IMPORT_U, FILTRES_U_VIDES, cocherSalaries, entitesSalaries, filtrerSalaries, sansAccent, toutDecocherSalaries } from "../glpiSelection.js";
 
 const ETATS_IMPORT = {
   nouveau: ["Nouveau", "badge ok"], correspondance: ["Existe dans Kikan (sera lie)", "badge"], homonyme: ["Homonyme dans Kikan", "badge bad"],
@@ -33,7 +34,6 @@ const ETATS_EXPORT = {
 const RESULTATS = { cree: "cree", lie: "lie a l'existant", inchange: "deja a jour", conflit: "conflit (non modifie)", refuse: "refuse", erreur: "erreur", ignore: "ignore" };
 const line = { display: "flex", flexDirection: "row", alignItems: "center", gap: 8, margin: "3px 0" };
 const FILTRES_VIDES = { q: "", fab: "", sauf: false, etat: "", type: "" };
-const sansAccent = (v) => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 function Badge({ table, k }) {
   const [label, cls] = table[k] || [k, "badge"];
@@ -66,6 +66,7 @@ export default function Glpi({ setErr, setMsg }) {
   const [pickA, setPickA] = useState({});
   const [fa, setFa] = useState(FILTRES_VIDES);
   const [pickU, setPickU] = useState({});
+  const [fu, setFu] = useState(FILTRES_U_VIDES);
   const [homonyme, setHomonyme] = useState({});
   const [impEntite, setImpEntite] = useState("");
   const [exp, setExp] = useState(null);
@@ -110,6 +111,8 @@ export default function Glpi({ setErr, setMsg }) {
     if (!r) return;
     setImp(r);
     setFa(FILTRES_VIDES);
+    setFu(FILTRES_U_VIDES);
+    setHomonyme({});
     setPickA(Object.fromEntries(r.actifs.filter((a) => a.importable && a.etat_import !== "sans_serie").map((a) => [a.externe_id, true])));
     setPickU(Object.fromEntries(r.salaries.filter((u) => u.importable && u.etat_import !== "homonyme").map((u) => [u.externe_id, true])));
   };
@@ -149,6 +152,19 @@ export default function Glpi({ setErr, setMsg }) {
   });
   const filtresActifs = JSON.stringify(fa) !== JSON.stringify(FILTRES_VIDES);
   const nU = Object.values(pickU).filter(Boolean).length;
+  const entitesU = imp ? entitesSalaries(imp.salaries) : [];
+  const salariesVisibles = imp ? filtrerSalaries(imp.salaries, fu) : [];
+  const cocherSalariesVisibles = (valeur) => {
+    const next = cocherSalaries(pickU, homonyme, salariesVisibles, valeur);
+    setPickU(next.pickU);
+    setHomonyme(next.homonyme);
+  };
+  const viderSalaries = () => {
+    const next = toutDecocherSalaries();
+    setPickU(next.pickU);
+    setHomonyme(next.homonyme);
+  };
+  const filtresSalariesActifs = JSON.stringify(fu) !== JSON.stringify(FILTRES_U_VIDES);
   const nX = Object.values(pickX).filter(Boolean).length;
 
   return (
@@ -275,12 +291,34 @@ export default function Glpi({ setErr, setMsg }) {
                   ))}</tbody>
                 </table>
               )}
-              <h4>Salaries ({imp.salaries.length})</h4>
+              <h4>Salaries ({filtresSalariesActifs ? `${salariesVisibles.length} affiches sur ` : ""}{imp.salaries.length}, {nU} selectionne(s))</h4>
               <p className="muted">Une fiche Kikan existante n'est jamais ecrasee : seuls ses champs vides sont completes.</p>
-              {imp.salaries.length === 0 ? <p className="muted">Aucun utilisateur actif dans GLPI.</p> : (
+              {imp.salaries.length > 0 && (
+                <div>
+                  <div className="row">
+                    <input style={{ width: "auto", minWidth: 220 }} value={fu.q} onChange={(e) => setFu({ ...fu, q: e.target.value })} placeholder="Rechercher (identifiant, nom, e-mail, matricule...)" />
+                    <select style={{ width: "auto" }} value={fu.etat} onChange={(e) => setFu({ ...fu, etat: e.target.value })}>
+                      <option value="">Tous les etats d'import</option>
+                      {ETATS_IMPORT_U.map((k) => <option key={k} value={k}>{ETATS_IMPORT[k][0]}</option>)}
+                    </select>
+                    <select style={{ width: "auto" }} value={fu.entite} onChange={(e) => setFu({ ...fu, entite: e.target.value })}>
+                      <option value="">Toutes les entites GLPI</option>
+                      {entitesU.map((x) => <option key={x} value={x}>{x}</option>)}
+                    </select>
+                    <label style={line}><input type="checkbox" style={{ width: "auto" }} checked={fu.sauf} disabled={!fu.entite} onChange={(e) => setFu({ ...fu, sauf: e.target.checked })} /> Tous sauf cette entite</label>
+                    {filtresSalariesActifs && <button className="ghost" onClick={() => setFu(FILTRES_U_VIDES)}>Effacer les filtres</button>}
+                  </div>
+                  <div className="row" style={{ marginTop: 6 }}>
+                    <button className="ghost" onClick={() => cocherSalariesVisibles(true)}>Cocher les {salariesVisibles.length} affiches</button>
+                    <button className="ghost" onClick={() => cocherSalariesVisibles(false)}>Decocher les affiches</button>
+                    <button className="ghost" onClick={viderSalaries}>Tout decocher</button>
+                  </div>
+                </div>
+              )}
+              {imp.salaries.length === 0 ? <p className="muted">Aucun utilisateur actif dans GLPI.</p> : salariesVisibles.length === 0 ? <p className="muted">Aucun salarie ne correspond aux filtres.</p> : (
                 <table>
                   <thead><tr><th></th><th>Identifiant GLPI</th><th>Nom</th><th>E-mail</th><th>Matricule</th><th>Etat</th><th></th></tr></thead>
-                  <tbody>{imp.salaries.map((u) => (
+                  <tbody>{salariesVisibles.map((u) => (
                     <tr key={u.externe_id}>
                       <td><input type="checkbox" disabled={!u.importable} checked={!!pickU[u.externe_id]} onChange={(e) => setPickU({ ...pickU, [u.externe_id]: e.target.checked })} /></td>
                       <td>{u.login}</td><td>{[u.prenom, u.nom].filter(Boolean).join(" ") || "-"}</td><td>{u.email || "-"}</td><td>{u.matricule || "-"}</td>
