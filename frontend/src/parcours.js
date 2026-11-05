@@ -33,6 +33,19 @@ export const ETAT_LIBELLES = {
   sans_objet: "sans objet",
 };
 
+export const MOTIFS_NON_RESTITUTION = [
+  { code: "perte", label: "Perte signalee" },
+  { code: "vol", label: "Vol declare" },
+  { code: "refus_de_restituer", label: "Refus de restituer" },
+  { code: "salarie_injoignable", label: "Salarie injoignable" },
+  { code: "autre", label: "Autre motif" },
+];
+
+export function libelleMotif(code) {
+  const m = MOTIFS_NON_RESTITUTION.find((x) => x.code === code);
+  return m ? m.label : (code || "");
+}
+
 // Libelle d'etat lu par les lecteurs d'ecran (en complement de la puce aria-hidden et de la couleur).
 export function libelleEtatEtape(etat, courante = false) {
   if (courante && etat !== "fait") return "en cours";
@@ -50,6 +63,16 @@ export function peutAgir(actionOuQui, role) {
   return actionOuQui === "informatique"
     ? role === "informatique"
     : role === "rh" || role === "informatique";
+}
+
+// Declenche l'action de l'encart : priorite a action_id (action locale), sinon navigation vers une cible non vide.
+export function declencherAction(action, { onAction, onNaviguer } = {}) {
+  if (!action) return;
+  if (action.action_id && typeof onAction === "function") {
+    onAction(action.action_id);
+  } else if (typeof action.vers === "string" && action.vers.length > 0 && typeof onNaviguer === "function") {
+    onNaviguer(action.vers);
+  }
 }
 
 // Etat de la pastille d'en-tete d'un parcours.

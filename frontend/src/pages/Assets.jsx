@@ -30,7 +30,7 @@ import ThTri from "../components/ThTri.jsx";
 import { fold, paginer, trier } from "../tableau.js";
 import { useTableau } from "../useTableau.js";
 
-const FILTRES = ["stock", "affecte", "rendu", "reforme"];
+const FILTRES = ["stock", "affecte", "rendu", "reforme", "non_restitue"];
 // Les statuts affecte et rendu viennent de la remise et de la restitution, jamais d'une saisie manuelle.
 const SAISISSABLES = ["stock", "reforme"];
 const DATES = ["date_achat", "fin_garantie", "echeance_renouvellement"];
@@ -79,7 +79,7 @@ export default function Assets() {
     api.get("/assets/retours-stock").then((r) => setRetours(Object.fromEntries(r.map((x) => [x.asset_id, x.retour_le])))).catch(() => {});
   }, [items]);
 
-  const lockedStatus = editing && editing.statut === "affecte";
+  const lockedStatus = editing && (editing.statut === "affecte" || editing.statut === "non_restitue");
   const options = editing && editing.statut === "rendu" ? ["rendu", ...SAISISSABLES] : SAISISSABLES;
 
   const startEdit = (a) => {
@@ -299,7 +299,11 @@ export default function Assets() {
           </div>
         </form>
         {lockedStatus && (
-          <p className="muted">Ce materiel est affecte : il se libere par la restitution du salarie (page Sorties).</p>
+          <p className="muted">
+            {editing?.statut === "non_restitue"
+              ? "Ce materiel est declare non restitue : son statut est fige."
+              : "Ce materiel est affecte : il se libere par la restitution du salarie (page Sorties)."}
+          </p>
         )}
       </div>
       )}

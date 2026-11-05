@@ -24,10 +24,11 @@ import hashlib
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, select
 
-from ..auth import client_ip, get_current_account, writer_guard
+from ..audit import audit
+from ..auth import client_ip, get_current_account, require_roles, writer_guard
 from ..scope import Scope, scope_dep, visible_user
 from ..db import get_session
 from ..models import (
@@ -38,6 +39,7 @@ from ..models import (
     AssignmentAsset,
     EmployeeStatus,
     Entite,
+    MOTIFS_NON_RESTITUTION,
     Signature,
     User,
 )
@@ -71,6 +73,29 @@ class RestitutionRequest(BaseModel):
     signature_image: str | None = Field(default=None, max_length=MAX_B64_CHARS)
     strokes: int | None = Field(default=None, ge=0, le=1000)
     duration_ms: int | None = Field(default=None, ge=0, le=600000)
+
+
+class NonRestitueRequest(BaseModel):
+    user_id: int
+    asset_ids: list[int] = Field(min_length=1, max_length=50)
+    motif: str
+
+    @field_validator("motif")
+    @classmethod
+    def _valider_motif(cls, v: str) -> str:
+        if v not in MOTIFS_NON_RESTITUTION:
+            raise ValueError(f"Motif invalide : doit etre parmi {', '.join(MOTIFS_NON_RESTITUTION)}")
+        return v
+
+
+def _cloturer_si_vide(session: Session, user: User) -> bool:
+    """Si le salarie etait en_depart et n'a plus aucun actif affecte, il passe au statut sorti."""
+    if user.statut == EmployeeStatus.en_depart and not _holdings(session, user.id):
+        user.statut = EmployeeStatus.sorti
+        user.maj_le = datetime.utcnow()
+        session.add(user)
+        return True
+    return False
 
 
 def _holdings(session: Session, user_id: int) -> list[tuple[Asset, int]]:
@@ -223,10 +248,8 @@ def restituer(
     )
     session.add(signature)
 
-    # Si le salarie partait et n'a plus rien, il est sorti.
-    if user.statut == EmployeeStatus.en_depart and not _restant(session, data.user_id, assets):
-        user.statut = EmployeeStatus.sorti
-        session.add(user)
+    session.flush()
+    _cloturer_si_vide(session, user)
 
     session.commit()
     session.refresh(signature)
@@ -236,3 +259,106 @@ def restituer(
 def _restant(session: Session, user_id: int, just_returned: list[Asset]) -> list[Asset]:
     returned_ids = {a.id for a in just_returned}
     return [a for a, _ in _holdings(session, user_id) if a.id not in returned_ids]
+
+
+def _marquer_actifs_non_restitues(
+    session: Session, cibles: list[tuple[Asset, int]], motif: str, now: datetime
+) -> set[int]:
+    """Passe les actifs verrouilles au statut non_restitue et renseigne le constat sur les lignes d'affectation."""
+    assignment_ids: set[int] = set()
+    for asset, assignment_id in cibles:
+        asset.statut = AssetStatus.non_restitue
+        asset.maj_le = now
+        session.add(asset)
+        assignment_ids.add(assignment_id)
+        link = session.get(AssignmentAsset, (assignment_id, asset.id))
+        if link is not None:
+            link.non_restitue_le = now
+            link.motif_non_restitution = motif
+            session.add(link)
+    return assignment_ids
+
+
+def _cloturer_affectations_soldees(session: Session, assignment_ids: set[int]) -> None:
+    """Marque restitue les affectations dont plus aucun actif n'est au statut affecte (sans renseigner date_restitution)."""
+    for asg_id in assignment_ids:
+        links = session.exec(select(AssignmentAsset).where(AssignmentAsset.assignment_id == asg_id)).all()
+        if all(session.get(Asset, l.asset_id).statut != AssetStatus.affecte for l in links):
+            assignment = session.get(Assignment, asg_id)
+            if assignment and assignment.statut != "restitue":
+                assignment.statut = "restitue"
+                session.add(assignment)
+
+
+@router.post("/non-restitue", dependencies=[Depends(require_roles("informatique"))])
+def constat_non_restitue(
+    data: NonRestitueRequest,
+    session: Session = Depends(get_session),
+    account: Account = Depends(get_current_account),
+    scope: Scope = Depends(scope_dep),
+):
+    """Constat d'impossibilite de restitution d'actifs (reserve a l'informatique seule)."""
+    user = visible_user(session, scope, data.user_id)
+    # Verrou sur le salarie : deux constats/restitutions simultanes se suivent.
+    session.exec(select(User).where(User.id == data.user_id).with_for_update()).first()
+    if user.statut != EmployeeStatus.en_depart:
+        raise HTTPException(409, "Le salarie doit etre en cours de depart")
+
+    held_map = {a.id: (a, aid) for a, aid in _holdings(session, data.user_id)}
+    for aid in data.asset_ids:
+        if aid not in held_map:
+            raise HTTPException(409, "Materiel non detenu par ce salarie ou deja traite")
+
+    ids_sorted = sorted(set(data.asset_ids))
+    locked = {
+        a.id: a
+        for a in session.exec(select(Asset).where(Asset.id.in_(ids_sorted)).order_by(Asset.id).with_for_update()).all()
+    }
+    now = datetime.utcnow()
+    cibles = [(locked[aid], held_map[aid][1]) for aid in ids_sorted]
+    assignment_ids = _marquer_actifs_non_restitues(session, cibles, data.motif, now)
+    _cloturer_affectations_soldees(session, assignment_ids)
+
+    session.flush()
+    _cloturer_si_vide(session, user)
+    session.commit()
+
+    statut_str = user.statut.value if hasattr(user.statut, "value") else str(user.statut)
+    audit(account.username, "constat_non_restitution", target=f"user:{user.id}",
+          detail=f"{len(ids_sorted)} actif(s), motif:{data.motif}")
+    return {
+        "user_id": user.id,
+        "statut_salarie": statut_str,
+        "actifs_constates": ids_sorted,
+        "non_restitue_le": now.isoformat(),
+    }
+
+
+@router.post("/depart/{user_id}/cloturer")
+def cloturer_depart(
+    user_id: int,
+    session: Session = Depends(get_session),
+    account: Account = Depends(get_current_account),
+    scope: Scope = Depends(scope_dep),
+):
+    """Cloture d'un depart sans materiel (ou dont tout le materiel a ete traite). RH ou informatique."""
+    user = visible_user(session, scope, user_id)
+    session.exec(select(User).where(User.id == user_id).with_for_update()).first()
+
+    if user.statut != EmployeeStatus.en_depart:
+        raise HTTPException(409, "Le salarie doit etre en cours de depart pour etre cloture")
+
+    held = _holdings(session, user_id)
+    if held:
+        raise HTTPException(409, f"Impossible de cloturer : il reste {len(held)} materiel(s) affecte(s)")
+
+    _cloturer_si_vide(session, user)
+    session.commit()
+
+    statut_str = user.statut.value if hasattr(user.statut, "value") else str(user.statut)
+    audit(account.username, "depart_cloture", target=f"user:{user.id}", detail="sans materiel")
+
+    return {
+        "user_id": user.id,
+        "statut": statut_str,
+    }
