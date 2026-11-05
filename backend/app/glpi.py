@@ -33,10 +33,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
+from datetime import datetime
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
-from . import appsettings, integration, netguard
+from . import appsettings, docname, integration, netguard
 from .auth import IS_PROD
 from .integration import clean
 from .models import Asset, AssetStatus, Assignment, AssignmentAsset, EmployeeStatus, ExternalLink, User
@@ -52,7 +54,7 @@ MODEL_FIELD = {"Computer": "computermodels_id", "Phone": "phonemodels_id"}
 
 DEFAULTS = {
     "glpi_actif": "0", "glpi_url": "", "glpi_verifier_cert": "1", "glpi_types_computer": "PC portable", "glpi_types_phone": "Smartphone",
-    "glpi_entites": "{}", "glpi_entite_kikan": "", "glpi_entite_glpi": "0", "glpi_profil": "Self-Service",
+    "glpi_entites": "{}", "glpi_champs": "{}", "glpi_entite_kikan": "", "glpi_entite_glpi": "0", "glpi_profil": "Self-Service",
 }
 
 
@@ -79,11 +81,17 @@ class GlpiConfig:
     entites: dict[str, int]          # id d'entite GLPI -> id d'entite Kikan
     entite_kikan: int | None         # entite Kikan par defaut a l'import
     entite_glpi: int                 # entite GLPI par defaut a l'export
+    champs: dict[str, str]           # champ Kikan -> champ GLPI source (voir CHAMPS_GLPI)
     profil: str                      # profil GLPI donne aux utilisateurs crees ("" = aucun)
 
     @property
     def pret(self) -> bool:
         return bool(self.url) and bool(user_token())
+
+
+# Champs GLPI proposes comme source de l'identifiant interne (cle -> cle de l'instantane).
+CHAMPS_GLPI = {"otherserial": "inventaire", "name": "nom", "serial": "serial"}
+CHAMPS_DEFAUT = {"identifiant_interne": "otherserial"}
 
 
 def user_token() -> str:
@@ -107,6 +115,10 @@ def load_config(session: Session) -> GlpiConfig:
         entites = {str(k): int(v) for k, v in json.loads(g("glpi_entites")).items()}
     except (ValueError, TypeError, AttributeError):
         entites = {}
+    try:
+        champs = {k: v for k, v in json.loads(g("glpi_champs")).items() if k in CHAMPS_DEFAUT and v in CHAMPS_GLPI}
+    except (ValueError, TypeError, AttributeError):
+        champs = {}
     kikan = g("glpi_entite_kikan")
     try:
         glpi_default = int(g("glpi_entite_glpi"))
@@ -114,7 +126,7 @@ def load_config(session: Session) -> GlpiConfig:
         glpi_default = 0
     return GlpiConfig(actif=g("glpi_actif") == "1", url=g("glpi_url").strip(), verifier_cert=g("glpi_verifier_cert") == "1",
                       types_computer=_split(g("glpi_types_computer")), types_phone=_split(g("glpi_types_phone")),
-                      entites=entites, entite_kikan=int(kikan) if kikan.isdigit() else None, entite_glpi=glpi_default,
+                      entites=entites, champs={**CHAMPS_DEFAUT, **champs}, entite_kikan=int(kikan) if kikan.isdigit() else None, entite_glpi=glpi_default,
                       profil=g("glpi_profil").strip())
 
 
@@ -331,7 +343,8 @@ def import_proposals(session: Session, cfg: GlpiConfig, snap: Snapshot) -> dict:
         else:
             state = "nouveau"
         kikan_type = type_for(cfg, it["itemtype"])
-        assets.append({**it, "etat_import": state, "type_kikan": kikan_type, "kikan_id": (found.id if found else (link.kikan_id if link else None)),
+        interne = interne_libre(session, it["nom"]) if cfg.champs["identifiant_interne"] == "name" and not found and not link else None
+        assets.append({**it, "id_interne_propose": interne, "etat_import": state, "type_kikan": kikan_type, "kikan_id": (found.id if found else (link.kikan_id if link else None)),
                        "entite_glpi": snap.entites.get(int(it["entite_id"] or 0)), "importable": state != "deja_lie" and kikan_type is not None})
     for ext, u in sorted(snap.users.items(), key=lambda kv: (kv[1]["nom"] or kv[1]["login"] or "")):
         link = integration.get_link(session, SYSTEME, "user", ext)
@@ -351,6 +364,22 @@ def import_proposals(session: Session, cfg: GlpiConfig, snap: Snapshot) -> dict:
     return {"actifs": assets, "salaries": users}
 
 
+def _serial_connu(session: Session, it: dict) -> bool:
+    return bool(it["serial"]) and session.exec(select(Asset).where(func.lower(Asset.numero_serie) == it["serial"].lower())).first() is not None
+
+
+def interne_libre(session: Session, nom: str | None) -> str | None:
+    """Identifiant interne a partir du nom GLPI : le nom seul s'il est libre, sinon nom-ANNEE, puis nom-ANNEE-2, -3... (unicite sans tenir compte de la casse)."""
+    if not nom:
+        return nom
+    annee = datetime.now(docname.fuseau()).year
+    candidats = (nom, f"{nom}-{annee}", *(f"{nom}-{annee}-{n}" for n in range(2, 1000)))
+    for c in candidats:
+        if len(c) <= 100 and not session.exec(select(Asset).where(func.lower(Asset.identifiant_interne) == c.lower())).first():
+            return c
+    return None
+
+
 def _asset_item(cfg: GlpiConfig, it: dict, entite_kikan: int | None) -> dict | None:
     kikan_type = type_for(cfg, it["itemtype"])
     if not kikan_type:
@@ -359,7 +388,7 @@ def _asset_item(cfg: GlpiConfig, it: dict, entite_kikan: int | None) -> dict | N
     if it["utilisateur"]:
         note += " (utilisateur GLPI : %s)" % it["utilisateur"]
     return {"id_externe": it["externe_id"], "type": kikan_type, "marque": it["fabricant"], "modele": it["modele"], "numero_serie": it["serial"],
-            "identifiant_interne": it["inventaire"], "entite_id": entite_kikan, "notes": note}
+            "identifiant_interne": it[CHAMPS_GLPI[cfg.champs["identifiant_interne"]]], "entite_id": entite_kikan, "notes": note}
 
 
 def import_apply(session: Session, cfg: GlpiConfig, snap: Snapshot, actifs: list[dict], salaries: list[dict]) -> dict:
@@ -384,6 +413,8 @@ def import_apply(session: Session, cfg: GlpiConfig, snap: Snapshot, actifs: list
             continue
         entite = sel.get("entite_id") if sel.get("entite_id") is not None else entite_for(cfg, it["entite_id"])
         item = _asset_item(cfg, it, entite)
+        if item is not None and cfg.champs["identifiant_interne"] == "name" and not _serial_connu(session, it):
+            item["identifiant_interne"] = interne_libre(session, it["nom"])
         if item is None:
             results.append({"objet": "actif", "id_externe": it["externe_id"], "resultat": "refuse", "message": "Type Kikan non configure pour ce type GLPI"})
             continue
@@ -575,7 +606,7 @@ def export_apply(session: Session, cfg: GlpiConfig, client: GlpiClient, snap: Sn
                     continue
                 values = {"name": a.identifiant_interne or " ".join(x for x in (a.marque, a.modele) if x) or a.numero_serie, "serial": a.numero_serie,
                           "users_id": glpi_user["glpi_id"], "entities_id": entite_glpi, "comment": "Cree par Kikan"}
-                if a.identifiant_interne:
+                if a.identifiant_interne and cfg.champs["identifiant_interne"] == "otherserial":
                     values["otherserial"] = a.identifiant_interne
                 if a.marque:
                     values["manufacturers_id"] = _ensure_dropdown(client, "Manufacturer", a.marque, cache)

@@ -97,6 +97,7 @@ export default function Glpi({ setErr, setMsg }) {
     const r = await run(() => api.post("/glpi/tester", {}), (x) => `Connexion reussie : ${x.ordinateurs} ordinateur(s), ${x.telephones} telephone(s), ${x.utilisateurs} utilisateur(s).${x.profil_trouve ? "" : " Attention : le profil indique n'existe pas dans GLPI."}`);
     if (r) { setConn(r); setGlpiEntites(r.entites); }
   };
+  const mapChamp = (champ, source) => setF({ ...f, champs: { ...f.champs, [champ]: source } });
   const mapEntite = (gid, kid) => {
     const entites_map = { ...f.entites };
     if (kid) entites_map[String(gid)] = Number(kid); else delete entites_map[String(gid)];
@@ -192,6 +193,20 @@ export default function Glpi({ setErr, setMsg }) {
         </div>
       </div>
 
+      <div className="card">
+        <h3>Correspondance des champs</h3>
+        <p className="muted">Champ GLPI qui alimente chaque champ Kikan a l'import. Enregistrez ensuite les reglages. Un identifiant interne deja utilise par un autre materiel est refuse a l'import.</p>
+        <table>
+          <thead><tr><th>Champ Kikan</th><th>Champ GLPI</th></tr></thead>
+          <tbody><tr><td>Identifiant interne</td>
+            <td><select value={f.champs?.identifiant_interne || "otherserial"} onChange={(e) => mapChamp("identifiant_interne", e.target.value)}>
+              <option value="otherserial">Numero d'inventaire</option>
+              <option value="name">Nom (nom du PC)</option>
+              <option value="serial">Numero de serie</option>
+            </select></td></tr></tbody>
+        </table>
+      </div>
+
       {glpiEntites.length > 0 && (
         <div className="card">
           <h3>Correspondance des entites</h3>
@@ -249,12 +264,12 @@ export default function Glpi({ setErr, setMsg }) {
               )}
               {imp.actifs.length === 0 ? <p className="muted">Aucun ordinateur ni telephone dans GLPI.</p> : actifsVisibles.length === 0 ? <p className="muted">Aucun materiel ne correspond aux filtres.</p> : (
                 <table>
-                  <thead><tr><th></th><th>Type</th><th>Nom</th><th>Numero de serie</th><th>Fabricant, modele</th><th>Utilisateur GLPI</th><th>Etat</th></tr></thead>
+                  <thead><tr><th></th><th>Type</th><th>Nom</th><th>ID interne propose</th><th>Numero de serie</th><th>Fabricant, modele</th><th>Utilisateur GLPI</th><th>Etat</th></tr></thead>
                   <tbody>{actifsVisibles.map((a) => (
                     <tr key={a.externe_id}>
                       <td><input type="checkbox" disabled={!a.importable} checked={!!pickA[a.externe_id]} onChange={(e) => setPickA({ ...pickA, [a.externe_id]: e.target.checked })} /></td>
                       <td>{a.itemtype === "Computer" ? "Ordinateur" : "Telephone"}{!a.type_kikan && <div className="err">type Kikan non configure</div>}</td>
-                      <td>{a.nom}</td><td>{a.serial || "-"}</td><td>{[a.fabricant, a.modele].filter(Boolean).join(" ") || "-"}</td><td>{a.utilisateur || "-"}</td>
+                      <td>{a.nom}</td><td>{a.id_interne_propose || "-"}</td><td>{a.serial || "-"}</td><td>{[a.fabricant, a.modele].filter(Boolean).join(" ") || "-"}</td><td>{a.utilisateur || "-"}</td>
                       <td><Badge table={ETATS_IMPORT} k={a.etat_import} /></td>
                     </tr>
                   ))}</tbody>
