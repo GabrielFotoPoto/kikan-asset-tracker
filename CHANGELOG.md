@@ -5,6 +5,10 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Vérifié
+- **Dans le navigateur, sur la préproduction en 0.7.0** (essai à la main, 2026-11-05) : la suppression de salariés en lot et les filtres de sélection des salariés à l'import GLPI fonctionnent. Le SSO Microsoft 365, la tablette de signature (TLS restreint) et la connexion à GLPI, qui n'avaient pas été retestés depuis la 0.6.1, fonctionnent aussi.
+- **Toujours non essayés** : le parcours de départ guidé (`/depart/:id`), et le suffixe `nom-ANNÉE` des doublons de nom de PC contre un vrai GLPI. Le nettoyage des liens orphelins documenté dans `docs/GLPI.md` n'a pas été exécuté tel quel.
+
 ## [0.7.0] - 2026-11-05
 
 Version de fonctionnalités : import GLPI avec le nom du PC comme identifiant interne, suppression de salariés en lot, filtres et sélection en masse des salariés à l'import GLPI, parcours de départ guidé, et une correction qui rend de nouveau réimportables les éléments GLPI supprimés. **Aucune migration de base de données** ; l'API gagne deux routes (compatibles), donc les quatre images sont à mettre à jour ensemble.
