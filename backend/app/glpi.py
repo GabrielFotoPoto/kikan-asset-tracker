@@ -91,7 +91,7 @@ class GlpiConfig:
 
 # Champs GLPI proposes comme source de l'identifiant interne (cle -> cle de l'instantane).
 CHAMPS_GLPI = {"otherserial": "inventaire", "name": "nom", "serial": "serial"}
-CHAMPS_DEFAUT = {"identifiant_interne": "otherserial"}
+CHAMPS_DEFAUT = {"identifiant_interne": "name"}
 
 
 def user_token() -> str:
@@ -606,7 +606,7 @@ def export_apply(session: Session, cfg: GlpiConfig, client: GlpiClient, snap: Sn
                     continue
                 values = {"name": a.identifiant_interne or " ".join(x for x in (a.marque, a.modele) if x) or a.numero_serie, "serial": a.numero_serie,
                           "users_id": glpi_user["glpi_id"], "entities_id": entite_glpi, "comment": "Cree par Kikan"}
-                if a.identifiant_interne and cfg.champs["identifiant_interne"] == "otherserial":
+                if a.identifiant_interne:
                     values["otherserial"] = a.identifiant_interne
                 if a.marque:
                     values["manufacturers_id"] = _ensure_dropdown(client, "Manufacturer", a.marque, cache)

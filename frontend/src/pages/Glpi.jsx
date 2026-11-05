@@ -98,14 +98,23 @@ export default function Glpi({ setErr, setMsg }) {
     const r = await run(() => api.post("/glpi/tester", {}), (x) => `Connexion reussie : ${x.ordinateurs} ordinateur(s), ${x.telephones} telephone(s), ${x.utilisateurs} utilisateur(s).${x.profil_trouve ? "" : " Attention : le profil indique n'existe pas dans GLPI."}`);
     if (r) { setConn(r); setGlpiEntites(r.entites); }
   };
-  const mapChamp = (champ, source) => setF({ ...f, champs: { ...f.champs, [champ]: source } });
+  // Les tableaux de correspondance s'enregistrent des le changement : seule la correspondance part, les autres champs
+  // du formulaire (modifies mais pas encore enregistres) ne sont ni envoyes ni ecrases.
+  const enregistrerCorrespondance = (cle, valeur, ok) => run(async () => {
+    const d = await api.put("/glpi/config", { ...data.config, [cle]: valeur, entite_kikan: data.config.entite_kikan || null, entite_glpi: Number(data.config.entite_glpi) || 0 });
+    setData(d); setF((cur) => ({ ...cur, [cle]: d.config[cle] }));
+  }, ok);
+  const mapChamp = (champ, source) => enregistrerCorrespondance("champs", { ...f.champs, [champ]: source }, "Correspondance des champs enregistree.");
   const mapEntite = (gid, kid) => {
     const entites_map = { ...f.entites };
     if (kid) entites_map[String(gid)] = Number(kid); else delete entites_map[String(gid)];
-    setF({ ...f, entites: entites_map });
+    return enregistrerCorrespondance("entites", entites_map, "Correspondance des entites enregistree.");
   };
+  const normalise = (c) => JSON.stringify({ ...c, entite_kikan: c.entite_kikan || null, entite_glpi: Number(c.entite_glpi) || 0 });
+  const nonEnregistre = normalise(f) !== normalise(data.config);
 
   const preview = async () => {
+    if (nonEnregistre) { setErr("Des reglages GLPI ont ete modifies sans etre enregistres : cliquez sur Enregistrer avant de lire GLPI."); return; }
     setOutcome(null);
     const r = await run(() => api.post("/glpi/import/apercu", {}));
     if (!r) return;
@@ -211,13 +220,13 @@ export default function Glpi({ setErr, setMsg }) {
 
       <div className="card">
         <h3>Correspondance des champs</h3>
-        <p className="muted">Champ GLPI qui alimente chaque champ Kikan a l'import. Enregistrez ensuite les reglages. Un identifiant interne deja utilise par un autre materiel est refuse a l'import.</p>
+        <p className="muted">Champ GLPI qui alimente chaque champ Kikan a l'import. Enregistre des le changement. Un identifiant interne deja utilise par un autre materiel est refuse a l'import.</p>
         <table>
           <thead><tr><th>Champ Kikan</th><th>Champ GLPI</th></tr></thead>
           <tbody><tr><td>Identifiant interne</td>
-            <td><select value={f.champs?.identifiant_interne || "otherserial"} onChange={(e) => mapChamp("identifiant_interne", e.target.value)}>
-              <option value="otherserial">Numero d'inventaire</option>
+            <td><select value={f.champs?.identifiant_interne || "name"} onChange={(e) => mapChamp("identifiant_interne", e.target.value)}>
               <option value="name">Nom (nom du PC)</option>
+              <option value="otherserial">Numero d'inventaire</option>
               <option value="serial">Numero de serie</option>
             </select></td></tr></tbody>
         </table>
@@ -226,7 +235,7 @@ export default function Glpi({ setErr, setMsg }) {
       {glpiEntites.length > 0 && (
         <div className="card">
           <h3>Correspondance des entites</h3>
-          <p className="muted">Facultatif. Entite Kikan associee a chaque entite GLPI (import) ; l'inverse sert a l'export. Enregistrez ensuite les reglages.</p>
+          <p className="muted">Facultatif. Entite Kikan associee a chaque entite GLPI (import) ; l'inverse sert a l'export. Enregistre des le changement.</p>
           <table>
             <thead><tr><th>Entite GLPI</th><th>Entite Kikan</th></tr></thead>
             <tbody>{glpiEntites.map((g) => (
