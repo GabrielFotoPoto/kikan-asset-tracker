@@ -18,7 +18,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
     - Énumération des statuts de statistiques (`/stats`) complétée avec `non_restitue` (« Non restitué ») et `rendu` (« Rendu »).
   - **Parcours de départ guidé (`GET /parcours/depart/{user_id}`)** :
     - Étape 3 (Restitution) : passe à l'état `fait` avec le détail adapté (« Non restitué (constat) », « Restitué (signé) », mixte ou « Aucun matériel ») lorsque 0 matériel reste affecté.
-    - Journal des événements : ajout de l'événement « Matériel non restitué (constat) » avec date sans divulgation du motif ni données d'identification.
+    - Journal des événements : ajout de l'événement « Constat de non-restitution : <type> » avec date sans divulgation du motif ni données d'identification.
     - Prochaine action : propose l'action `cloturer_depart` (« Clôturer le départ ») dès que le salarié est `en_depart` et ne détient aucun matériel.
     - Motifs de non-restitution réservés au rôle informatique (`materiels_non_restitues` omis pour les rôles RH et lecture).
   - **Interface utilisateur (`/depart/:id` et `/materiel`)** :
@@ -26,7 +26,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
     - Dialogue de confirmation pour la clôture du départ sans matériel (RH et informatique).
     - Affichage de l'encart des matériels non restitués avec motif et date (informatique uniquement).
     - Filtre par statut dans la liste du matériel complété par `non_restitue` avec verrouillage explicatif lors de la consultation.
-- Tests : nouvelle suite `tests/depart_exception_check.py` (33 tests couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` étendu à 27 tests), actualisation de `tests/parcours_depart_check.py`.
+- Tests : nouvelle suite `tests/depart_exception_check.py` (34 vérifications couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` à 9 tests, 28 au total), actualisation de `tests/parcours_depart_check.py`.
 
 ### Modifié
 - **Publication : délai du job de construction ramené de 45 à 15 minutes** (`release.yml`). Une construction des images dure environ 5 minutes ; un job bloqué (comme celui de la 0.6.0) est maintenant arrêté au bout de 15 minutes au lieu de 45. Aucun effet sur les images.
