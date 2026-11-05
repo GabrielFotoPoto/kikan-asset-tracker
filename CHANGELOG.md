@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Documentation
+- **Modèle de registre des traitements RGPD** ([docs/modeles/registre-traitements-rgpd.md](docs/modeles/registre-traitements-rgpd.md)) : registre de l'article 30 prérempli pour Kikan (quatre traitements, données, destinataires, durées de conservation, sous-traitants, mesures de sécurité, droits des personnes), avec les points à compléter ou à faire valider par le DPO. Relu contre le code et la documentation ; une durée de conservation du journal d'audit et le moyen d'exercer le droit d'accès restent à décider. Lien depuis [docs/RGPD.md](docs/RGPD.md).
+
 ### Vérifié
 - **Dans le navigateur, sur la préproduction en 0.7.0** (essai à la main, 2026-11-05) : la suppression de salariés en lot et les filtres de sélection des salariés à l'import GLPI fonctionnent. Le SSO Microsoft 365, la tablette de signature (TLS restreint) et la connexion à GLPI, qui n'avaient pas été retestés depuis la 0.6.1, fonctionnent aussi.
 - **Toujours non essayés** : le parcours de départ guidé (`/depart/:id`), et le suffixe `nom-ANNÉE` des doublons de nom de PC contre un vrai GLPI. Le nettoyage des liens orphelins documenté dans `docs/GLPI.md` n'a pas été exécuté tel quel.
