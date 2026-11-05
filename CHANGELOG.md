@@ -5,6 +5,15 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.7.1] - 2026-11-05
+
+Version corrective : les limites de connexion et d'import réglables par `.env` sont enfin transmises à l'API, la documentation est contrôlée et mise à jour, et un modèle de registre des traitements RGPD est fourni. **Aucune migration de base de données** ; **le code de l'application est inchangé** (aucun changement dans les images `api`, `web`, `converter`, `backup` par rapport à la 0.7.0, hors numéro de version).
+
+### Mise à jour depuis 0.7.0
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.7.1`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.7.1` sous Linux) ; les quatre images ensemble.
+- **Le correctif des limites est dans `docker-compose.yml`, pas dans les images.** Si vous avez copié les fichiers compose sur votre serveur (installation par images publiées), **remplacez-les par ceux de la 0.7.1** ; sans cela, `KIKAN_LOGIN_MAX_FAILS`, `KIKAN_LOGIN_WINDOW_SEC`, `KIKAN_MAX_IMPORT_MB` et `KIKAN_MAX_IMPORT_ROWS` restent sans effet. Les valeurs par défaut sont inchangées.
+- **Aucune migration.** Retour arrière : repasser `KIKAN_VERSION` à `0.7.0` ; aucune restauration n'est nécessaire.
+
 ### Corrigé
 - **Les limites réglables par `.env` sont enfin transmises à l'API.** `KIKAN_LOGIN_MAX_FAILS`, `KIKAN_LOGIN_WINDOW_SEC` (verrouillage de connexion), `KIKAN_MAX_IMPORT_MB` et `KIKAN_MAX_IMPORT_ROWS` (plafonds d'import) étaient documentées dans `.env.example` et le README mais absentes du service `api` de `docker-compose.yml` : les écrire dans `.env` n'avait aucun effet, seule la valeur par défaut s'appliquait. Elles sont maintenant passées au conteneur, avec les mêmes valeurs par défaut (5 échecs, 900 s, 5 Mo, 20 000 lignes) : **aucun changement de comportement** tant que vous ne les modifiez pas. Elles sont lues au démarrage : relancer l'API (`docker compose up -d`) après un changement. Aucune migration, image `api` inchangée.
 
@@ -12,9 +21,18 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - **Contrôle de la documentation (0.7.0)** : versions d'exemple passées de 0.5.0 à 0.7.0 (installation, publication, `update.sh`) ; `.env.example` (clé secrète obligatoire en production) ; SSO décrit en rôles d'application `Kikan.IT` / `Kikan.RH` ; paragraphe SharePoint/DocuWare du README corrigé (dépôt par API déjà géré) ; suppression en lot, suppression des liens externes, import GLPI et parcours de départ ajoutés au guide, à `SECURITY.md` et à la feuille de route ; formulations « infalsifiable », « stockage immuable » et « conformité » ramenées à ce que fait réellement Kikan ; `docs/API.md` (longueurs) ; références à des outils personnels retirées de `SPEC.md`.
 - **Modèle de registre des traitements RGPD** ([docs/modeles/registre-traitements-rgpd.md](docs/modeles/registre-traitements-rgpd.md)) : registre de l'article 30 prérempli pour Kikan (quatre traitements, données, destinataires, durées de conservation, sous-traitants, mesures de sécurité, droits des personnes), avec les points à compléter ou à faire valider par le DPO. Relu contre le code et la documentation ; une durée de conservation du journal d'audit et le moyen d'exercer le droit d'accès restent à décider. Lien depuis [docs/RGPD.md](docs/RGPD.md).
 
+### Modifié
+- **Publication : commentaire de version exact pour `softprops/action-gh-release`** (`release.yml`, `# v3.0.3` au lieu de `# v3`) : corrige un avertissement de zizmor 1.31.1 qui bloquait les demandes de fusion. Aucun effet sur les images.
+
 ### Vérifié
+- Intégration continue de chaque PR de la version (#111 à #115) : 11 contrôles réussis.
+- `docker compose config` rend les valeurs par défaut des quatre limites (5, 900, 5, 20 000) et applique les surcharges d'un `.env`.
 - **Dans le navigateur, sur la préproduction en 0.7.0** (essai à la main, 2026-11-05) : la suppression de salariés en lot et les filtres de sélection des salariés à l'import GLPI fonctionnent. Le SSO Microsoft 365, la tablette de signature (TLS restreint) et la connexion à GLPI, qui n'avaient pas été retestés depuis la 0.6.1, fonctionnent aussi.
-- **Toujours non essayés** : le parcours de départ guidé (`/depart/:id`), et le suffixe `nom-ANNÉE` des doublons de nom de PC contre un vrai GLPI. Le nettoyage des liens orphelins documenté dans `docs/GLPI.md` n'a pas été exécuté tel quel.
+
+### Resté non vérifié
+- **L'effet des quatre limites dans un conteneur démarré** (pas de pile redémarrée avec une valeur modifiée).
+- Le parcours de départ guidé (`/depart/:id`) et le suffixe `nom-ANNÉE` des doublons de nom de PC contre un vrai GLPI n'ont pas été essayés à la main. Le nettoyage des liens orphelins documenté dans `docs/GLPI.md` n'a pas été exécuté tel quel.
+- La mise à jour de la préproduction en 0.7.1 : la préproduction n'était pas joignable (VPN) au moment de la rédaction.
 
 ## [0.7.0] - 2026-11-05
 
