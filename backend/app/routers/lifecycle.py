@@ -310,9 +310,9 @@ def constat_non_restitue(
         ).all()
         if all(session.get(Asset, l.asset_id).statut != AssetStatus.affecte for l in links):
             assignment = session.get(Assignment, asg_id)
-            if assignment and assignment.statut != "clos":
+            if assignment and assignment.statut != "restitue":
                 assignment.date_restitution = assignment.date_restitution or now
-                assignment.statut = "clos"
+                assignment.statut = "restitue"
                 session.add(assignment)
 
     session.flush()
