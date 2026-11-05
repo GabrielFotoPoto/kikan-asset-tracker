@@ -215,9 +215,9 @@ export default function Glpi({ setErr, setMsg }) {
         <table>
           <thead><tr><th>Champ Kikan</th><th>Champ GLPI</th></tr></thead>
           <tbody><tr><td>Identifiant interne</td>
-            <td><select value={f.champs?.identifiant_interne || "otherserial"} onChange={(e) => mapChamp("identifiant_interne", e.target.value)}>
-              <option value="otherserial">Numero d'inventaire</option>
+            <td><select value={f.champs?.identifiant_interne || "name"} onChange={(e) => mapChamp("identifiant_interne", e.target.value)}>
               <option value="name">Nom (nom du PC)</option>
+              <option value="otherserial">Numero d'inventaire</option>
               <option value="serial">Numero de serie</option>
             </select></td></tr></tbody>
         </table>
