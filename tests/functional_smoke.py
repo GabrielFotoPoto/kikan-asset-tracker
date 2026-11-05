@@ -139,7 +139,7 @@ show("la liste des affectations donne l'heure de signature", s == 200 and mine.g
 # Date du nom de fichier : heure de Paris, changements d'heure compris (heures UTC naives du stockage).
 sys.path.insert(0, "/app")
 from datetime import datetime as _dt  # noqa: E402
-from app.docname import heure_locale  # noqa: E402
+from app.docname import heure_locale, jour_local  # noqa: E402
 cas = [((2026, 1, 15, 23, 30), (2026, 1, 16, 0, 30)),     # hiver : UTC+1, la date change avant minuit UTC
        ((2026, 7, 15, 22, 30), (2026, 7, 16, 0, 30)),     # ete : UTC+2
        ((2026, 3, 29, 0, 59), (2026, 3, 29, 1, 59)),      # juste avant le passage a l'heure d'ete
@@ -148,6 +148,13 @@ cas = [((2026, 1, 15, 23, 30), (2026, 1, 16, 0, 30)),     # hiver : UTC+1, la da
        ((2026, 10, 25, 1, 30), (2026, 10, 25, 2, 30))]    # apres : 01:30 UTC = 02:30 a Paris
 show("heure de Paris avec changements d'heure", all(heure_locale(_dt(*a)) == _dt(*b) for a, b in cas),
      str([(a, heure_locale(_dt(*a)).isoformat()) for a, b in cas if heure_locale(_dt(*a)) != _dt(*b)]))
+
+# Jour de l'organisation : la date change a minuit de Paris, pas a minuit UTC.
+jours = [((2026, 11, 4, 22, 59), (2026, 11, 4)),      # hiver : 23:59 a Paris, meme jour
+         ((2026, 11, 4, 23, 0), (2026, 11, 5)),       # 00:00 a Paris, le lendemain alors que la date UTC est encore le 4
+         ((2026, 7, 14, 22, 0), (2026, 7, 15))]       # ete : UTC+2
+show("jour de l'organisation (minuit de Paris)", all(jour_local(_dt(*a)) == _dt(*b).date() for a, b in jours),
+     str([(a, jour_local(_dt(*a)).isoformat()) for a, b in jours if jour_local(_dt(*a)) != _dt(*b).date()]))
 
 import re as _re
 NOM_RE = _re.compile(r"^(local|smb|webdav):(\d{4})/(\d{4})_(\d{2})_(\d{2})_FONCTIONNEL_TEST_TFO_(\d{3})\.pdf$")
