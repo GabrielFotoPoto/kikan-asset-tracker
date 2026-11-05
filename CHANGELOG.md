@@ -5,6 +5,33 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **Matériel non restitué et clôture de départ sans matériel (lot 1bis)** :
+  - **Migration `0023_materiel_non_restitue`** : valeur `non_restitue` ajoutée au type enum `assetstatus` ; colonnes `non_restitue_le` (date) et `motif_non_restitution` (varchar) ajoutées à la table `assignment_assets` pour tracer l'événement dans l'affectation sans altérer l'intégrité de la charte ou du PDF scellé d'origine. Rétrogradation (downgrade) réversible vérifiant qu'aucun matériel n'est au statut `non_restitue`.
+  - **Routes API du cycle de vie** :
+    - `POST /lifecycle/non-restitue` : enregistrement du constat de non-restitution par l'informatique pour un salarié en départ (`en_depart`). Motifs en liste fermée (`perte`, `vol`, `refus_de_restituer`, `salarie_injoignable`, `autre`). L'actif passe au statut `non_restitue` et quitte les détentions du salarié. Si aucun matériel ne reste détenu, le salarié passe automatiquement au statut `sorti`. Audit consigné sans nom de salarié ni numéro de série.
+    - `POST /lifecycle/depart/{user_id}/cloturer` : clôture du départ sans matériel par les RH ou l'informatique pour un salarié `en_depart` ne détenant aucun matériel (par exemple aucun matériel attribué ou après constat de non-restitution). Transition immédiate vers le statut `sorti`.
+  - **Règles de gestion du statut `non_restitue`** :
+    - Un matériel non restitué ne peut être ni réaffecté (`POST /assignments`), ni échangé (`POST /assignments/echange`), ni réformé en lot (`POST /assets/reforme-lot`), ni modifié directement vers ou depuis ce statut (`POST /assets`, `PUT /assets/{id}`) sous peine de conflit (`409`).
+    - Énumération des statuts de statistiques (`/stats`) complétée avec `non_restitue` (« Non restitué ») et `rendu` (« Rendu »).
+  - **Parcours de départ guidé (`GET /parcours/depart/{user_id}`)** :
+    - Étape 3 (Restitution) : passe à l'état `fait` avec le détail adapté (« Non restitué (constat) », « Restitué (signé) », mixte ou « Aucun matériel ») lorsque 0 matériel reste affecté.
+    - Journal des événements : ajout de l'événement « Constat de non-restitution : <type> » avec date sans divulgation du motif ni données d'identification.
+    - Prochaine action : propose l'action `cloturer_depart` (« Clôturer le départ ») dès que le salarié est `en_depart` et ne détient aucun matériel.
+    - Motifs de non-restitution réservés au rôle informatique (`materiels_non_restitues` omis pour les rôles RH et lecture).
+  - **Interface utilisateur (`/depart/:id` et `/materiel`)** :
+    - Formulaire de constat de non-restitution pour l'informatique avec sélection de matériel, choix du motif, case de confirmation explicite et gestion d'erreur accessible (`role="alert"`).
+    - Dialogue de confirmation pour la clôture du départ sans matériel (RH et informatique).
+    - Affichage de l'encart des matériels non restitués avec motif et date (informatique uniquement).
+    - Filtre par statut dans la liste du matériel complété par `non_restitue` avec verrouillage explicatif lors de la consultation.
+  - **Cinq questions RGPD (nouvelle donnée : constat de non-restitution)** : 1) *Quelle donnée ?* la date du constat et un motif en liste fermée (`perte`, `vol`, `refus_de_restituer`, `salarie_injoignable`, `autre`, sans texte libre), par matériel, sur la ligne d'affectation du salarié. 2) *Pourquoi ?* tracer qu'un matériel n'a pas été récupéré après un départ (suivi des actifs) et le sortir des rappels et renouvellements. 3) *Qui la voit ?* le motif et la liste des matériels non restitués (avec numéro de série) : l'informatique seule ; l'existence d'un constat (nombre, journal daté sans motif) : les trois rôles dans leur portée d'entité ; les RH voient déjà le numéro de série du matériel encore détenu (décision du parcours de départ) ; jamais de matricule ni d'e-mail. 4) *Combien de temps ?* comme l'affectation du salarié ; l'actif, lui, reste dans l'inventaire. 5) *Comment l'effacer ?* par la purge RGPD du salarié, qui supprime ses lignes d'affectation et donc le constat et le motif (vérifié par `C1bis-8a`) ; aucun numéro de série ni nom de salarié dans l'entrée du journal d'audit.
+- Tests : nouvelle suite `tests/depart_exception_check.py` (36 vérifications couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` à 9 tests, 36 au total), actualisation de `tests/parcours_depart_check.py`.
+
+### Modifié
+- **Contrat de `GET /parcours/depart/{user_id}`** : le champ `message_attente` est retiré (il n'avait de sens que tant que la clôture d'un départ n'existait pas) ; le champ `prochaine_action` peut maintenant porter `"vers": null` avec un `action_id` (`cloturer_depart`), pour une action exécutée dans la page. Les champs `materiels_non_restitues` (informatique seule) et `reserves` (« n materiel(s) non restitue(s) ») sont ajoutés.
+- **Rapport mensuel par e-mail** : la ligne « Parc » compte les matériels « non restitués », et le compteur « Renouvellements dans les 12 prochains mois » n'inclut plus les matériels non restitués (les autres statuts sont inchangés).
+- **Messages d'erreur 409 de la remise et de l'échange** : un matériel non restitué est désigné par son identifiant interne (jamais par son numéro de série) ; le constat de non-restitution ne donne aucun identifiant pour un matériel refusé.
+
 ## [0.7.1] - 2026-11-05
 
 Version corrective : les limites de connexion et d'import réglables par `.env` sont enfin transmises à l'API, la documentation est contrôlée et mise à jour, et un modèle de registre des traitements RGPD est fourni. **Aucune migration de base de données** ; **le code de l'application est inchangé** (aucun changement dans les images `api`, `web`, `converter`, `backup` par rapport à la 0.7.0, hors numéro de version).

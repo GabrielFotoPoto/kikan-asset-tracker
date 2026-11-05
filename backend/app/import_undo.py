@@ -114,6 +114,8 @@ def analyser(session: Session, lot: ImportLot) -> dict:
     bloque("affectation(s) deja signee(s) (le PDF scelle existe)",
            sum(1 for a in assignments if count(session, Signature, Signature.assignment_id == a.id)))
     bloque("affectation(s) deja restituee(s)", sum(1 for a in assignments if a.date_restitution is not None))
+    bloque("affectation(s) avec constat de non-restitution",
+           sum(1 for a in assignments if count(session, AssignmentAsset, AssignmentAsset.assignment_id == a.id, AssignmentAsset.non_restitue_le.is_not(None))))
     bloque("affectation(s) qui ont solde un besoin de materiel",
            sum(1 for a in assignments if count(session, Besoin, Besoin.assignment_id == a.id)))
 

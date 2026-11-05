@@ -18,9 +18,9 @@
  */
 
 // Composants visuels partages entre le parcours d'arrivee (/arrivee/:id) et le parcours de depart (/depart/:id).
-import { QUI_LIBELLES, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours } from "../parcours.js";
+import { QUI_LIBELLES, declencherAction, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours } from "../parcours.js";
 
-export { QUI_LIBELLES, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours };
+export { QUI_LIBELLES, declencherAction, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours };
 
 export function PastilleParcours({ etapes, etapeCourante, reserves }) {
   const r = resumeParcours(etapes, etapeCourante, reserves);
@@ -76,7 +76,7 @@ export function EncartProchaineAction({
   role,
   libellesBouton = {},
   onNaviguer,
-  messageAttente = null,
+  onAction,
   texteTermine = "Le parcours est termine.",
   reserves = [],
 }) {
@@ -88,15 +88,16 @@ export function EncartProchaineAction({
         <>
           <span><strong>Prochaine action ({libQui}) :</strong> {action.texte}</span>
           {autorise ? (
-            <button type="button" onClick={() => onNaviguer(action.vers)}>
-              {libellesBouton[action.etape] || "Ouvrir"}
+            <button
+              type="button"
+              onClick={() => declencherAction(action, { onAction, onNaviguer })}
+            >
+              {libellesBouton[action.etape] || (action.action_id === "cloturer_depart" ? "Cloturer le depart" : "Ouvrir")}
             </button>
           ) : (
             <span className="muted">En attente de {libQui}.</span>
           )}
         </>
-      ) : messageAttente ? (
-        <span><strong>En attente :</strong> {messageAttente}</span>
       ) : reserves && reserves.length > 0 ? (
         <span><strong>Parcours termine avec reserve :</strong> {reserves.join(" - ")}.</span>
       ) : (

@@ -119,8 +119,8 @@ def _check_asset(session: Session, data: AssetBase, own_id: int | None) -> None:
 
 @router.post("", response_model=Asset, status_code=201)
 def create_asset(data: AssetBase, session: Session = Depends(get_session)):
-    if data.statut in (AssetStatus.affecte, AssetStatus.rendu):
-        raise HTTPException(409, "Le statut affecte ou rendu s'obtient par la remise ou la restitution")
+    if data.statut in (AssetStatus.affecte, AssetStatus.rendu, AssetStatus.non_restitue):
+        raise HTTPException(409, "Le statut affecte, rendu ou non restitue s'obtient par les parcours dedies")
     _check_asset(session, data, None)
     data.type = canonical_type(session, data.type)
     _canonical_names(session, data)
@@ -151,12 +151,14 @@ def update_asset(
     data.type = canonical_type(session, data.type)
     _canonical_names(session, data)
     new = data.model_dump()
-    # Les statuts affecte et rendu viennent de la remise et de la restitution, pas d'une saisie manuelle.
+    # Les statuts affecte, rendu et non restitue viennent des parcours dedies, pas d'une saisie manuelle.
     if new["statut"] != obj.statut:
         if obj.statut == AssetStatus.affecte:
             raise HTTPException(409, "Cet actif est affecte : il se libere par la restitution du salarie")
-        if new["statut"] in (AssetStatus.affecte, AssetStatus.rendu):
-            raise HTTPException(409, "Le statut affecte ou rendu s'obtient par la remise ou la restitution")
+        if obj.statut == AssetStatus.non_restitue:
+            raise HTTPException(409, "Cet actif est non restitue : son statut ne peut pas etre modifie manuellement")
+        if new["statut"] in (AssetStatus.affecte, AssetStatus.rendu, AssetStatus.non_restitue):
+            raise HTTPException(409, "Le statut affecte, rendu ou non restitue s'obtient par les parcours dedies")
     fields = changed_fields(obj, new)
     for key, value in new.items():
         setattr(obj, key, value)
@@ -193,6 +195,8 @@ def reform_assets_batch(
             refuses.append({"id": asset_id, "raison": "Affecte : il se libere par la restitution du salarie", "identifiant": obj.identifiant_interne})
         elif obj.statut == AssetStatus.reforme:
             refuses.append({"id": asset_id, "raison": "Deja reforme", "identifiant": obj.identifiant_interne})
+        elif obj.statut == AssetStatus.non_restitue:
+            refuses.append({"id": asset_id, "raison": "Non restitue : son statut est fige", "identifiant": obj.identifiant_interne})
         else:
             reformables.append(obj)
     ids_ok = [o.id for o in reformables]

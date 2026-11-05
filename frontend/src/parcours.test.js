@@ -21,7 +21,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fil } from "./nav.js";
-import { formaterQuand, libelleEtatEtape, peutAgir, resumeParcours } from "./parcours.js";
+import {
+  MOTIFS_NON_RESTITUTION,
+  declencherAction,
+  formaterQuand,
+  libelleEtatEtape,
+  libelleMotif,
+  peutAgir,
+  resumeParcours,
+} from "./parcours.js";
 
 const etapesDepartRh = [
   { cle: "depart", titre: "Depart declare", etat: "fait" },
@@ -75,6 +83,34 @@ test("peutAgir : respecte le booleen autorise du serveur ou deduit selon le role
   assert.equal(peutAgir("rh", "rh"), true);
   assert.equal(peutAgir("rh", "informatique"), true);
   assert.equal(peutAgir("rh", "lecture"), false);
+});
+
+test("MOTIFS_NON_RESTITUTION et libelleMotif : liste fermee et correspondance de libelle", () => {
+  assert.equal(MOTIFS_NON_RESTITUTION.length, 5);
+  const codes = MOTIFS_NON_RESTITUTION.map((m) => m.code);
+  assert.deepEqual(codes, ["perte", "vol", "refus_de_restituer", "salarie_injoignable", "autre"]);
+  assert.equal(libelleMotif("perte"), "Perte signalee");
+  assert.equal(libelleMotif("vol"), "Vol declare");
+  assert.equal(libelleMotif("refus_de_restituer"), "Refus de restituer");
+  assert.equal(libelleMotif("autre"), "Autre motif");
+  assert.equal(libelleMotif("inconnu"), "inconnu");
+  assert.equal(libelleMotif(""), "");
+});
+
+test("declencherAction : appelle onAction pour action_id et ignore vers null ou vide sans naviguer", () => {
+  const appels = [];
+  const handlers = {
+    onAction: (id) => appels.push(["action", id]),
+    onNaviguer: (vers) => appels.push(["nav", vers]),
+  };
+  declencherAction({ etape: "sorti", vers: null, action_id: "cloturer_depart" }, handlers);
+  declencherAction({ etape: "restitution", vers: "/signer/restitution/5" }, handlers);
+  declencherAction({ etape: "autre", vers: null }, handlers);
+  declencherAction({ etape: "autre", vers: "" }, handlers);
+  assert.deepEqual(appels, [
+    ["action", "cloturer_depart"],
+    ["nav", "/signer/restitution/5"],
+  ]);
 });
 
 test("formaterQuand : accepte une date ISO sans fuseau ou vide", () => {
