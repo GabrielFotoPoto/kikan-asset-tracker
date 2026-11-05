@@ -261,6 +261,15 @@ def _restant(session: Session, user_id: int, just_returned: list[Asset]) -> list
     return [a for a, _ in _holdings(session, user_id) if a.id not in returned_ids]
 
 
+def _etiquette_actif(session: Session, asset_id: int) -> str:
+    asset = session.get(Asset, asset_id)
+    if asset and asset.identifiant_interne:
+        return asset.identifiant_interne
+    if asset and asset.numero_serie:
+        return asset.numero_serie
+    return "selectionne"
+
+
 def _marquer_actifs_non_restitues(
     session: Session, cibles: list[tuple[Asset, int]], motif: str, now: datetime
 ) -> set[int]:
@@ -306,7 +315,7 @@ def constat_non_restitue(
     held_map = {a.id: (a, aid) for a, aid in _holdings(session, data.user_id)}
     for aid in data.asset_ids:
         if aid not in held_map:
-            raise HTTPException(409, f"Actif {aid} non detenu ou deja restitue/constate")
+            raise HTTPException(409, f"Materiel {_etiquette_actif(session, aid)} non detenu ou deja restitue/constate")
 
     ids_sorted = sorted(set(data.asset_ids))
     locked = {

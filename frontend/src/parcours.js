@@ -38,7 +38,7 @@ export const MOTIFS_NON_RESTITUTION = [
   { code: "vol", label: "Vol declare" },
   { code: "refus_de_restituer", label: "Refus de restituer" },
   { code: "salarie_injoignable", label: "Salarie injoignable" },
-  { code: "autre", label: "Autre motif legitime" },
+  { code: "autre", label: "Autre motif" },
 ];
 
 export function libelleMotif(code) {

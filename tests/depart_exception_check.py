@@ -165,7 +165,7 @@ s, u_actif = j("POST", "/users", {"matricule": "ZZEX-UA", "nom": "ZZEXUA", "pren
 # Actifs de test
 s, a1 = j("POST", "/assets", {"type": "PC", "marque": "ZZEX", "modele": "M1", "numero_serie": "ZZEX-SN-1", "entite_id": EA})
 s, a2 = j("POST", "/assets", {"type": "Ecran", "marque": "ZZEX", "modele": "M2", "numero_serie": "ZZEX-SN-2", "entite_id": EA})
-s, a3 = j("POST", "/assets", {"type": "PC", "marque": "ZZEX", "modele": "M3", "numero_serie": "ZZEX-SN-3", "entite_id": EB})
+s, a3 = j("POST", "/assets", {"type": "PC", "marque": "ZZEX", "modele": "M3", "numero_serie": "ZZEX-SN-3", "identifiant_interne": "ZZEX-INV-3", "entite_id": EB})
 
 # Affectations
 j("POST", "/assignments", {"user_id": u1["id"], "asset_ids": [a1["id"], a2["id"]], "sans_charte": True})
@@ -204,8 +204,12 @@ s_const_inex, _ = j("POST", "/lifecycle/non-restitue", {"user_id": 99999, "asset
 show("C1bis-3a - salarie hors portee renvoie 404 identique a inexistant", s_clot_scope == 404 and s_clot_inex == 404 and s_const_inex == 404, (s_clot_scope, s_clot_inex, s_const_inex))
 
 # Constat sur u1 mais avec a3 (actif affecte a u2)
-s_autre_actif, _ = j("POST", "/lifecycle/non-restitue", {"user_id": u1["id"], "asset_ids": [a3["id"]], "motif": "perte"}, token=IT_A)
-show("C1bis-3b - actif d'un autre salarie refuse (409)", s_autre_actif == 409, s_autre_actif)
+s_autre_actif, r_autre_actif = j("POST", "/lifecycle/non-restitue", {"user_id": u1["id"], "asset_ids": [a3["id"]], "motif": "perte"}, token=IT_A)
+show(
+    "C1bis-3b - actif d'un autre salarie refuse (409) avec identifiant_interne et sans id de base",
+    s_autre_actif == 409 and "ZZEX-INV-3" in str(r_autre_actif.get("detail", "")) and f"Actif {a3['id']}" not in str(r_autre_actif.get("detail", "")),
+    r_autre_actif,
+)
 
 # Constat sur u_actif (salarie actif, pas en_depart)
 s, a_actif = j("POST", "/assets", {"type": "PC", "marque": "ZZEX", "numero_serie": "ZZEX-SN-ACT", "entite_id": EA})

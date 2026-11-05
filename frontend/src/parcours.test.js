@@ -92,6 +92,7 @@ test("MOTIFS_NON_RESTITUTION et libelleMotif : liste fermee et correspondance de
   assert.equal(libelleMotif("perte"), "Perte signalee");
   assert.equal(libelleMotif("vol"), "Vol declare");
   assert.equal(libelleMotif("refus_de_restituer"), "Refus de restituer");
+  assert.equal(libelleMotif("autre"), "Autre motif");
   assert.equal(libelleMotif("inconnu"), "inconnu");
   assert.equal(libelleMotif(""), "");
 });
