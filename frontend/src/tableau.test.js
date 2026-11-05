@@ -20,7 +20,7 @@
 // Tests du tri et de la pagination : node --test frontend/src/tableau.test.js (aucune dependance).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fold, paginer, pagesAffichees, pagination, tailleMemorisee, tailleParDefaut, trier } from "./tableau.js";
+import { basculerId, cocherListe, fold, paginer, pagesAffichees, pagination, tailleMemorisee, tailleParDefaut, touteCochee, trier } from "./tableau.js";
 
 const lot = [
   { id: 1, marque: "Lenovo", modele: "PC-10", numero_serie: null },
@@ -128,4 +128,27 @@ test("pagination() et paginer() donnent les memes reperes", () => {
     assert.deepEqual(repere, pagination(105, page, 20));
     assert.equal(tranche.length, repere.a - (repere.de ? repere.de - 1 : 0));
   }
+});
+
+test("selection multiple : basculer un identifiant sans modifier l'ensemble d'origine", () => {
+  const s0 = new Set([1, 2]);
+  const s1 = basculerId(s0, 3);
+  assert.deepEqual([...s0], [1, 2]);
+  assert.deepEqual([...s1], [1, 2, 3]);
+  const s2 = basculerId(s1, 2);
+  assert.deepEqual([...s2], [1, 3]);
+});
+
+test("selection multiple : cocher ou decocher seulement les elements affiches (survit au changement de page)", () => {
+  const page1 = [{ id: 1 }, { id: 2 }];
+  const page2 = [{ id: 3 }, { id: 4 }];
+  let sel = cocherListe(new Set(), page1, true);
+  assert.equal(touteCochee(sel, page1), true);
+  assert.equal(touteCochee(sel, page2), false);
+  sel = basculerId(sel, 3);
+  assert.deepEqual([...sel], [1, 2, 3]);
+  // Decocher la page 1 conserve l'element coche sur la page 2.
+  sel = cocherListe(sel, page1, false);
+  assert.deepEqual([...sel], [3]);
+  assert.equal(touteCochee(sel, []), false);
 });

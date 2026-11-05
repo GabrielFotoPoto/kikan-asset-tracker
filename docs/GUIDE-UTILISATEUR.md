@@ -73,6 +73,8 @@ Page **Utilisateurs**, formulaire **Ajouter (formulaire d'entrée)** :
 
 L'**acronyme** à trois lettres (proposé à partir du prénom et du nom, modifiable) sert à nommer les PDF du salarié.
 
+Pour le rôle **informatique**, la liste permet aussi la **sélection multiple** (une case par ligne et *Cocher les N affichés*, jusqu'à 500) : *Supprimer la sélection* affiche un récapitulatif avant d'effacer les fiches sans historique (une fiche ayant une affectation, un accès applicatif ou un besoin est refusée et se conserve via le statut « sorti » puis la purge RGPD).
+
 ### 5.2 Suivre les besoins de matériel (informatique)
 
 Page **Besoins** (informatique ; lecture seule pour le rôle lecture ; **pas d'accès pour les RH**) : un besoin passe par **demande**, **en préparation**, **satisfait** (ou **annulé**). La **gamme** souhaitée figure sous le matériel.
