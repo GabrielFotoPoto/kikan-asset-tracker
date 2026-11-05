@@ -49,6 +49,7 @@ export default function DepartParcours() {
   const [errConstat, setErrConstat] = useState(null);
   const constatRef = useRef(null);
   const btnConstatRef = useRef(null);
+  const origineConstatRef = useRef(null);
 
   // Etat de la cloture sans materiel (RH ou informatique)
   const [clotureOpen, setClotureOpen] = useState(false);
@@ -66,12 +67,24 @@ export default function DepartParcours() {
   useEffect(() => {
     if (constatOpen && constatRef.current) {
       constatRef.current.focus();
+    } else if (!constatOpen && origineConstatRef.current) {
+      const cible = btnConstatRef.current || origineConstatRef.current;
+      origineConstatRef.current = null;
+      if (cible && typeof cible.focus === "function") {
+        cible.focus();
+      }
     }
   }, [constatOpen]);
 
   useEffect(() => {
     if (clotureOpen && clotureRef.current) {
       clotureRef.current.focus();
+    } else if (!clotureOpen && origineClotureRef.current) {
+      const cible = origineClotureRef.current;
+      origineClotureRef.current = null;
+      if (typeof cible.focus === "function") {
+        cible.focus();
+      }
     }
   }, [clotureOpen]);
 
@@ -85,7 +98,8 @@ export default function DepartParcours() {
   const peutConstater = user.role === "informatique" && estEnDepart && mats.length > 0;
 
   const ouvrirConstat = () => {
-    setSelAssets(new Set(mats.map((a) => a.id)));
+    origineConstatRef.current = document.activeElement;
+    setSelAssets(new Set());
     setMotif("perte");
     setConfirmeConstat(false);
     setErrConstat(null);
@@ -94,7 +108,6 @@ export default function DepartParcours() {
 
   const fermerConstat = () => {
     setConstatOpen(false);
-    if (btnConstatRef.current) btnConstatRef.current.focus();
   };
 
   const ouvrirCloture = () => {
@@ -105,9 +118,6 @@ export default function DepartParcours() {
 
   const fermerCloture = () => {
     setClotureOpen(false);
-    if (origineClotureRef.current && typeof origineClotureRef.current.focus === "function") {
-      origineClotureRef.current.focus();
-    }
   };
 
   const toggleAsset = (aid) => {
@@ -245,8 +255,10 @@ export default function DepartParcours() {
 
             <div className="warn constat-bloc">
               <p className="m0">
-                <strong>Recapitulatif :</strong> {selAssets.size} materiel(s) constate(s) non restitue(s).
-                {selAssets.size === mats.length
+                <strong>Recapitulatif :</strong> {selAssets.size} materiel(s) selectionne(s).
+                {selAssets.size === 0
+                  ? " Cochez au moins un materiel a constater non restitue."
+                  : selAssets.size === mats.length
                   ? " Tous les materiels etant traites, le salarie passera automatiquement au statut Sorti avec reserve."
                   : " Il restera du materiel affecte a ce salarie."}
               </p>

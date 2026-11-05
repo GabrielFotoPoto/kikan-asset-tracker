@@ -247,7 +247,7 @@ def build_report(session: Session, cfg: MailConfig, now: datetime) -> tuple[str,
     holders = session.exec(select(User).where(User.id.in_(list(held)))).all() if held else []
     non_restitues = sum(len(held[u.id]) for u in holders if overdue(u, now.date()))
     horizon = now.date() + timedelta(days=365)
-    renouv = len([a for a in assets if a.statut in (AssetStatus.stock, AssetStatus.affecte)
+    renouv = len([a for a in assets if a.statut != AssetStatus.non_restitue
                   and a.echeance_renouvellement and now.date() <= a.echeance_renouvellement <= horizon])
     mois = "%02d/%d" % (now.month, now.year)
     body = ("Bonjour,\n\nRapport mensuel Kikan (%s) :\n\n"
