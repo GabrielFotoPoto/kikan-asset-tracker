@@ -247,15 +247,16 @@ def build_report(session: Session, cfg: MailConfig, now: datetime) -> tuple[str,
     holders = session.exec(select(User).where(User.id.in_(list(held)))).all() if held else []
     non_restitues = sum(len(held[u.id]) for u in holders if overdue(u, now.date()))
     horizon = now.date() + timedelta(days=365)
-    renouv = len([a for a in assets if a.echeance_renouvellement and now.date() <= a.echeance_renouvellement <= horizon])
+    renouv = len([a for a in assets if a.statut in (AssetStatus.stock, AssetStatus.affecte)
+                  and a.echeance_renouvellement and now.date() <= a.echeance_renouvellement <= horizon])
     mois = "%02d/%d" % (now.month, now.year)
     body = ("Bonjour,\n\nRapport mensuel Kikan (%s) :\n\n"
-            "- Parc : %d materiel(s) (en stock : %d, affectes : %d, rendus : %d, reformes : %d)\n"
+            "- Parc : %d materiel(s) (en stock : %d, affectes : %d, rendus : %d, non restitues : %d, reformes : %d)\n"
             "- Remises ce mois : %d\n- Restitutions ce mois : %d\n"
             "- Materiel non restitue apres la date de sortie : %d\n"
             "- Renouvellements dans les 12 prochains mois : %d\n") % (
         mois, len(assets), by_status.get("stock", 0), by_status.get("affecte", 0), by_status.get("rendu", 0),
-        by_status.get("reforme", 0), remises, restitutions, non_restitues, renouv)
+        by_status.get("non_restitue", 0), by_status.get("reforme", 0), remises, restitutions, non_restitues, renouv)
     link = mailer.public_url()
     if link:
         body += "\nRapports detailles et exports : %s/rapports\n" % link
