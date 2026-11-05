@@ -35,7 +35,8 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, "/app")
@@ -477,7 +478,7 @@ nb = j("GET", "/assets/%d" % r["resultats"][0]["id"])[1] if r["resultats"][0].ge
 show("l'entite choisie a l'import l'emporte sur l'entite par defaut", nb.get("entite_id") == EB, r["resultats"])
 
 print("== Correspondance du champ identifiant interne ==")
-annee = date.today().year
+annee = datetime.now(ZoneInfo("Europe/Paris")).year
 pc_inv_a = G.item("Computer", "ZZ-PC-INV-A", "ZZGLSNINVA", 0, otherserial="ZZGL-INV-DUP")
 pc_inv_b = G.item("Computer", "ZZ-PC-INV-B", "ZZGLSNINVB", 0, otherserial="zzgl-inv-dup")
 s, r = j("POST", "/glpi/import/appliquer", {"actifs": [{"externe_id": "Computer:%d" % pc_inv_a}, {"externe_id": "Computer:%d" % pc_inv_b}], "salaries": []})

@@ -33,12 +33,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import datetime
 
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from . import appsettings, integration, netguard
+from . import appsettings, docname, integration, netguard
 from .auth import IS_PROD
 from .integration import clean
 from .models import Asset, AssetStatus, Assignment, AssignmentAsset, EmployeeStatus, ExternalLink, User
@@ -343,7 +343,7 @@ def import_proposals(session: Session, cfg: GlpiConfig, snap: Snapshot) -> dict:
         else:
             state = "nouveau"
         kikan_type = type_for(cfg, it["itemtype"])
-        interne = interne_libre(session, it["nom"]) if cfg.champs["identifiant_interne"] == "name" and not found else None
+        interne = interne_libre(session, it["nom"]) if cfg.champs["identifiant_interne"] == "name" and not found and not link else None
         assets.append({**it, "id_interne_propose": interne, "etat_import": state, "type_kikan": kikan_type, "kikan_id": (found.id if found else (link.kikan_id if link else None)),
                        "entite_glpi": snap.entites.get(int(it["entite_id"] or 0)), "importable": state != "deja_lie" and kikan_type is not None})
     for ext, u in sorted(snap.users.items(), key=lambda kv: (kv[1]["nom"] or kv[1]["login"] or "")):
@@ -372,7 +372,7 @@ def interne_libre(session: Session, nom: str | None) -> str | None:
     """Identifiant interne a partir du nom GLPI : le nom seul s'il est libre, sinon nom-ANNEE, puis nom-ANNEE-2, -3... (unicite sans tenir compte de la casse)."""
     if not nom:
         return nom
-    annee = date.today().year
+    annee = datetime.now(docname.fuseau()).year
     candidats = (nom, f"{nom}-{annee}", *(f"{nom}-{annee}-{n}" for n in range(2, 1000)))
     for c in candidats:
         if len(c) <= 100 and not session.exec(select(Asset).where(func.lower(Asset.identifiant_interne) == c.lower())).first():
