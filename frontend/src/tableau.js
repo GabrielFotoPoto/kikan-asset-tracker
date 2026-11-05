@@ -96,3 +96,21 @@ export function pagesAffichees(page, pages) {
   });
   return out;
 }
+
+// Selection multiple d'identifiants (Set immuable) : bascule un element, coche/decoche une liste, teste si une liste est toute cochee.
+export function basculerId(sel, id) {
+  const n = new Set(sel);
+  if (n.has(id)) n.delete(id);
+  else n.add(id);
+  return n;
+}
+
+export function cocherListe(sel, liste, valeur) {
+  const n = new Set(sel);
+  liste.forEach((x) => (valeur ? n.add(x.id) : n.delete(x.id)));
+  return n;
+}
+
+export function touteCochee(sel, liste) {
+  return liste.length > 0 && liste.every((x) => sel.has(x.id));
+}

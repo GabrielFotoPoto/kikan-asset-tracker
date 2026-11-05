@@ -24,6 +24,7 @@ from sqlmodel import Session, func, select
 from ..auth import get_current_account, writer_guard
 from ..asset_catalog import AssetCatalog
 from ..audit import audit
+from .. import integration
 from ..catalogs import canonical_type
 from ..db import get_session
 from ..models import Account, Asset, AssetBase, AssetStatus, AssetType, AssignmentAsset, EcheanceReport, Entite
@@ -249,6 +250,7 @@ def delete_assets_batch(
         for obj in supprimables:
             for report in session.exec(select(EcheanceReport).where(EcheanceReport.asset_id == obj.id)).all():
                 session.delete(report)
+            integration.retirer_liens(session, "asset", obj.id)
             session.flush()
             session.delete(obj)
         session.commit()
@@ -274,6 +276,7 @@ def delete_asset(asset_id: int, session: Session = Depends(get_session)):
     )
     for report in session.exec(select(EcheanceReport).where(EcheanceReport.asset_id == obj.id)).all():
         session.delete(report)   # l'historique des reports d'echeance d'un actif jamais remis part avec lui
+    integration.retirer_liens(session, "asset", obj.id)
     session.flush()
     session.delete(obj)
     session.commit()

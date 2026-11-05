@@ -50,6 +50,10 @@ de passe saisi dans le mauvais champ) : il garde `inconnu:` suivi d'une empreint
 répétées sans donnée personnelle. La purge d'un salarié supprime aussi sa ligne de correspondance avec un système externe (GLPI par exemple).
 Les entrées de journal enregistrées avant cette protection ne sont pas réécrites.
 
+## Registre des traitements
+
+Un **modèle de registre des activités de traitement** (article 30 du RGPD), prérempli avec ce que fait Kikan (finalités, données, destinataires, durées, mesures de sécurité), est fourni dans [modeles/registre-traitements-rgpd.md](modeles/registre-traitements-rgpd.md). À compléter par votre organisation et à faire valider par son DPO.
+
 ## Limites à connaître
 
 - **Les sauvegardes** (30 jours, puis une par mois pendant un an) contiennent encore les données purgées jusqu'à leur expiration. À mentionner dans

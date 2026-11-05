@@ -66,6 +66,14 @@ def link_of(session: Session, systeme: str, objet: str, kikan_id: int) -> Extern
                                                    ExternalLink.kikan_id == kikan_id)).first()
 
 
+def retirer_liens(session: Session, objet: str, kikan_id: int) -> None:
+    """Supprime les liens avec un systeme externe (GLPI...) d'un materiel ("asset") ou d'un salarie ("user") en cours de suppression.
+
+    Sans cela le lien survit, pointe vers une fiche disparue et l'element reste « deja lie » : impossible a reimporter."""
+    for lien in session.exec(select(ExternalLink).where(ExternalLink.objet == objet, ExternalLink.kikan_id == kikan_id)).all():
+        session.delete(lien)
+
+
 def resolve_entite(session: Session, scope: Scope, item: dict) -> tuple[int | None, str | None]:
     """(id d'entite, motif de refus). Un jeton limite a des entites doit toujours en preciser une."""
     entite = None
@@ -136,7 +144,7 @@ def upsert_asset(session: Session, systeme: str, scope: Scope, item: dict, *, al
         if serial and session.exec(select(Asset).where(func.lower(Asset.numero_serie) == serial.lower(), Asset.id != asset.id)).first():
             return _result(ext, "refuse", asset.id, "Numero de serie deja utilise par un autre materiel")
         interne = changes.get("identifiant_interne")
-        if interne and session.exec(select(Asset).where(Asset.identifiant_interne == interne, Asset.id != asset.id)).first():
+        if interne and session.exec(select(Asset).where(func.lower(Asset.identifiant_interne) == interne.lower(), Asset.id != asset.id)).first():
             return _result(ext, "refuse", asset.id, "Identifiant interne deja utilise par un autre materiel")
         if not changes:
             return _result(ext, "inchange", asset.id)
@@ -161,7 +169,7 @@ def upsert_asset(session: Session, systeme: str, scope: Scope, item: dict, *, al
         session.flush()
         return _result(ext, "lie", found.id, "Materiel existant (meme numero de serie) : lie sans modification")
     interne = values["identifiant_interne"]
-    if interne and session.exec(select(Asset).where(Asset.identifiant_interne == interne)).first():
+    if interne and session.exec(select(Asset).where(func.lower(Asset.identifiant_interne) == interne.lower())).first():
         return _result(ext, "refuse", message="Identifiant interne deja utilise")
 
     asset = Asset(**values, statut=AssetStatus.stock, source=systeme, id_externe=ext, entite_id=entite_id)

@@ -132,7 +132,7 @@ Ce qui fait la valeur de preuve :
 | horodatage | datetime | heure de l'autorité de temps si dispo |
 | empreinte_doc | texte | SHA-256 du PDF signé |
 | audit_json | json | IP, agent, étapes, consentement |
-| ged_reference | texte | référence du PDF scellé : `<emplacement>:AAAA/fichier.pdf` (`local`, `smb` ou `webdav`) |
+| ged_reference | texte | référence du PDF scellé : `<emplacement>:AAAA/fichier.pdf` (`local`, `smb`, `webdav`, `sharepoint` ou `docuware`) |
 
 ### 4.5 `entites` (filiales / entités)
 | champ | type | note |
@@ -222,10 +222,10 @@ sur la tablette.
 - **Connexion via Microsoft 365 (Entra ID)** en OpenID Connect / OAuth2 (flux Authorization
   Code + PKCE), avec la MFA du tenant. L'application est declaree comme app registration dans
   Entra ID (tenant id, client id, redirect URI, secret).
-- **Acces reserve a deux groupes Entra** : seuls les membres de **Kikan-IT** (equipe admin
-  informatique) et **Kikan-RH** (equipe RH) peuvent se connecter via Microsoft 365. Toute
-  personne du tenant hors de ces deux groupes est **refusee** (aucun compte cree).
-- **Correspondance des roles** : Kikan-IT -> role **informatique** ; Kikan-RH -> role **rh**.
+- **Acces reserve a deux roles d'application Entra** : seuls les membres des groupes auxquels sont
+  attribues les roles **Kikan.IT** (equipe admin informatique) et **Kikan.RH** (equipe RH) peuvent se
+  connecter via Microsoft 365. Toute personne du tenant sans l'un de ces roles est **refusee** (aucun compte cree).
+- **Correspondance des roles** : Kikan.IT -> role **informatique** ; Kikan.RH -> role **rh**.
   (Le role **lecture seule** reste optionnel, via compte local, hors SSO.)
 - A la premiere connexion d'un membre autorise, le compte nominatif est cree/mis a jour a
   partir des claims (nom, email / UPN, identifiant oid).
@@ -450,7 +450,7 @@ passer `sorti`, et un salarié sans matériel non plus.
   avec réserve ». Il reprend l'accessibilité d'`Arrivant.jsx` (`aria-label`, `aria-current="step"`, puce ✓ en plus de la couleur). L'état de chaque étape est aussi annoncé aux lecteurs d'écran par un texte masqué (« fait », « en cours », « a venir », « sans objet »), via une fonction pure testée. Il reste
   **présentationnel** (il reçoit des étapes et une action, il n'écrit pas) pour pouvoir servir aux lots suivants.
 - `Arrivant.jsx` est refactoré pour l'utiliser **sans aucun changement de comportement**.
-- Page `/depart/:id`, fil d'Ariane « Cycle de vie > Sorties > Parcours de départ » (à ajouter dans `nav.js`) ; lien « Suivre le
+- Page `/depart/:id`, fil d'Ariane « Cycle de vie > Sorties > Parcours de départ » (présent dans `nav.js`) ; lien « Suivre le
   parcours » par salarié dans « Départs en cours ».
 - Une action principale par écran, grandes zones tactiles pour la signature. CSP stricte (pas de script inline). États de chargement,
   d'erreur avec relance, de parcours terminé, de parcours terminé avec réserve.
@@ -648,15 +648,15 @@ brique open source est **pyHanko** (Python) ; la garder native évite un composa
 
 - **React** - interface (front) ; adaptée au paramétrage riche et à l'autocomplétion.
 - **FastAPI** (Python) - API REST.
-- **PostgreSQL** - base de données (cohérent avec l'environnement Docker existant : LiteLLM, n8n).
+- **PostgreSQL** - base de données (cohérent avec un déploiement Docker).
 - **SQLModel / SQLAlchemy** - ORM ; **Alembic** - migrations appliquées automatiquement au démarrage (reprise d'une base préexistante par marquage de la révision initiale).
 - **pyHanko** - signature/scellement PAdES, horodatage RFC 3161.
-- **WeasyPrint** (HTML→PDF) ou **ReportLab** - génération des PDF.
+- **ReportLab** - génération des PDF.
 
 ### 11.1 Déploiement (Docker)
 
 L'application doit être **entièrement conteneurisée**, déployable via `docker compose`,
-sur le modèle de LiteLLM et n8n déjà en place.
+sur le modèle d'un déploiement Docker classique.
 
 Services :
 - **`web`** - le front React (build statique servi par Nginx), ou servi par l'API en v0.1.
@@ -674,7 +674,7 @@ Points d'attention :
 - **Base** PostgreSQL sur **volume nommé** persistant, avec sauvegardes.
 - **Secret de signature** : la **clé privée du certificat** n'est **jamais** dans l'image ni
   dans le dépôt ; elle est montée en *secret*/volume au démarrage, et lue via variable d'env.
-- **`.env`** pour les secrets (mot de passe Postgres, clé maître, accès au partage), comme pour LiteLLM.
+- **`.env`** pour les secrets (mot de passe Postgres, clé maître, accès au partage).
 - `restart: unless-stopped` + *healthchecks* ; l'`api` attend que `db` soit saine.
 - **Exposition réseau** : accessible sur le **réseau local** (la **tablette de signature** s'y
   connecte au moment de la remise) ; pas d'exposition Internet.
@@ -699,7 +699,7 @@ Le détail des mesures, des risques acceptés et de la liste de contrôle de pro
 - Entrées neutralisées : requêtes paramétrées, échappement dans les PDF, protection des exports CSV
   contre l'injection de formules, imports plafonnés.
 - Conteneurs durcis (non-root, lecture seule, capacités retirées), base non exposée.
-- Archive des PDF scellés en stockage immuable ; empreinte en base pour détection d'altération.
+- Empreinte SHA-256 des PDF scellés en base, recontrôlée à chaque lecture (détection d'altération). Un stockage immuable reste une piste, non réalisée.
 - Sauvegardes de la base et des archives.
 - Clé privée du certificat de scellement hors base et hors image, droits restreints.
 - Dépendances figées et auditées ; tests de sécurité et de non-régression rejoués à chaque mise à jour.
@@ -723,7 +723,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | A2 | **Gestion des chartes d'usage** : dépôt d'un fichier (Word, PDF ou Markdown) par l'informatique, globale ou propre à une entité (héritage entité, parent, globale), versions archivées, jointe d'office à la remise et annexée au PDF signé. **Fait (2026-10-28)** | Écart |
 | A3 | **Page d'import CSV** dans l'interface (aperçu, rapport d'erreurs, modèles téléchargeables). **Fait (2026-10-28)** : simulation puis import réel du même fichier (empreinte), tout ou rien, rapport par ligne, erreurs exportables, modèles générés, ré-import sans doublon, audit | Écart |
 | A3b | **Annulation d'un import** : chaque import réel est un lot (lignes créées) ; bouton *Annuler cet import*, tout ou rien, refusé si un élément est déjà utilisé (salarié avec matériel, accès ou besoin, actif remis, entité utilisée, remise signée ou restituée, lien GLPI) ; les actifs remis par un import d'affectations reprennent leur statut. **Fait (2026-11-04)** | Confort |
-| A4 | **Modification et suppression dans l'interface** (entités, salariés, matériel, applications). **Fait (2026-10-28)** : suppression refusée avec message précis si l'élément a une histoire (désactiver ou archiver à la place), statuts cohérents avec la remise et la restitution, hiérarchie d'entités protégée, doublons refusés, champs modifiés journalisés ; catalogue des applications géré dans l'interface | Écart |
+| A4 | **Modification et suppression dans l'interface** (entités, salariés, matériel, applications). **Fait (2026-10-28 ; en lot pour le matériel en 0.5.x, pour les salariés en 0.7.0 par `POST /users/suppression-lot`)** : suppression unitaire et en lot (matériel et salariés, avec aperçu préalable), refusée avec message précis si l'élément a une histoire (désactiver ou archiver à la place), statuts cohérents avec la remise et la restitution, hiérarchie d'entités protégée, doublons refusés, champs modifiés journalisés ; catalogue des applications géré dans l'interface | Écart |
 | A5 | **Interface de paramétrage** : types d'actifs, services, fusion des marques et modèles, modèle de PDF (logo, mentions). **Fait (2026-10-28)** : listes souples, fusion avec aperçu, modèle de PDF figé et empreinte dans chaque document signé, état du scellement en lecture seule | Écart |
 | A6 | **Gestion des comptes dans l'interface** (créer, désactiver, réinitialiser). **Fait (2026-10-28)** : comptes nominatifs (nom, e-mail), mot de passe provisoire affiché une seule fois et changement imposé, sessions révoquées au changement de mot de passe, de rôle ou à la désactivation, identifiant contrôlé et unique sans tenir compte de la casse, dernière connexion | Écart |
 | A7 | **Option d'inclure les accès applicatifs** dans le document de remise. **Fait (2026-10-28)** : réglage global (désactivé par défaut), instantané figé des accès accordés sur applications actives, empreinte contrôlée entre l'écran et la signature, preuve enregistrée | Écart |
@@ -733,11 +733,11 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 
 | # | Fonctionnalité | Origine |
 |---|---|---|
-| B1 | **SSO Microsoft 365 (Entra ID)** : groupes `Kikan-IT` et `Kikan-RH`, comptes nominatifs, MFA du tenant, comptes locaux en secours (§5ter). **Fait (2026-10-28)** : option activable, rôles d'application Entra attribués aux groupes, jeton vérifié de bout en bout, création et resynchronisation du rôle à chaque connexion, liaison explicite des comptes locaux, mode de secours, durée de session réglable (E4) ; testé contre un faux fournisseur d'identité, **à valider sur le tenant réel** (docs/SSO.md) | SPEC |
+| B1 | **SSO Microsoft 365 (Entra ID)** : rôles d'application `Kikan.IT` et `Kikan.RH` (attribués à des groupes), comptes nominatifs, MFA du tenant, comptes locaux en secours (§5ter). **Fait (2026-10-28)** : option activable, rôles d'application Entra attribués aux groupes, jeton vérifié de bout en bout, création et resynchronisation du rôle à chaque connexion, liaison explicite des comptes locaux, mode de secours, durée de session réglable (E4) ; testé contre un faux fournisseur d'identité, **à valider sur le tenant réel** (docs/SSO.md) | SPEC |
 | B2 | **Comptes cloisonnés par entité** (global ou limité à une ou plusieurs filiales). **Fait (2026-10-28)** : les comptes RH et lecture sont globaux ou limités à des entités (sous-entités incluses), les comptes informatique sont toujours globaux (administrateurs) ; filtrage serveur sur toutes les lectures et écritures (404 hors périmètre), nouveaux comptes RH et lecture sans périmètre tant qu'il n'est pas défini, pages d'administration réservées à l'informatique, test d'inventaire des routes | SPEC |
 | B3 | **Rappels par e-mail** : renouvellements, départs à venir, matériel non restitué. **Fait (2026-10-29)** : serveur SMTP externe configurable (relais interne sans authentification possible, STARTTLS, SSL), un récapitulatif par destinataire et par jour, relances espacées sans doublon, destinataires cloisonnés par périmètre (B2), adresse de liste, planificateur interne avec verrou, message de test, aperçu et envoi immédiat, profil Mailpit de test | SPEC |
 | B4 | **Rapport mensuel automatique** : généré, archivé dans le stockage et envoyé par e-mail. **Fait (2026-10-29)** : rapport envoyé chaque mois à l'informatique et à la liste (lien vers Kikan, pièce jointe Excel ou PDF facultative) ; l'**archivage dans le stockage** n'est pas fait (décision du 2026-11-01 : seuls les PDF scellés vont dans SharePoint et DocuWare) | SPEC |
-| B5 | **Connecteur GLPI** (synchronisation du matériel et des salariés, champs `source` et `id_externe`). **Fait (2026-10-31)** : API d'import par jetons (`/api/v1`, hachés, expirables, droits et périmètre limités, simulation, lots, idempotente) et connecteur GLPI à la demande, ordinateurs et téléphones avec numéros de série, import sur sélection et export des salariés et de leur matériel vers GLPI, sans suppression ni écrasement, testé contre GLPI 10.0.28, 11.0.12 et 12.0.1 ; la création de tickets reste à faire | SPEC |
+| B5 | **Connecteur GLPI** (synchronisation du matériel et des salariés, champs `source` et `id_externe`). **Fait (2026-10-31 ; correspondance de champs ajoutée en 0.7.0, 2026-11-05)** : API d'import par jetons (`/api/v1`, hachés, expirables, droits et périmètre limités, simulation, lots, idempotente) et connecteur GLPI à la demande, ordinateurs et téléphones avec numéros de série, correspondance du champ GLPI vers l'identifiant interne (`name` par défaut avec suffixe `-ANNÉE` en cas de doublon, `otherserial` ou `serial`), import sur sélection et export des salariés et de leur matériel vers GLPI, sans suppression ni écrasement, testé contre GLPI 10.0.28, 11.0.12 et 12.0.1 ; la création de tickets reste à faire | SPEC |
 | B6 | **Dépôt via l'API SharePoint Online et DocuWare** (SMB et WebDAV existent déjà). **Fait (2026-11-01)** : deux moteurs de stockage de plus (un seul actif à la fois), uniquement pour les PDF scellés (les chartes restent en local) : SharePoint par Microsoft Graph (`Sites.Selected`, fichiers de plus de 4 Mio par blocs) et DocuWare par l'API REST (compte de service, champs d'index à associer, aucune donnée nominative sans association explicite) ; même tampon local, vérification d'empreinte et reprise que SMB et WebDAV ; outil de copie vers le moteur actif sans suppression ; testés contre de faux services, **à valider sur un vrai tenant** (docs/SHAREPOINT.md, docs/DOCUWARE.md) | SPEC |
 | B7 | **Besoins matériels exprimés par les RH** à l'arrivée (souhait : catégorie et gamme), repris par l'informatique. **Fait (2026-10-30), revu (2026-10-30)** : les RH n'ont plus accès à la page Besoins (création seule, au formulaire d'entrée) ; **gamme** par catégorie (liste définie par l'informatique, migration 0018) ; page Besoins réservée à l'informatique (lecture pour le rôle lecture) ; quatre statuts (demande, en préparation, satisfait, annulé), type pris dans la liste du Paramétrage, périmètre des RH respecté, proposition automatique des besoins ouverts à la création d'une remise et solde avec elle, compteur du tableau de bord, rappel e-mail des arrivées proches non traitées, purge RGPD | SPEC |
 | B8 | **Import et export Excel (.xlsx)** en plus du CSV. **Fait (2026-10-28)** : import avec le même parcours que le CSV (première feuille visible, lignes vides ignorées, formules jamais évaluées), modèles Excel, export du rapport de détention, protections contre archives et XML piégés, macros et liens externes | Prop. |
@@ -772,7 +772,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 | E1 | **MFA locale (TOTP)** pour les comptes de secours | Prop. |
 | E2 | **Certificat de scellement reconnu**, clé dans un coffre, horodatage RFC 3161 activé par défaut | SPEC |
 | E3 | **Journal d'audit infalsifiable** (chaîné) et export vers un SIEM ou syslog | Prop. |
-| E4 | **Révocation des sessions** et durée de session paramétrable | Prop. |
+| E4 | **Révocation des sessions** et durée de session paramétrable. **Fait (0.6.0)** : jetons révoqués (`revoked_tokens`, migration 0022), déconnexion effective, durée de session réglable | Prop. |
 | E5 | **GitHub Actions** (tests, audit des dépendances), **Dependabot**, versions publiées et image Docker prête à l'emploi. **Fait (2026-10-29)** : CI à chaque envoi et demande de fusion (hygiène du dépôt, audit pip et npm, compilation du front, toutes les suites sur la pile complète, sauvegarde de bout en bout, construction des images et analyse Trivy), Dependabot hebdomadaire (pip, npm, Docker, compose, Actions), publication à l'étiquette `vX.Y.Z` de quatre images sur GHCR et de la version GitHub, `docker-compose.ghcr.yml`, `tests/run_all.sh`, CHANGELOG ; **première exécution réelle de la CI à constater après l'envoi** | Prop. |
 | E6 | **Tests unitaires** (pytest) et tests automatisés de l'interface | Prop. |
 | E7 | **Sauvegarde et restauration** documentées et testées. **Fait (2026-10-29)** : sauvegarde chiffrée (`age`, clé publique) de la base, des PDF scellés locaux, des clés, du certificat HTTPS et du `.env` vers un partage SMB ou un dossier, planifiée chaque nuit, rétention 30 jours plus la première de chaque mois pendant 12 mois, restauration guidée avec contrôle des empreintes, page et alerte dans l'application, test de bout en bout (restauration dans une instance vierge) | Prop. |
@@ -794,7 +794,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 - Signature : **simple + scellement PAdES-B-T**, **certificat auto-signé** de l'organisation (§3).
 - **Signature sur tablette** conduite par un admin IT ; l'employé ne se connecte pas (§3, §6.1).
 - **Comptes nominatifs**, cible **SSO Microsoft 365 (Entra ID)** reserve aux groupes
-  **Kikan-IT** (informatique) et **Kikan-RH** (rh) ; hors de ces groupes = refuse ; auth locale
+  **Kikan.IT** (informatique) et **Kikan.RH** (rh), rôles d'application attribués à des groupes ; sans l'un de ces rôles = refuse ; auth locale
   (mot de passe) en secours/dev (§5ter).
 - Déploiement **on-premise**, conteneurs Docker (§11.1).
 - **Stockage des PDF** sur **lecteur réseau (SMB)** ou **partage de fichiers web (WebDAV)**, **un dossier
@@ -805,7 +805,7 @@ d'audit, stockage local, SMB et WebDAV, migrations Alembic. Les écarts avec le 
 - **Multi-entités / filiales** : salarié rattaché à une entité ; rapports filtrables par
   entité ; pensé pour un usage open source multi-organisations (§4.5).
 - **Rôles** : **RH** (cycle de vie employé : entrée, date de départ) et **informatique**
-  (actifs, signatures) ; lecture seule optionnelle plus tard (§5bis).
+  (actifs, signatures) ; rôle lecture seule livré (§5bis).
 - **Qui fait signer** : remise à l'**arrivée** = informatique ; restitution à la **sortie** =
   informatique **ou** RH.
 - **Cycle de vie employé** : formulaire d'entrée (nom, prénom, filiale, service, date d'arrivée) ;

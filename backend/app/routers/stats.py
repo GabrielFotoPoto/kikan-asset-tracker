@@ -40,7 +40,7 @@ from sqlmodel import Session, select
 
 from .. import xlsx_io
 from ..auth import get_current_account
-from ..docname import heure_locale
+from ..docname import heure_locale, jour_local
 from ..scope import Scope, restreindre_entite, scope_dep
 from ..db import get_session
 from ..theme import BLEU_MARQUE
@@ -98,7 +98,7 @@ def calculer(session: Session, scope: Scope, entite_id: int | None = None,
         svc = (users[uid].service if uid in users else None) or "(non renseigne)"
         services[svc] += 1
 
-    today = date.today()
+    today = jour_local()
 
     def echeances(debut: date, fin: date) -> list[dict]:
         items = [{
@@ -294,7 +294,7 @@ def stats(
     resultat = calculer(session, scope, entite_id, du, au)
     if account.role == Role.rh:  # le suivi des besoins de materiel n'est pas visible des RH
         resultat["besoins_a_traiter"] = None
-    jour = date.today().isoformat()
+    jour = jour_local().isoformat()
     if format == "json":
         return resultat
     if format == "csv":

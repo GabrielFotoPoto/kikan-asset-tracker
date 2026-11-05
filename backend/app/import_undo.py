@@ -27,6 +27,7 @@ from datetime import datetime
 from sqlalchemy import event
 from sqlmodel import Session, select
 
+from . import integration
 from .models import (
     AccountScope, ApiTokenScope, Application, Asset, AssetStatus, Assignment, AssignmentAsset, Besoin, Entite, ExternalLink,
     ImportLot, Policy, Signature, User, UserApplication,
@@ -177,6 +178,8 @@ def annuler(session: Session, lot: ImportLot, account: str) -> dict:
         for ref in _ids(lot, key):
             obj = session.get(model, tuple(ref) if key == "affectation_actif" else ref)
             if obj is not None:
+                if key in ("actif", "salarie"):
+                    integration.retirer_liens(session, "asset" if key == "actif" else "user", obj.id)
                 session.delete(obj)
                 supprimes += 1
         session.flush()

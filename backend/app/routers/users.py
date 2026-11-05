@@ -18,9 +18,12 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
+from ..audit import audit
 from ..auth import get_current_account, require_roles, writer_guard
+from .. import integration
 from ..catalogs import canonical_service
 from ..db import get_session
 from ..docname import acronyme_defaut, assurer_acronyme
@@ -130,6 +133,68 @@ def update_user(
     return obj
 
 
+class SuppressionLot(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+    simulation: bool = True   # vrai : ne supprime rien, annonce seulement ce qui serait supprime ou refuse
+
+
+def _usages_user(session: Session, user_id: int) -> dict[str, int]:
+    return {
+        "affectation(s) de materiel": count(session, Assignment, Assignment.user_id == user_id),
+        "acces applicatif(s)": count(session, UserApplication, UserApplication.user_id == user_id),
+        "besoin(s) de materiel": count(session, Besoin, Besoin.user_id == user_id),
+    }
+
+
+@router.post("/suppression-lot", dependencies=[Depends(require_roles("informatique"))])
+def delete_users_batch(
+    data: SuppressionLot, session: Session = Depends(get_session),
+    scope: Scope = Depends(scope_dep), account: Account = Depends(get_current_account),
+):
+    """Suppression de plusieurs salaries en une fois, avec les memes garde-fous que la suppression unitaire.
+
+    Un salarie ayant un historique (affectations, acces applicatifs, besoins) ou hors du perimetre du compte est refuse
+    et liste avec sa raison ; les autres sont supprimes ensemble (une seule validation). En simulation (par defaut), rien
+    n'est supprime : la reponse sert de recapitulatif."""
+    ids = list(dict.fromkeys(data.ids))
+    supprimables: list[User] = []
+    refuses: list[dict] = []
+    for user_id in ids:
+        obj = session.get(User, user_id)
+        if not obj or not scope.allows(obj.entite_id):
+            refuses.append({"id": user_id, "raison": "Salarie introuvable"})
+            continue
+        used = [f"{n} {label}" for label, n in _usages_user(session, obj.id).items() if n]
+        if used:
+            refuses.append({
+                "id": user_id,
+                "raison": f"Suppression impossible : ce salarie est utilise(e) par {', '.join(used)}. "
+                          "Un salarie avec historique se conserve (statut sorti via la page Sorties) ; "
+                          "son effacement definitif releve de la purge RGPD.",
+            })
+        else:
+            supprimables.append(obj)
+    supprimes_ids = [o.id for o in supprimables]
+    apercu = [
+        {"id": o.id, "matricule": o.matricule, "nom": o.nom, "prenom": o.prenom}
+        for o in supprimables
+    ]
+    if not data.simulation:
+        for obj in supprimables:
+            integration.retirer_liens(session, "user", obj.id)
+            session.flush()
+            session.delete(obj)
+        session.commit()
+        for user_id in supprimes_ids:
+            audit(account.username, "suppression", target=f"users/{user_id}", detail="suppression en lot")
+    return {
+        "simulation": data.simulation,
+        "supprimes": supprimes_ids,
+        "refuses": refuses,
+        "apercu": apercu if data.simulation else [],
+    }
+
+
 @router.delete("/{user_id}", status_code=204, dependencies=[Depends(require_roles("informatique"))])
 def delete_user(user_id: int, session: Session = Depends(get_session)):
     obj = session.get(User, user_id)
@@ -137,13 +202,11 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
         raise HTTPException(404, "Utilisateur introuvable")
     refuse_delete(
         "ce salarie",
-        {
-            "affectation(s) de materiel": count(session, Assignment, Assignment.user_id == obj.id),
-            "acces applicatif(s)": count(session, UserApplication, UserApplication.user_id == obj.id),
-            "besoin(s) de materiel": count(session, Besoin, Besoin.user_id == obj.id),
-        },
+        _usages_user(session, obj.id),
         "Un salarie avec historique se conserve (statut sorti via la page Sorties) ; "
         "son effacement definitif releve de la purge RGPD.",
     )
+    integration.retirer_liens(session, "user", obj.id)
+    session.flush()
     session.delete(obj)
     session.commit()
