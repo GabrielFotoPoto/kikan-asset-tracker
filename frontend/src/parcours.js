@@ -65,6 +65,16 @@ export function peutAgir(actionOuQui, role) {
     : role === "rh" || role === "informatique";
 }
 
+// Declenche l'action de l'encart : priorite a action_id (action locale), sinon navigation vers une cible non vide.
+export function declencherAction(action, { onAction, onNaviguer } = {}) {
+  if (!action) return;
+  if (action.action_id && typeof onAction === "function") {
+    onAction(action.action_id);
+  } else if (typeof action.vers === "string" && action.vers.length > 0 && typeof onNaviguer === "function") {
+    onNaviguer(action.vers);
+  }
+}
+
 // Etat de la pastille d'en-tete d'un parcours.
 export function resumeParcours(etapes = [], etapeCourante = null, reserves = []) {
   const liste = Array.isArray(etapes) ? etapes : [];

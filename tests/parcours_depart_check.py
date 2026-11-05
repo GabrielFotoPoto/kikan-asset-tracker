@@ -405,6 +405,7 @@ show(
     and "message_attente" not in r_sans
     and r_sans.get("etape_courante") is None
     and r_sans.get("prochaine_action", {}).get("action_id") == "cloturer_depart"
+    and r_sans.get("prochaine_action", {}).get("vers") is None
     and r_sans.get("prochaine_action", {}).get("autorise") is True
     and r_sans_la.get("prochaine_action", {}).get("autorise") is False,
     (r_sans.get("etapes"), r_sans.get("prochaine_action"), r_sans_la.get("prochaine_action")),

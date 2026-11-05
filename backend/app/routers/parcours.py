@@ -228,7 +228,7 @@ def _prochaine_action(
             "etape": "sorti",
             "qui": "rh_ou_informatique",
             "texte": "Cloturer le depart du salarie.",
-            "vers": "",
+            "vers": None,
             "action_id": "cloturer_depart",
             "autorise": autorise,
         }

@@ -23,6 +23,7 @@ import { test } from "node:test";
 import { fil } from "./nav.js";
 import {
   MOTIFS_NON_RESTITUTION,
+  declencherAction,
   formaterQuand,
   libelleEtatEtape,
   libelleMotif,
@@ -93,6 +94,22 @@ test("MOTIFS_NON_RESTITUTION et libelleMotif : liste fermee et correspondance de
   assert.equal(libelleMotif("refus_de_restituer"), "Refus de restituer");
   assert.equal(libelleMotif("inconnu"), "inconnu");
   assert.equal(libelleMotif(""), "");
+});
+
+test("declencherAction : appelle onAction pour action_id et ignore vers null ou vide sans naviguer", () => {
+  const appels = [];
+  const handlers = {
+    onAction: (id) => appels.push(["action", id]),
+    onNaviguer: (vers) => appels.push(["nav", vers]),
+  };
+  declencherAction({ etape: "sorti", vers: null, action_id: "cloturer_depart" }, handlers);
+  declencherAction({ etape: "restitution", vers: "/signer/restitution/5" }, handlers);
+  declencherAction({ etape: "autre", vers: null }, handlers);
+  declencherAction({ etape: "autre", vers: "" }, handlers);
+  assert.deepEqual(appels, [
+    ["action", "cloturer_depart"],
+    ["nav", "/signer/restitution/5"],
+  ]);
 });
 
 test("formaterQuand : accepte une date ISO sans fuseau ou vide", () => {

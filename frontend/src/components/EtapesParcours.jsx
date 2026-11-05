@@ -18,9 +18,9 @@
  */
 
 // Composants visuels partages entre le parcours d'arrivee (/arrivee/:id) et le parcours de depart (/depart/:id).
-import { QUI_LIBELLES, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours } from "../parcours.js";
+import { QUI_LIBELLES, declencherAction, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours } from "../parcours.js";
 
-export { QUI_LIBELLES, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours };
+export { QUI_LIBELLES, declencherAction, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours };
 
 export function PastilleParcours({ etapes, etapeCourante, reserves }) {
   const r = resumeParcours(etapes, etapeCourante, reserves);
@@ -90,13 +90,7 @@ export function EncartProchaineAction({
           {autorise ? (
             <button
               type="button"
-              onClick={() => {
-                if (action.action_id && onAction) {
-                  onAction(action.action_id);
-                } else if (onNaviguer) {
-                  onNaviguer(action.vers);
-                }
-              }}
+              onClick={() => declencherAction(action, { onAction, onNaviguer })}
             >
               {libellesBouton[action.etape] || (action.action_id === "cloturer_depart" ? "Cloturer le depart" : "Ouvrir")}
             </button>
