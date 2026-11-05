@@ -312,7 +312,7 @@ l'utilisateur voit où il en est, ce qui reste à faire, qui doit agir, et accè
 | Lot | Contenu | Statut |
 |---|---|---|
 | 1 | Composant partagé `EtapesParcours` (extrait de `Arrivant.jsx`), **parcours de départ en lecture seule** | **réalisé** (PR #99, fusionnée le 2026-11-04) |
-| 1bis | Voie d'exception : **constat de matériel non restitué** et **clôture d'un départ sans matériel** (écritures, nouvelle valeur de statut, migration) | après validation du lot 1 |
+| 1bis | Voie d'exception : **constat de matériel non restitué** et **clôture d'un départ sans matériel** (écritures, nouvelle valeur de statut, migration) | **réalisé** (PR #118) |
 | 2 | Remise guidée : salarié, besoins ouverts, charte, matériel, signature, PDF | après le lot 1bis, **à décider après mesure** de l'usage des lots 1 et 1bis ; point à trancher avant : où vit le brouillon de l'assistant (voir « Points à valider ») |
 | 3 | Indicateur d'étapes, en lecture seule, sur le renouvellement existant | **abandonné (décision du 2026-11-04)** : le renouvellement est une opération unique à un seul document, un indicateur d'étapes n'apporterait presque rien |
 
@@ -375,8 +375,8 @@ le résultat.
 - Portée par entité : `visible_user(...)`. Hors portée ou inexistant : **404 identique**, corps identique.
 - Réponse : `salarie`, `etapes[]` (`cle`, `titre`, `qui`, `etat` parmi `fait`, `courante`, `a_venir`, `sans_objet`, `detail`), `etape_courante`,
   `prochaine_action`, `materiel_a_recuperer` (`id`, `identifiant_interne`, `type`, `marque`, `modele`, `numero_serie`),
-  `acces_restants` (nombre), `reserves`, `message_attente`, `journal`. `identifiant_interne` est l'étiquette d'inventaire, utile quand un matériel n'a pas
-  de numéro de série ; `message_attente` n'est renseigné que pour un salarié en départ sans matériel détenu.
+  `acces_restants` (nombre), `reserves`, `journal`, et, pour l'informatique seule, `materiels_non_restitues` (lot 1bis : mêmes champs que `materiel_a_recuperer`,
+  plus `motif` et `constate_le`). `identifiant_interne` est l'étiquette d'inventaire, utile quand un matériel n'a pas de numéro de série.
 - `prochaine_action` porte un champ `autorise`, calculé côté serveur d'après le rôle (vrai pour RH et informatique, faux pour lecture). Le bouton n'apparaît que si `autorise` est vrai ;
   la route d'écriture appelée refuse de toute façon un rôle non habilité (contrôle existant, non modifié).
 - `user_id` est un entier ; aucune entrée libre. Aucune écriture en base.
@@ -535,11 +535,18 @@ si un besoin d'audit l'exige. Le **lot 3 est abandonné** ; le lot 2 est à déc
 
 **Constats après réalisation du lot 1 (2026-11-04).** Le lot 1 est réalisé et fusionné (PR #99). Tel que réalisé, le RH voit la marque, le modèle et le numéro de série du
 matériel à récupérer (valeur par défaut, comme dans l'écran « Sorties » ; à infirmer si besoin). Le nom de route `/parcours/depart/{user_id}` est celui du code fusionné.
-Les champs `materiel_a_recuperer`, `acces_restants` et `message_attente` sont ajoutés au contrat. Le message d'attente a été reformulé sans le terme interne « lot 1bis » (PR #101).
+Les champs `materiel_a_recuperer` et `acces_restants` sont ajoutés au contrat. Le champ `message_attente` (ajouté par le lot 1, reformulé par la PR #101) est **retiré au lot 1bis** : il n'avait de sens que tant que la clôture n'existait pas.
+
+**Constats après réalisation du lot 1bis (2026-11-05).** Réalisé par un agent de code (Gemini), relu, corrigé en deux séries puis testé (PR #118). Tel que réalisé :
+- `prochaine_action` peut porter `"vers": null` avec un champ `action_id` (`cloturer_depart`) : l'action s'exécute dans la page (écriture) au lieu d'une navigation. Le parcours d'arrivée n'est pas modifié.
+- Les colonnes du constat sont sur `assignment_assets` (`non_restitue_le`, `motif_non_restitution`), motifs en liste fermée, comme proposé. Migration `0023` : valeur `non_restitue` ajoutée au type énuméré `assetstatus` ; retour arrière refusé tant qu'un actif est `non_restitue`.
+- Une affectation dont plus aucun actif n'est `affecte` passe au statut `restitue` (valeur existante) ; sa `date_restitution` n'est **pas** renseignée par un constat (aucune restitution n'a eu lieu : la date du constat est `non_restitue_le`).
+- Un actif `non_restitue` n'est ni réaffectable, ni échangeable, ni réformable en lot, et son statut ne peut pas être modifié à la main ; il est exclu des prévisions, des rappels, des renouvellements, du compteur de renouvellements du rapport mensuel et de l'annulation d'import (qui refuse une affectation portant un constat).
+- Les messages d'erreur 409 de la remise et de l'échange désignent un matériel non restitué par son identifiant interne, jamais par son numéro de série.
+- Le **constat d'impossibilité de restitution** n'ayant pas d'action inverse, l'action « matériel retrouvé » (retour d'un actif `non_restitue`) reste à spécifier : elle fait partie du complément du lot 2.
 
 **Points à valider avant réalisation.**
-1. **Emplacement des nouvelles colonnes** du lot 1bis (`assignment_assets`) et nom des motifs : propositions.
-2. **Lot 2** : le brouillon de l'assistant de remise vit-il dans le navigateur (perdu au rechargement ou au passage de la main à la tablette) ou sur le serveur
+1. **Lot 2** : le brouillon de l'assistant de remise vit-il dans le navigateur (perdu au rechargement ou au passage de la main à la tablette) ou sur le serveur
    (donnée nouvelle, cinq questions) ? Cela décide du contrat de `EtapesParcours`.
 
 ### 6.4 Import initial du parc (Excel/CSV)
