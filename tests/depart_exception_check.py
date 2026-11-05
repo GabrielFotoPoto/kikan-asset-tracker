@@ -37,7 +37,7 @@ sys.path.insert(0, "/app")
 from PIL import Image, ImageDraw  # noqa: E402
 from sqlmodel import Session, select  # noqa: E402
 from app.db import engine  # noqa: E402
-from app.models import Asset, AssetStatus, AssignmentAsset, AuditLog, User  # noqa: E402
+from app.models import Asset, AssetStatus, Assignment, AssignmentAsset, AuditLog, User  # noqa: E402
 from app.purge import purger  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
@@ -232,6 +232,14 @@ show(
 # 2eme constat sur a2 (dernier actif de u1)
 s_ok2, r_ok2 = j("POST", "/lifecycle/non-restitue", {"user_id": u1["id"], "asset_ids": [a2["id"]], "motif": "vol"}, token=IT_A)
 show("C1bis-4c - constat du dernier actif reussi et salarie passe a sorti", s_ok2 == 200 and r_ok2.get("statut_salarie") == "sorti", r_ok2)
+
+with Session(engine) as session:
+    asg_u1 = session.exec(select(Assignment).where(Assignment.user_id == u1["id"])).first()
+show(
+    "C1bis-4cbis - affectation soldee par constat : statut restitue sans date_restitution",
+    asg_u1 is not None and asg_u1.statut == "restitue" and asg_u1.date_restitution is None,
+    (asg_u1.statut if asg_u1 else None, asg_u1.date_restitution if asg_u1 else None),
+)
 
 # Verification parcours u1 final : termine avec reserve (2 materiels non restitues et 1 acces a retirer)
 _, p_final_it = parcours(u1["id"], IT_A)
