@@ -22,8 +22,8 @@ import { QUI_LIBELLES, declencherAction, formaterQuand, libelleEtatEtape, peutAg
 
 export { QUI_LIBELLES, declencherAction, formaterQuand, libelleEtatEtape, peutAgir, resumeParcours };
 
-export function PastilleParcours({ etapes, etapeCourante, reserves }) {
-  const r = resumeParcours(etapes, etapeCourante, reserves);
+export function PastilleParcours({ etapes, etapeCourante, reserves, action = null }) {
+  const r = resumeParcours(etapes, etapeCourante, reserves, action);
   return <span className={r.classe}>{r.texte}</span>;
 }
 
