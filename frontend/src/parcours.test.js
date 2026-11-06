@@ -113,6 +113,16 @@ test("declencherAction : appelle onAction pour action_id et ignore vers null ou 
   ]);
 });
 
+test("resumeParcours : la cloture en attente n'est pas un parcours termine", () => {
+  const etapes = [{ cle: "depart", titre: "Depart declare", etat: "fait" }, { cle: "sorti", titre: "Salarie sorti", etat: "a_venir" }];
+  const attente = resumeParcours(etapes, null, [], { etape: "sorti", action_id: "cloturer_depart" });
+  assert.equal(attente.termine, false);
+  assert.equal(attente.texte, "Cloture du depart en attente");
+  const fini = resumeParcours(etapes, null, [], null);
+  assert.equal(fini.termine, true);
+  assert.equal(fini.texte, "Parcours termine");
+});
+
 test("formaterQuand : accepte une date ISO sans fuseau ou vide", () => {
   assert.equal(formaterQuand(""), "");
   assert.equal(formaterQuand(null), "");

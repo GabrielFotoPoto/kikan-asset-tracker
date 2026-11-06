@@ -238,7 +238,9 @@ def delete_assets_batch(
         if not obj or not scope.allows(obj.entite_id):
             refuses.append({"id": asset_id, "raison": "Actif introuvable"})
         elif count(session, AssignmentAsset, AssignmentAsset.asset_id == obj.id):
-            refuses.append({"id": asset_id, "raison": "Deja remis : passez-le au statut reforme", "identifiant": obj.identifiant_interne})
+            raison = ("Non restitue : conserve dans l'inventaire" if obj.statut == AssetStatus.non_restitue
+                      else "Deja remis : passez-le au statut reforme")
+            refuses.append({"id": asset_id, "raison": raison, "identifiant": obj.identifiant_interne})
         else:
             supprimables.append(obj)
     supprimes_ids = [o.id for o in supprimables]
@@ -272,7 +274,8 @@ def delete_asset(asset_id: int, session: Session = Depends(get_session)):
     refuse_delete(
         "cet actif",
         {"affectation(s)": count(session, AssignmentAsset, AssignmentAsset.asset_id == obj.id)},
-        "Un actif deja remis se conserve : passez-le au statut reforme.",
+        ("Un materiel non restitue se conserve dans l'inventaire (son statut est fige)." if obj.statut == AssetStatus.non_restitue
+         else "Un actif deja remis se conserve : passez-le au statut reforme."),
     )
     for report in session.exec(select(EcheanceReport).where(EcheanceReport.asset_id == obj.id)).all():
         session.delete(report)   # l'historique des reports d'echeance d'un actif jamais remis part avec lui

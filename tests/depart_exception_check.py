@@ -321,6 +321,16 @@ s, u_dest = j("POST", "/users", {"matricule": "ZZEX-UDST", "nom": "ZZEXUDST", "p
 corps = {"user_id": u_dest["id"], "asset_ids": [a_nrb["id"]], "sans_charte": True}
 s_rh, _ = j("POST", "/assignments", corps, token=RH_A)
 s_gl, r_gl = j("POST", "/assignments", corps, token=IT_GL)
+# Suppression : un actif non_restitue est conserve ; le message n'invite pas a le reformer (statut fige)
+s_del, r_del = j("DELETE", f"/assets/{a1['id']}", token=IT_GL)
+s_dlot, r_dlot = j("POST", "/assets/suppression-lot", {"ids": [a1["id"]], "simulation": True}, token=IT_GL)
+show(
+    "C1bis-5d - suppression d'un actif non_restitue refusee (409) sans conseil de le reformer, en unitaire et en lot",
+    s_del == 409 and "reforme" not in str(r_del.get("detail", "")).lower() and "non restitue" in str(r_del.get("detail", "")).lower()
+    and s_dlot == 200 and "reforme" not in str(r_dlot).lower() and "Non restitue" in str(r_dlot),
+    (s_del, r_del, s_dlot, r_dlot),
+)
+
 show(
     "C1bis-5c2 - remise d'un actif non_restitue : RH refuse (403, ecriture reservee a l'informatique), informatique 409 avec l'identifiant interne et sans numero de serie",
     s_nrb == 200 and s_rh == 403 and s_gl == 409 and "ZZEX-INV-NRB" in str(r_gl) and "ZZEX-SN-NRB" not in str(r_gl),

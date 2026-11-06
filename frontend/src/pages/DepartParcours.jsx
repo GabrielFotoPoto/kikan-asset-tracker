@@ -170,7 +170,7 @@ export default function DepartParcours() {
             {[s.service, s.date_sortie ? `sortie prevue le ${s.date_sortie}` : "aucune date de sortie declaree", `statut ${s.statut}`].filter(Boolean).join(" - ")}
           </p>
         </div>
-        <PastilleParcours etapes={data.etapes} etapeCourante={data.etape_courante} reserves={data.reserves} />
+        <PastilleParcours etapes={data.etapes} etapeCourante={data.etape_courante} reserves={data.reserves} action={data.prochaine_action} />
       </div>
 
       <EtapesParcours etapes={data.etapes} etapeCourante={data.etape_courante} />
