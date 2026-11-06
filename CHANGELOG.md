@@ -5,6 +5,16 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- **Verrous sur les opérations en lot** : `POST /assets/reforme-lot`, `POST /assets/suppression-lot` et `POST /users/suppression-lot` verrouillent
+  maintenant les lignes concernées (ordre des identifiants, comme la remise) avant de décider et d'écrire. Avant, une remise validée au même instant
+  pouvait être écrasée (actif réformé alors qu'il est affecté) ou faire échouer la suppression sur la clé étrangère (erreur 500). La simulation ne
+  verrouille rien. Nouveaux scénarios dans `tests/verrous_check.py`.
+- **Statut du salarié relu après le verrou** : le verrou pris sur le salarié rafraîchit sa fiche (`populate_existing`) ; l'échange de matériel
+  revérifie « en poste » après le verrou, la restitution, le constat de non-restitution et la clôture de départ lisent le statut à jour.
+- **Mode de production par défaut partout** : la vérification de mise à jour (`À propos`) utilise le même réglage `KIKAN_ENV` que le reste de l'API
+  (sans réglage : production, donc HTTPS exigé).
+
 ### Ajouté
 - **Matériel non restitué et clôture de départ sans matériel (lot 1bis)** :
   - **Migration `0023_materiel_non_restitue`** : valeur `non_restitue` ajoutée au type enum `assetstatus` ; colonnes `non_restitue_le` (date) et `motif_non_restitution` (varchar) ajoutées à la table `assignment_assets` pour tracer l'événement dans l'affectation sans altérer l'intégrité de la charte ou du PDF scellé d'origine. Rétrogradation (downgrade) réversible vérifiant qu'aucun matériel n'est au statut `non_restitue`.

@@ -98,7 +98,7 @@ if not IS_PROD:
                 "l'API exposee). Ne pas utiliser en exploitation : KIKAN_ENV=production.")
 
 # En production, la documentation interactive n'est pas exposee.
-_docs ={"docs_url": None, "redoc_url": None, "openapi_url": None} if IS_PROD else {}
+_docs = {"docs_url": None, "redoc_url": None, "openapi_url": None} if IS_PROD else {}
 VERSION = os.environ.get("KIKAN_VERSION", "dev").lstrip("v")
 app = FastAPI(title=f"{settings.app_name} API", version=VERSION, lifespan=lifespan, **_docs)
 

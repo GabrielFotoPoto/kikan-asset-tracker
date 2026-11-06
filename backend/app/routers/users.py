@@ -159,8 +159,14 @@ def delete_users_batch(
     ids = list(dict.fromkeys(data.ids))
     supprimables: list[User] = []
     refuses: list[dict] = []
+    # Verrou des salaries (ordre des identifiants : pas d'interblocage) : une remise ou une restitution simultanee attend,
+    # puis l'usage est relu avant de supprimer. Pas de verrou en simulation : l'apercu ne bloque personne.
+    stmt = select(User).where(User.id.in_(ids)).order_by(User.id)
+    if not data.simulation:
+        stmt = stmt.with_for_update()
+    locked = {u.id: u for u in session.exec(stmt).all()}
     for user_id in ids:
-        obj = session.get(User, user_id)
+        obj = locked.get(user_id)
         if not obj or not scope.allows(obj.entite_id):
             refuses.append({"id": user_id, "raison": "Salarie introuvable"})
             continue
