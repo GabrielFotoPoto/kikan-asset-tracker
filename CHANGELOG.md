@@ -5,11 +5,17 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
-## [0.8.0-rc.1] - 2026-11-06
+## [0.8.0] - 2026-11-06
 
-**Pré-version 0.8.0-rc.1 : à essayer avant la 0.8.0.** Elle contient une **migration** (`0023`, aucune perte de données) : **faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.8.0-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` ; les quatre images ensemble. Pour revenir en arrière, restaurer la sauvegarde.
+### Mise à jour depuis 0.7.1
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Cette version contient une **migration** (`0023`, ajout de colonnes et d'une valeur d'énumération, aucune perte de données). Changer `KIKAN_VERSION` dans `.env` pour `0.8.0`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.8.0` sous Linux) ; les quatre images ensemble.
+- Les fichiers compose n'ont pas changé depuis la 0.7.1.
+- Retour en arrière : restaurer la sauvegarde (la migration `0023` ne se défait pas si des matériels sont déjà « non restitués »).
 
-**Non vérifié en conditions réelles** : le parcours de départ avec matériel non restitué et la migration sur les données de la préprod. La suite de tests complète (sauf la sauvegarde de bout en bout) est verte sur une base de test, et l'intégration continue de `main` est verte.
+### Vérifié
+- Pré-version 0.8.0-rc.1 essayée à la main sur la préprod par des testeurs, retours favorables (le détail des scénarios essayés n'est pas consigné).
+- Suite de tests complète sur une base de test (hors sauvegarde de bout en bout), et intégration continue de `main` verte.
+- Images de la 0.8.0 identiques à celles de la rc.1 sur le plan du code : aucune modification entre les deux.
 
 ### Ajouté
 - **Matériel non restitué et clôture de départ sans matériel (lot 1bis)** :
