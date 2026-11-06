@@ -266,7 +266,9 @@ def echange(data: EchangeRequest, request: Request, session: Session = Depends(g
             raise HTTPException(409, f"Le besoin {bid} est deja clos")
 
     # Verrous : le salarie d'abord, puis tout le materiel concerne dans l'ordre des identifiants (pas d'interblocage).
-    session.exec(select(User).where(User.id == user.id).with_for_update()).first()
+    session.exec(select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True)).first()
+    if user.statut != EmployeeStatus.actif:  # relu apres le verrou : un depart enregistre entre-temps est vu
+        raise HTTPException(409, "L'echange concerne un salarie en poste (statut actif)")
     ids = sorted(set(nouveaux_ids) | set(destinations))
     locked = {a.id: a for a in session.exec(select(Asset).where(Asset.id.in_(ids)).order_by(Asset.id).with_for_update()).all()}
     nouveaux: list[Asset] = []

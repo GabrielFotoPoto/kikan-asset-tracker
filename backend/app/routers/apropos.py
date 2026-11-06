@@ -30,7 +30,7 @@ from importlib.metadata import PackageNotFoundError, version as pkg_version
 
 from fastapi import APIRouter, Depends, Query
 
-from ..auth import get_current_account, require_roles
+from ..auth import IS_PROD, get_current_account, require_roles
 from ..config import settings
 
 router = APIRouter(
@@ -132,8 +132,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 def _interroger_github() -> dict:
     url = os.environ.get("KIKAN_UPDATE_CHECK_URL", API_RELEASE_DEFAUT).strip() or API_RELEASE_DEFAUT
     parsed = urllib.parse.urlparse(url)
-    is_prod = os.environ.get("KIKAN_ENV", "development").lower() == "production"
-    if parsed.scheme != "https" and not (parsed.scheme == "http" and parsed.hostname in LOOPBACK and not is_prod):
+    if parsed.scheme != "https" and not (parsed.scheme == "http" and parsed.hostname in LOOPBACK and not IS_PROD):
         raise ValueError("adresse de verification non HTTPS")
     ca = (os.environ.get("KIKAN_UPDATE_CA_BUNDLE") or os.environ.get("KIKAN_SSO_CA_BUNDLE") or "").strip() or None
     proxy = (os.environ.get("KIKAN_UPDATE_PROXY") or os.environ.get("KIKAN_SSO_PROXY") or "").strip()
