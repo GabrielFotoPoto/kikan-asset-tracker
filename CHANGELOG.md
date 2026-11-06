@@ -5,15 +5,11 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
-### Corrigé
-- **Verrous sur les opérations en lot** : `POST /assets/reforme-lot`, `POST /assets/suppression-lot` et `POST /users/suppression-lot` verrouillent
-  maintenant les lignes concernées (ordre des identifiants, comme la remise) avant de décider et d'écrire. Avant, une remise validée au même instant
-  pouvait être écrasée (actif réformé alors qu'il est affecté) ou faire échouer la suppression sur la clé étrangère (erreur 500). La simulation ne
-  verrouille rien. Nouveaux scénarios dans `tests/verrous_check.py`.
-- **Statut du salarié relu après le verrou** : le verrou pris sur le salarié rafraîchit sa fiche (`populate_existing`) ; l'échange de matériel
-  revérifie « en poste » après le verrou, la restitution, le constat de non-restitution et la clôture de départ lisent le statut à jour.
-- **Mode de production par défaut partout** : la vérification de mise à jour (`À propos`) utilise le même réglage `KIKAN_ENV` que le reste de l'API
-  (sans réglage : production, donc HTTPS exigé).
+## [0.8.0-rc.1] - 2026-11-06
+
+**Pré-version 0.8.0-rc.1 : à essayer avant la 0.8.0.** Elle contient une **migration** (`0023`, aucune perte de données) : **faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.8.0-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` ; les quatre images ensemble. Pour revenir en arrière, restaurer la sauvegarde.
+
+**Non vérifié en conditions réelles** : le parcours de départ avec matériel non restitué et la migration sur les données de la préprod. La suite de tests complète (sauf la sauvegarde de bout en bout) est verte sur une base de test, et l'intégration continue de `main` est verte.
 
 ### Ajouté
 - **Matériel non restitué et clôture de départ sans matériel (lot 1bis)** :
@@ -37,14 +33,22 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
   - **Cinq questions RGPD (nouvelle donnée : constat de non-restitution)** : 1) *Quelle donnée ?* la date du constat et un motif en liste fermée (`perte`, `vol`, `refus_de_restituer`, `salarie_injoignable`, `autre`, sans texte libre), par matériel, sur la ligne d'affectation du salarié. 2) *Pourquoi ?* tracer qu'un matériel n'a pas été récupéré après un départ (suivi des actifs) et le sortir des rappels et renouvellements. 3) *Qui la voit ?* le motif et la liste des matériels non restitués (avec numéro de série) : l'informatique seule ; l'existence d'un constat (nombre, journal daté sans motif) : les trois rôles dans leur portée d'entité ; les RH voient déjà le numéro de série du matériel encore détenu (décision du parcours de départ) ; jamais de matricule ni d'e-mail. 4) *Combien de temps ?* comme l'affectation du salarié ; l'actif, lui, reste dans l'inventaire. 5) *Comment l'effacer ?* par la purge RGPD du salarié, qui supprime ses lignes d'affectation et donc le constat et le motif (vérifié par `C1bis-8a`) ; aucun numéro de série ni nom de salarié dans l'entrée du journal d'audit.
 - Tests : nouvelle suite `tests/depart_exception_check.py` (36 vérifications couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` à 9 tests, 36 au total), actualisation de `tests/parcours_depart_check.py`.
 
-### Corrigé
-- **Parcours de départ : la pastille n'affiche plus « Parcours terminé » tant que la clôture reste à faire.** Pour un salarié en départ sans matériel, elle indique maintenant « Clôture du départ en attente ». Aucun changement d'API.
-- **Un matériel non restitué n'invite plus à le « passer au statut réformé ».** Ce statut est figé : la suppression (unitaire et en lot) répond « se conserve dans l'inventaire », et le bouton *Supprimer* n'est plus proposé pour ce matériel dans la liste. Le refus de suppression (409) est inchangé.
-
 ### Modifié
 - **Contrat de `GET /parcours/depart/{user_id}`** : le champ `message_attente` est retiré (il n'avait de sens que tant que la clôture d'un départ n'existait pas) ; le champ `prochaine_action` peut maintenant porter `"vers": null` avec un `action_id` (`cloturer_depart`), pour une action exécutée dans la page. Les champs `materiels_non_restitues` (informatique seule) et `reserves` (« n materiel(s) non restitue(s) ») sont ajoutés.
 - **Rapport mensuel par e-mail** : la ligne « Parc » compte les matériels « non restitués », et le compteur « Renouvellements dans les 12 prochains mois » n'inclut plus les matériels non restitués (les autres statuts sont inchangés).
 - **Messages d'erreur 409 de la remise et de l'échange** : un matériel non restitué est désigné par son identifiant interne (jamais par son numéro de série) ; le constat de non-restitution ne donne aucun identifiant pour un matériel refusé.
+
+### Corrigé
+- **Verrous sur les opérations en lot** : `POST /assets/reforme-lot`, `POST /assets/suppression-lot` et `POST /users/suppression-lot` verrouillent
+  maintenant les lignes concernées (ordre des identifiants, comme la remise) avant de décider et d'écrire. Avant, une remise validée au même instant
+  pouvait être écrasée (actif réformé alors qu'il est affecté) ou faire échouer la suppression sur la clé étrangère (erreur 500). La simulation ne
+  verrouille rien. Nouveaux scénarios dans `tests/verrous_check.py`.
+- **Statut du salarié relu après le verrou** : le verrou pris sur le salarié rafraîchit sa fiche (`populate_existing`) ; l'échange de matériel
+  revérifie « en poste » après le verrou, la restitution, le constat de non-restitution et la clôture de départ lisent le statut à jour.
+- **Mode de production par défaut partout** : la vérification de mise à jour (`À propos`) utilise le même réglage `KIKAN_ENV` que le reste de l'API
+  (sans réglage : production, donc HTTPS exigé).
+- **Parcours de départ : la pastille n'affiche plus « Parcours terminé » tant que la clôture reste à faire.** Pour un salarié en départ sans matériel, elle indique maintenant « Clôture du départ en attente ». Aucun changement d'API.
+- **Un matériel non restitué n'invite plus à le « passer au statut réformé ».** Ce statut est figé : la suppression (unitaire et en lot) répond « se conserve dans l'inventaire », et le bouton *Supprimer* n'est plus proposé pour ce matériel dans la liste. Le refus de suppression (409) est inchangé.
 
 ## [0.7.1] - 2026-11-05
 
