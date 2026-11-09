@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Modifié
+- **Chaîne de construction du frontend sous Node 24 (LTS)** : l'étape de build de `frontend/Dockerfile`, le CI et `scripts/securite_scan.sh` passent de Node 20 (fin de vie depuis avril 2026) à Node 24. Aucun changement pour l'utilisateur : l'image finale reste servie par nginx, le code et les dépendances du frontend sont inchangés.
+
 ## [0.8.0] - 2026-11-06
 
 ### Mise à jour depuis 0.7.1
