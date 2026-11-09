@@ -74,7 +74,7 @@ c_workflows() {
 }
 c_dependances() {
   docker run --rm -v "$ROOT/backend/requirements.txt:/r.txt:ro" -v "$ROOT/tests/audit_deps.py:/a.py:ro" python:3.12-slim python /a.py || return 1
-  docker run --rm -v "$ROOT/frontend:/app:ro" -w //tmp/app node:20-alpine sh -c \
+  docker run --rm -v "$ROOT/frontend:/app:ro" -w //tmp/app node:24-alpine sh -c \
     "cp -r /app/package.json /app/package-lock.json /tmp/app/ 2>/dev/null; cd /tmp/app && npm ci --silent --ignore-scripts >/dev/null 2>&1 && npm audit --omit=dev --audit-level=high"
 }
 
