@@ -50,8 +50,11 @@ def _doublons(bind) -> list[str]:
     problemes = []
     for _name, table, col, ci in INDEXES:
         expr = f"lower({col})" if ci else col
+        # Faux positif justifie : table et colonne viennent de la constante INDEXES ci-dessus, jamais d'une entree utilisateur
+        # (un identifiant SQL ne peut de toute facon pas etre passe en parametre lie).
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         rows = bind.execute(sa.text(
-            f"SELECT {expr} AS v, count(*) AS n FROM {table} WHERE {col} IS NOT NULL AND {col} <> '' "
+            f"SELECT {expr} AS v, count(*) AS n FROM {table} WHERE {col} IS NOT NULL AND {col} <> '' "  # nosec B608
             f"GROUP BY {expr} HAVING count(*) > 1 ORDER BY {expr} LIMIT 20"
         )).all()
         for v, n in rows:
@@ -68,9 +71,12 @@ def upgrade() -> None:
             + "\n".join(problemes)
         )
     for name, table, col, ci in INDEXES:
+        # Faux positifs justifies : col vient de la constante INDEXES, jamais d'une entree utilisateur.
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         expr = sa.text(f"lower({col})") if ci else col
-        op.create_index(name, table, [expr], unique=True,
-                        postgresql_where=sa.text(f"{col} IS NOT NULL AND {col} <> ''") if ci else None)
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        where = sa.text(f"{col} IS NOT NULL AND {col} <> ''") if ci else None
+        op.create_index(name, table, [expr], unique=True, postgresql_where=where)
 
 
 def downgrade() -> None:
