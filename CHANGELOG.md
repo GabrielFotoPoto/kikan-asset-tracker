@@ -6,6 +6,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Ajouté
+- **Agent de relecture de la base de données (`.claude/agents/database-reviewer.md`)** : relecteur PostgreSQL pour Kikan (index, verrous, migrations Alembic, données personnelles dans le schéma, cloisonnement côté application). Adapté de l'agent du dépôt ECC (affaan-m/ECC, licence MIT, lui-même issu des Supabase Agent Skills, MIT) : mentions Supabase retirées, règles de Kikan ajoutées. Il n'interroge que la base de test, en lecture seule. Aucun code applicatif, aucune donnée personnelle.
 - **Matériel non restitué et clôture de départ sans matériel (lot 1bis)** :
   - **Migration `0023_materiel_non_restitue`** : valeur `non_restitue` ajoutée au type enum `assetstatus` ; colonnes `non_restitue_le` (date) et `motif_non_restitution` (varchar) ajoutées à la table `assignment_assets` pour tracer l'événement dans l'affectation sans altérer l'intégrité de la charte ou du PDF scellé d'origine. Rétrogradation (downgrade) réversible vérifiant qu'aucun matériel n'est au statut `non_restitue`.
   - **Routes API du cycle de vie** :
