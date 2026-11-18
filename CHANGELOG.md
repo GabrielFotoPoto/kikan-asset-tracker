@@ -16,7 +16,8 @@ Version corrective : une migration d'index (`0024`), des dépendances mises à j
 
 ### Vérifié
 - Intégration continue de `main` verte à chaque changement fusionné (les 11 contrôles, dont la pile complète de tests et la sauvegarde de bout en bout).
-- Validation de la pré-version `0.8.1-rc.1` sur la préprod : **à renseigner avant la version finale**.
+- Pré-version 0.8.1-rc.1 essayée à la main sur la préprod, validée (le détail des scénarios essayés n'est pas consigné).
+- Images de la 0.8.1 identiques à celles de la rc.1 sur le plan du code : seul le CHANGELOG change entre les deux.
 
 ### Historique Git réécrit (à lire si vous avez cloné le dépôt)
 - Le 2026-11-18, l'historique a été réécrit pour retirer d'anciens noms d'organisations qui servaient de données d'exemple et des adresses e-mail personnelles des champs auteur et commiteur. **Le contenu de `main` est inchangé** (même arbre de fichiers), mais **tous les identifiants de commit ont changé** et les étiquettes de version `v0.2.0` à `v0.8.0` ont été recréées sur les nouveaux commits (même contenu pour les fichiers de l'application). Si vous avez un clone ou un fork, refaites un clone (ou `git fetch --all --tags --force` puis `git reset --hard origin/main` si vous n'avez aucun travail local).
