@@ -78,12 +78,15 @@ import io
 import re
 import threading
 import uuid
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageDraw
 from pypdf import PdfReader
 
-TODAY = date.today()
+# Jour de l'organisation (comme le serveur, qui compte les remises a l'heure locale) : date.today() du conteneur est en UTC
+# et differe de la date de Paris apres minuit, ce qui faisait echouer ce test entre 23 h et minuit UTC.
+TODAY = datetime.now(ZoneInfo(os.environ.get("KIKAN_TIMEZONE", "").strip() or "Europe/Paris")).date()
 NOM_RE = re.compile(r"^\d{4}_\d{2}_\d{2}_[A-Z0-9-]+_[A-Z0-9-]+_[A-Z]{3}_\d{3}(-\d+)?\.pdf$")
 
 
@@ -279,7 +282,7 @@ s, b = raw("GET", "/assignments/%d/document?type=nimporte" % AE1)
 show("type de document inconnu : 422", s == 422, s)
 
 print("== Echange total : S1 remis en stock, P2 rendu, remplaces par N2 et N3 ==")
-s, rep = j("POST", "/renouvellements/%d/reporter" % S1["id"], {"nouvelle": __import__("datetime").date.today().isoformat(), "motif": "ZZEC avant echange"})
+s, rep = j("POST", "/renouvellements/%d/reporter" % S1["id"], {"nouvelle": TODAY.isoformat(), "motif": "ZZEC avant echange"})
 show("S1 et P2 portent une echeance avant l'echange", s == 200 and j("POST", "/renouvellements/%d/reporter" % P2["id"], {"nouvelle": "2099-02-01"})[0] == 200, rep)
 s, sig2 = echange(U1, [N2, N3], [(S1, "stock"), (P2, "rendu")])
 show("2e echange accepte", s == 201, sig2)
