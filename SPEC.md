@@ -138,7 +138,7 @@ Ce qui fait la valeur de preuve :
 | champ | type | note |
 |---|---|---|
 | id | PK | |
-| nom | texte | ex. filiales de SICA Atlantique |
+| nom | texte | ex. filiales du Groupe Exemple |
 | code | texte | code court optionnel |
 | parent_id | FK → `entites` | hiérarchie optionnelle (groupe → filiales) |
 | actif | booléen | |
@@ -151,7 +151,7 @@ Ce qui fait la valeur de preuve :
 | champ | type | note |
 |---|---|---|
 | id | PK | |
-| nom | texte | ex. « ERP Cereo » |
+| nom | texte | ex. « ERP Gestion » |
 | description | texte | optionnel |
 | entite_id | FK → `entites` | nullable : globale si vide, sinon propre à une filiale |
 | actif | booléen | |

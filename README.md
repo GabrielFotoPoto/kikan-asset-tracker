@@ -138,8 +138,8 @@ avant le premier démarrage, ou monter le certificat de l'organisation dans le v
 
 ## Jeu de données de démonstration
 
-Pour montrer ou essayer Kikan sans saisir de données : `bash scripts/demo.sh charger` (environ 10 secondes) crée un groupe fictif, **Groupe SICA Atlantique** et ses
-filiales (SICA Atlantique, AMT, SISP, ALLFAST, ATENA), 52 salariés, 77 matériels (PC et smartphones), 6 applications et leurs accès, **49 remises signées avec de vrais
+Pour montrer ou essayer Kikan sans saisir de données : `bash scripts/demo.sh charger` (environ 10 secondes) crée un groupe fictif, **Groupe Exemple** et ses
+filiales (Exemple Nord, Exemple Sud, Exemple Est, Exemple Ouest, Exemple Services), 52 salariés, 77 matériels (PC et smartphones), 6 applications et leurs accès, **49 remises signées avec de vrais
 PDF scellés**, des restitutions, des besoins ouverts, des départs à venir, du matériel non restitué, du matériel à renouveler et 3 salariés sortis à purger (page RGPD).
 L'import des entités est un lot que l'on retrouve sur la page Import.
 
