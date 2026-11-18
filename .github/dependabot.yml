@@ -37,6 +37,12 @@ updates:
       day: monday
     cooldown:
       default-days: 7
+    ignore:
+      # Python reste en 3.12 (supporte jusqu'en 2028) : la CI et les scans de securite l'utilisent aussi.
+      # A migrer plus tard par etapes (3.13, puis 3.14), en une seule demande de fusion couvrant les
+      # images backend et converter et la CI. Retirer cette regle a ce moment-la.
+      - dependency-name: python
+        versions: [">=3.13"]
   - package-ecosystem: docker-compose
     directory: /
     schedule:
