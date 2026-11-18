@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- **Index sur les clés étrangères (migration `0024_index_cles_etrangeres`)** : dix clés étrangères n'avaient aucun index (`users`, `assets`, `applications`, `policies`, `account_scopes`, `api_token_scopes` sur `entite_id` ; `assignments.policy_id` ; `assignment_assets.asset_id` ; `echange_retours.asset_id` ; `besoins.assignment_id`), relevé par une requête de diagnostic sur la base de test. Les colonnes `entite_id` servent au cloisonnement par entité. Migration additive et réversible, aucune donnée modifiée ; les modèles (`index=True`) et la base concordent. Nouvelle suite `tests/index_check.py` (aucune clé étrangère sans index, présence des 10 index, révision). `tests/depart_exception_check.py` cible désormais la révision `0022` au lieu de `-1` (le test ne dépendait pas de la révision de tête). Aucune donnée personnelle nouvelle.
+
 ### Modifié
 - **Registre des traitements RGPD (modèle) à jour pour la 0.8.0** : `docs/modeles/registre-traitements-rgpd.md` décrit la version 0.8.0, le constat de non-restitution (`non_restitue_le`, `motif_non_restitution` en liste fermée, migration `0023`, routes `POST /lifecycle/non-restitue` et `POST /lifecycle/depart/{user_id}/cloturer`), ses destinataires (motif réservé à l'informatique), sa durée de conservation et son effacement par la purge RGPD. Le modèle signale aussi que la purge ignore un salarié `sorti` sans `date_sortie`. Documentation seule, aucun changement de comportement.
 - **Exemples de version à jour dans la documentation** : `docs/INSTALLATION.md`, `docs/PUBLIER.md`, `docker-compose.ghcr.yml`, `scripts/update.sh` et le commentaire de `.github/workflows/release.yml` citent la version 0.8.0 en exemple (au lieu de 0.7.0) ; la procédure de publication et le commentaire de `release.yml` utilisent `vX.Y.Z`. Commentaire du CI précisé (le comportement de `node --test` avec un dossier dépend de la version de Node). Aucun changement de comportement.
@@ -24,6 +27,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 - Images de la 0.8.0 identiques à celles de la rc.1 sur le plan du code : aucune modification entre les deux.
 
 ### Ajouté
+- **Agent de relecture de la base de données (`.claude/agents/database-reviewer.md`)** : relecteur PostgreSQL pour Kikan (index, verrous, migrations Alembic, données personnelles dans le schéma, cloisonnement côté application). Adapté de l'agent du dépôt ECC (affaan-m/ECC, licence MIT, lui-même issu des Supabase Agent Skills, MIT) : mentions Supabase retirées, règles de Kikan ajoutées. Il n'interroge que la base de test, en lecture seule. Aucun code applicatif, aucune donnée personnelle.
 - **Matériel non restitué et clôture de départ sans matériel (lot 1bis)** :
   - **Migration `0023_materiel_non_restitue`** : valeur `non_restitue` ajoutée au type enum `assetstatus` ; colonnes `non_restitue_le` (date) et `motif_non_restitution` (varchar) ajoutées à la table `assignment_assets` pour tracer l'événement dans l'affectation sans altérer l'intégrité de la charte ou du PDF scellé d'origine. Rétrogradation (downgrade) réversible vérifiant qu'aucun matériel n'est au statut `non_restitue`.
   - **Routes API du cycle de vie** :
