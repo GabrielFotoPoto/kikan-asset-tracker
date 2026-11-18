@@ -1,6 +1,6 @@
 # Registre des activités de traitement (Article 30 du RGPD) - Application Kikan
 
-> **Modèle fourni avec Kikan (version 0.7.0).** Ce document décrit ce que fait Kikan ; il n'a pas de valeur juridique tant que l'organisation ne l'a pas complété, adapté à son déploiement et fait **valider par son DPO ou son juriste**. Les mentions `[À compléter…]`, `[À décider…]` et `[À vérifier…]` sont à traiter avant usage ; supprimez les rubriques des intégrations que vous n'activez pas (GLPI, SMTP, SharePoint, DocuWare, SSO, API). Les durées de conservation indiquées sont les valeurs **par défaut** de Kikan, réglables dans la page *RGPD*. Kikan n'est pas « certifié RGPD » ni « certifié ISO 27001 » : il facilite la conformité du traitement de l'organisation, qui reste responsable de traitement.
+> **Modèle fourni avec Kikan (version 0.8.0).** Ce document décrit ce que fait Kikan ; il n'a pas de valeur juridique tant que l'organisation ne l'a pas complété, adapté à son déploiement et fait **valider par son DPO ou son juriste**. Les mentions `[À compléter…]`, `[À décider…]` et `[À vérifier…]` sont à traiter avant usage ; supprimez les rubriques des intégrations que vous n'activez pas (GLPI, SMTP, SharePoint, DocuWare, SSO, API). Les durées de conservation indiquées sont les valeurs **par défaut** de Kikan, réglables dans la page *RGPD*. Kikan n'est pas « certifié RGPD » ni « certifié ISO 27001 » : il facilite la conformité du traitement de l'organisation, qui reste responsable de traitement.
 
 > **Objet du document** : Ce registre recense l'ensemble des traitements de données à caractère personnel mis en œuvre au sein de l'application **Kikan** (*suivi du parc informatique, remise/échange/restitution de matériel signés sur tablette, gestion des accès applicatifs et conformité ISO 27001*), conformément à l'article 30 du Règlement (UE) 2016/679 (RGPD), en s'inspirant des rubriques du modèle de registre de la CNIL.
 >
@@ -19,7 +19,7 @@
 | **Service gestionnaire (Exploitation)** | Direction / Service Informatique (rôle `informatique`) |
 | **Services métiers utilisateurs** | Service Ressources Humaines (rôle `rh`), Service Informatique (`informatique`), Direction / RSSI / Audit (rôle `lecture`) |
 | **Mode d'hébergement** | Interne (*On-premise*, conteneurs Docker : `web`, `api`, `db`, `converter`), non exposé sur Internet |
-| **Version de Kikan décrite** | 0.7.0 |
+| **Version de Kikan décrite** | 0.8.0 |
 | **Date de mise à jour du registre** | `[JJ mois AAAA]` |
 | **Analyse d'impact (AIPD)** | `[À décider par le DPO : non jugée nécessaire car traitement d'outils de travail sans donnée sensible, sans surveillance systématique ni profilage ; à justifier ou à réaliser]` |
 
@@ -46,6 +46,7 @@
   - Exprimer les souhaits de matériel à l'embauche (catégorie et gamme souhaitée) et suivre le parcours d'arrivée (`/arrivee/:id`).
   - Synchroniser le référentiel des salariés avec l'outil de gestion de parc **GLPI** ou par import CSV/Excel contrôlé.
   - Déclarer le départ d'un collaborateur (`en_depart`), suivre le parcours de départ (`/depart/:id`), déclencher les alertes de récupération du matériel et passer le collaborateur au statut `sorti`.
+  - Clôturer un départ sans matériel à récupérer (`POST /lifecycle/depart/{user_id}/cloturer`, rôles `rh` et `informatique`) : le salarié `en_depart` qui ne détient plus aucun matériel passe au statut `sorti`.
 - **Base légale** :
   - **Intérêt légitime de l'employeur** (Art. 6.1.f RGPD) : bonne organisation matérielle de l'entreprise, dotation des outils de travail et préservation du patrimoine informatique lors des départs.
   - **Exécution du contrat de travail** (Art. 6.1.b RGPD) : fourniture des moyens nécessaires à l'exercice des fonctions.
@@ -59,7 +60,7 @@
 | **Identité professionnelle** | `nom`, `prenom`, `acronyme` (3 lettres générées pour le nommage des PDF), `matricule` | Nom et prénom obligatoires ; matricule facultatif |
 | **Coordonnées professionnelles** | `email` professionnel | Facultatif |
 | **Rattachement organisationnel** | `entite_id` (filiale / entité), `service` (département) | Facultatif (recommandé pour le cloisonnement par entité) |
-| **Cycle de vie contractuel** | `statut` (`prevu`, `actif`, `en_depart`, `sorti`), `date_arrivee`, `date_sortie` | Statut obligatoire ; dates selon l'événement |
+| **Cycle de vie contractuel** | `statut` (`prevu`, `actif`, `en_depart`, `sorti`), `date_arrivee`, `date_sortie` | Statut obligatoire ; dates selon l'événement. `date_sortie` est facultative et n'est pas renseignée par la clôture de départ : sans elle, la durée de conservation après sortie ne court pas (voir section 4) |
 | **Besoins d'équipement** | `type` (catégorie de matériel), `gamme`, `quantite`, `commentaire`, `date_souhaitee`, `statut` du besoin | Lié au souhait d'entrée |
 | **Identifiants techniques tiers** | `externe_id` (identifiant utilisateur dans GLPI si le connecteur GLPI est utilisé) | Automatique si synchro GLPI |
 
@@ -67,7 +68,7 @@
 
 #### 3.1.4 Destinataires habilités
 - **Service RH** (rôle `rh`) : lecture et écriture limitées aux salariés de son **périmètre d'entités** (`account_scopes`). Dans les parcours guidés (`/depart/:id`), le matricule et l'e-mail sont masqués par minimisation.
-- **Service Informatique** (rôle `informatique`) : accès global pour la préparation du matériel, la gestion du parc et la purge RGPD.
+- **Service Informatique** (rôle `informatique`) : accès global pour la préparation du matériel, la gestion du parc et la purge RGPD. Seul rôle autorisé à enregistrer un constat de non-restitution (voir fiche T-02).
 - **Direction / RSSI / Contrôle interne** (rôle `lecture`) : consultation en lecture seule, limitée à son périmètre d'entités.
 
 ---
@@ -80,6 +81,7 @@
   - Recueillir sur tablette la **signature manuscrite** du salarié lors de la remise initiale, du renouvellement (échange en un seul acte) et de la restitution de départ.
   - Annexer et rendre opposable la **Charte informatique** en vigueur au moment de la remise.
   - Générer un **document PDF scellé cryptographiquement (PAdES)** avec horodatage RFC 3161 et faisceau de preuves.
+  - Constater qu'un matériel n'a pas pu être récupéré au départ d'un salarié (`POST /lifecycle/non-restitue`, rôle `informatique` seul, salarié `en_depart`) : le matériel passe au statut `non_restitue`, sort des détentions du salarié, des rappels et des renouvellements, mais reste dans l'inventaire. Si le salarié ne détient plus rien, il passe au statut `sorti`.
 - **Base légale** :
   - **Intérêt légitime de l'employeur** (Art. 6.1.f RGPD) : traçabilité du patrimoine matériel (ISO 27001 A.5.9 / A.5.11) et preuve de prise de connaissance des règles d'usage sécurité (A.5.10).
 
@@ -89,10 +91,12 @@
 | **Détention de matériel** | Liste des actifs affectés (`type`, `marque`, `modele`, `numero_serie`, `identifiant_interne`), `date_remise`, `date_retour`, `date_restitution` | Les statistiques et prévisions budgétaires (`/previsions`) n'exposent aucune donnée de salarié |
 | **Signature manuscrite** | Image PNG du tracé apposé au doigt ou au stylet sur la tablette | **Non stockée en base de données** : l'image est assainie (sans métadonnées), insérée uniquement dans le PDF scellé, puis détruite de la mémoire. La base ne conserve que le nombre de traits, la durée en ms et l'empreinte SHA-256. Ces éléments servent de preuve de l'acte de signature ; ils ne sont pas utilisés pour identifier ou authentifier la personne (pas de traitement biométrique) |
 | **Faisceau de preuves (`audit_json`)** | Nom et prénom du signataire (déduits de sa fiche, jamais saisis librement), compte témoin (admin IT ou RH connecté), adresse IP du terminal de signature, User-Agent, horodatage UTC / TSA, empreintes SHA-256 du document, de la charte et des accès | Figé à la signature ; toute modification ultérieure du PDF invalide le sceau PAdES |
+| **Constat de non-restitution** *(version 0.8.0, migration `0023`)* | Sur la ligne d'affectation (`assignment_assets`) : `non_restitue_le` (date et heure du constat) et `motif_non_restitution` (liste fermée : `perte`, `vol`, `refus_de_restituer`, `salarie_injoignable`, `autre` ; **aucun texte libre**) | Une donnée par matériel concerné. Le PDF scellé d'origine n'est pas modifié. Le motif (`refus_de_restituer`, `salarie_injoignable`) décrit un comportement du salarié : il est réservé à l'informatique et n'est affiché ni aux rôles `rh` et `lecture` ni dans l'entrée datée du parcours de départ (le code du motif figure toutefois dans le journal d'audit, rattaché à un identifiant technique de salarié et non à son nom) |
 | **Document PDF scellé** | Fichier nommé `AAAA_MM_JJ_NOM_PRENOM_ACR_NNN.pdf` stocké dans le moteur configuré (`local`, `smb`, `webdav`, `sharepoint` ou `docuware`) | Empreinte SHA-256 vérifiée à chaque dépôt et à chaque lecture |
 
 #### 3.2.3 Destinataires et stockage externe éventuel
 - **Interne** : Service Informatique, Service RH (dans son périmètre d'entités), Rôle Lecture (dans son périmètre).
+- **Constat de non-restitution** : le motif et la liste des matériels non restitués (avec numéro de série) sont visibles du rôle `informatique` seul. Les rôles `rh` et `lecture` (dans leur périmètre) voient seulement l'existence d'un constat (nombre de matériels, entrée datée du parcours de départ sans motif). Le matricule et l'e-mail ne sont jamais affichés dans ce parcours.
 - **Moteur de stockage documentaire configuré** (un seul actif à la fois) :
   - *Volume local Docker*, *Partage réseau SMB 3* ou *WebDAV interne* ;
   - Ou *SharePoint Online* (Microsoft Graph API, permission restreinte `Sites.Selected`) ;
@@ -146,7 +150,8 @@ Kikan intègre un moteur dédié de purge RGPD (page `/rgpd`, module `backend/ap
 | Catégorie de données | Durée de conservation active / intermédiaire | Modalités de purge dans Kikan |
 |---|---|---|
 | **Salarié en poste (`prevu`, `actif`, `en_depart`)** | Toute la durée de présence dans l'organisation | - (Suppression directe bloquée par garde-fou si le salarié possède un historique de matériel, d'accès ou de besoin) |
-| **Salarié ayant quitté l'organisation (`sorti`)** | **`retention_apres_sortie_mois`** à compter de `date_sortie` (**12 mois par défaut**, réglable de 0 à 240 mois) | À l'échéance, le salarié remonte dans la prévisualisation de purge (`/rgpd`) et dans les rappels e-mail hebdomadaires. La purge (validée par l'IT) **supprime définitivement** la fiche salarié, ses besoins, ses affectations, ses signatures en base, ses accès applicatifs, ses lignes de revue et ses liens externes (GLPI) |
+| **Salarié ayant quitté l'organisation (`sorti`)** | **`retention_apres_sortie_mois`** à compter de `date_sortie` `[À décider : la purge ignore un salarié `sorti` sans `date_sortie`, et la clôture de départ ne la renseigne pas ; voir la note sous le tableau]` (**12 mois par défaut**, réglable de 0 à 240 mois) | À l'échéance, le salarié remonte dans la prévisualisation de purge (`/rgpd`) et dans les rappels e-mail hebdomadaires. La purge (validée par l'IT) **supprime définitivement** la fiche salarié, ses besoins, ses affectations (dont le constat de non-restitution et son motif), ses signatures en base, ses accès applicatifs, ses lignes de revue et ses liens externes (GLPI) |
+| **Matériel non restitué (`non_restitue`)** *(0.8.0)* | Le constat (date, motif) suit la durée de l'affectation du salarié ; **le matériel lui-même reste dans l'inventaire** (statut figé, non réaffectable) | La purge RGPD du salarié supprime ses lignes d'affectation, donc la date et le motif du constat. L'actif subsiste sans lien avec le salarié, sans donnée personnelle |
 | **Documents PDF scellés (remise, échange, restitution)** - *Stockage local, SMB ou WebDAV* | Durée de conservation du salarié sorti + **délai de grâce en quarantaine** (`purge_delai_grace_jours`, **30 jours par défaut**, réglable de 0 à 365 jours) | Lors de la purge du salarié, ses PDF sont déplacés dans le dossier de quarantaine `A_PURGER/` (pour permettre une restauration en cas d'erreur sur la date de sortie). Une fois le délai de grâce écoulé, l'action *Supprimer définitivement les documents échus* efface les fichiers PDF et ne conserve que leur empreinte SHA-256 anonyme dans le journal |
 | **Documents PDF scellés** - *SharePoint Online ou DocuWare* | Durée de conservation du salarié sorti | Kikan ne supprime pas directement dans la GED externe : il génère la liste des références échues (`ged_a_supprimer`) à transmettre à l'administrateur de la GED, puis enregistre la confirmation de suppression |
 | **Rapports PDF scellés de revue des accès (`/revues`)** | Durée de conservation probatoire ISO 27001 `[ex. 3 à 5 ans selon politique interne]` | Les lignes individuelles en base (`revue_lignes`) sont supprimées lors de la purge RGPD du salarié ; le rapport PDF scellé de campagne ne contient que des matricules (sans nom ni prénom) |
@@ -154,6 +159,8 @@ Kikan intègre un moteur dédié de purge RGPD (page `/rgpd`, module `backend/ap
 | **Comptes opérateurs Kikan (`accounts`)** | Tant que l'opérateur est habilité | Désactivation immédiate (`actif = false`, révocation instantanée des sessions via `token_epoch`) au départ ou changement de fonction de l'opérateur |
 | **Jetons révoqués (`revoked_tokens`) et liens de réinitialisation (`password_reset_tokens`)** | Durée de vie du jeton (30 min pour la réinitialisation ; 4 h par défaut pour la session) | Purge automatique des jetons expirés |
 | **Sauvegardes chiffrées (`age`)** | **30 jours** (sauvegardes quotidiennes) + **12 mois** (1ère sauvegarde de chaque mois) | Rotation automatique par le service de sauvegarde. *Note : en cas de restauration d'une sauvegarde antérieure à une purge, relancer la purge sur la page `/rgpd`. Les sauvegardes contiennent encore les données purgées jusqu'à leur expiration.* `[À confirmer : durée réellement appliquée sur votre serveur]` |
+
+> **Point à trancher (version 0.8.0)** : la purge sélectionne les salariés `sorti` dont `date_sortie` plus la durée de conservation est échue ; sans `date_sortie`, le salarié n'est jamais proposé à la purge. Ni la déclaration de départ, ni le constat de non-restitution, ni la clôture de départ n'imposent cette date. L'organisation doit soit rendre la saisie de `date_sortie` obligatoire dans sa procédure RH, soit contrôler régulièrement les salariés `sorti` sans date.
 
 ---
 
@@ -185,11 +192,12 @@ Par conception, Kikan fonctionne en **circuit fermé (*on-premise*)** sans tél�
 ### 6.2 Intégrité et valeur probante
 - **Scellement PAdES-B / PAdES-B-T** via `pyHanko` : chaque PDF signé (remise, échange, restitution, clôture de revue d'accès) est scellé cryptographiquement.
 - **Contrôle d'intégrité continu** : l'empreinte SHA-256 de chaque PDF est enregistrée en base et recalculée à chaque dépôt et à chaque lecture ; un fichier altéré sur le stockage est immédiatement rejeté et signalé dans le journal d'audit.
-- **Verrous transactionnels (`SELECT ... FOR UPDATE`)** : protection contre les accès concurrents et doubles soumissions lors des remises, échanges, restitutions et purges.
+- **Verrous transactionnels (`SELECT ... FOR UPDATE`)** : protection contre les accès concurrents et doubles soumissions lors des remises, échanges, restitutions, constats de non-restitution, clôtures de départ, opérations en lot et purges.
 
 ### 6.3 Minimisation et protection de la vie privée dès la conception (*Privacy by Design*)
 - **Absence de stockage de l'image de signature en base** : l'image PNG du tracé manuscrit est intégrée au PDF scellé à la volée et n'est jamais conservée dans PostgreSQL.
-- **Journal d'audit anonymisé vis-à-vis des salariés** : aucune opération (modification de fiche, suppression unitaire ou en lot, échange, rapport de revue, purge RGPD) n'inscrit le nom, le prénom, l'e-mail ou le matricule d'un salarié dans `audit_log`.
+- **Constat de non-restitution minimisé** : motif en liste fermée sans texte libre, réservé à l'informatique côté serveur (la route et le champ `materiels_non_restitues` sont omis pour `rh` et `lecture`), entrée d'audit limitée à l'identifiant technique, au nombre de matériels et au code du motif (ni nom de salarié, ni numéro de série).
+- **Journal d'audit anonymisé vis-à-vis des salariés** : aucune opération (modification de fiche, suppression unitaire ou en lot, échange, constat de non-restitution, clôture de départ, rapport de revue, purge RGPD) n'inscrit le nom, le prénom, l'e-mail ou le matricule d'un salarié dans `audit_log`.
 - **Champs libres** : les commentaires (besoins, lignes de revue d'accès, note d'accès applicatif, motif de report) sont du texte libre où une donnée superflue peut être saisie. Consigne aux utilisateurs : ne saisir que le nécessaire, jamais de donnée de santé, de situation personnelle ou d'appréciation sur la personne.
 - **Hachage HMAC des identifiants inconnus** : les erreurs de saisie à la connexion sont transformées en `inconnu:<HMAC>` pour éviter toute collecte accidentelle de données personnelles ou de mots de passe dans les journaux.
 - **Isolation du convertisseur de documents** : le conteneur LibreOffice (`converter`) utilisé pour convertir les chartes Word en PDF s'exécute sans accès réseau externe (`internal: true`), en lecture seule et sans privilèges.
