@@ -61,7 +61,7 @@ def ascii_maj(value: str | None) -> str:
 
 
 def acronyme_defaut(prenom: str | None, nom: str | None) -> str:
-    """Initiale du prenom + 2 premieres lettres du nom (complete par X) : Gabriel Chollet -> GCH."""
+    """Initiale du prenom + 2 premieres lettres du nom (complete par X) : Camille Martin -> CMA."""
     p = re.sub(r"[^A-Z]", "", ascii_maj(prenom))
     n = re.sub(r"[^A-Z]", "", ascii_maj(nom))
     return ((p[:1] + n[:2]).ljust(3, "X"))[:3] if (p or n) else "XXX"
@@ -81,7 +81,7 @@ _CLE_RE = re.compile(r"^(\d{4}/\d{4}_\d{2}_\d{2})_.+?(_[A-Z]{3}_\d{3}(?:-\d+)?\.
 
 
 def cle_sans_nom(key: str) -> str:
-    """Cle sans NOM_PRENOM (2026/2026_11_02_GCH_003.pdf) : valeur du champ d'index "cle" des moteurs qui indexent."""
+    """Cle sans NOM_PRENOM (2026/2026_11_02_CMA_003.pdf) : valeur du champ d'index "cle" des moteurs qui indexent."""
     m = _CLE_RE.match(key or "")
     return m.group(1) + m.group(2) if m else key
 

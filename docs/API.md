@@ -88,14 +88,14 @@ curl -s -H "Authorization: Bearer $TOKEN" $URL/v1/me
 curl -s -X POST "$URL/v1/assets/_batch?dry_run=1" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
   "items": [
     {"id_externe": "INV-1001", "type": "PC portable", "marque": "Dell", "modele": "Latitude 5540",
-     "numero_serie": "ABC123", "entite_code": "SICA"},
+     "numero_serie": "ABC123", "entite_code": "NORD"},
     {"id_externe": "INV-1002", "type": "Smartphone", "marque": "Samsung", "modele": "Galaxy A55",
-     "numero_serie": "XYZ789", "entite_code": "SICA"}
+     "numero_serie": "XYZ789", "entite_code": "NORD"}
   ]}'
 
 # Un salarié
 curl -s -X PUT "$URL/v1/users/RH-42" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"matricule": "00042", "nom": "Martin", "prenom": "Camille", "email": "camille.martin@entreprise.local", "entite_code": "SICA"}'
+  -d '{"matricule": "00042", "nom": "Martin", "prenom": "Camille", "email": "camille.martin@entreprise.local", "entite_code": "NORD"}'
 ```
 
 Réponse d'un lot :
