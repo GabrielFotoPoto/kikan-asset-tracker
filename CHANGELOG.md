@@ -5,10 +5,28 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.8.1] - 2026-11-18
+
+Version corrective : une migration d'index (`0024`), des dépendances mises à jour (dont pypdf 7 et uritools 7) et une chaîne de construction du frontend sous Node 24. Les exemples d'import de l'API utilisent des noms fictifs. **Aucune fonction nouvelle.**
+
+### Mise à jour depuis 0.8.0
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Cette version contient une **migration** (`0024`, ajout d'index sur dix clés étrangères, aucune donnée modifiée). Changer `KIKAN_VERSION` dans `.env` pour `0.8.1`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.8.1` sous Linux) ; les quatre images ensemble.
+- Les fichiers compose ne changent que pour l'image de développement `axllent/mailpit` (v1.33) et un commentaire d'exemple : remplacer vos copies est facultatif.
+- Retour en arrière : restaurer la sauvegarde.
+
+### Vérifié
+- Intégration continue de `main` verte à chaque changement fusionné (les 11 contrôles, dont la pile complète de tests et la sauvegarde de bout en bout).
+- Validation de la pré-version `0.8.1-rc.1` sur la préprod : **à renseigner avant la version finale**.
+
+### Historique Git réécrit (à lire si vous avez cloné le dépôt)
+- Le 2026-11-18, l'historique a été réécrit pour retirer d'anciens noms d'organisations qui servaient de données d'exemple et des adresses e-mail personnelles des champs auteur et commiteur. **Le contenu de `main` est inchangé** (même arbre de fichiers), mais **tous les identifiants de commit ont changé** et les étiquettes de version `v0.2.0` à `v0.8.0` ont été recréées sur les nouveaux commits (même contenu pour les fichiers de l'application). Si vous avez un clone ou un fork, refaites un clone (ou `git fetch --all --tags --force` puis `git reset --hard origin/main` si vous n'avez aucun travail local).
+
 ### Corrigé
 - **Index sur les clés étrangères (migration `0024_index_cles_etrangeres`)** : dix clés étrangères n'avaient aucun index (`users`, `assets`, `applications`, `policies`, `account_scopes`, `api_token_scopes` sur `entite_id` ; `assignments.policy_id` ; `assignment_assets.asset_id` ; `echange_retours.asset_id` ; `besoins.assignment_id`), relevé par une requête de diagnostic sur la base de test. Les colonnes `entite_id` servent au cloisonnement par entité. Migration additive et réversible, aucune donnée modifiée ; les modèles (`index=True`) et la base concordent. Nouvelle suite `tests/index_check.py` (aucune clé étrangère sans index, présence des 10 index, révision). `tests/depart_exception_check.py` cible désormais la révision `0022` au lieu de `-1` (le test ne dépendait pas de la révision de tête). Aucune donnée personnelle nouvelle.
 
 ### Modifié
+- **Dépendances et actions mises à jour** (chacune testée par la CI avant fusion) : `pypdf` 6.21.4 vers 7.0.1 (lecture et assemblage des chartes), `uritools` 6.1.3 vers 7.0.0 (dépendance indirecte), huit mises à jour Python mineures (`fastapi` 0.162.2, `pydantic` 2.14.3, `SQLAlchemy` 2.1.8, `pyHanko` 0.38.1, `anyio`, `click`, `python-multipart`, `opentelemetry-api`), `vite` 8.3.8 et `@vitejs/plugin-react` 6.3.0, image de développement `mailpit` v1.33, et les actions GitHub `codeql-action` 4.39.3 (`init` et `analyze` ensemble, les deux doivent avoir la même version), `softprops/action-gh-release` 3.0.4 et `docker/login-action` 4.8.0. Aucun changement de comportement attendu.
+- **Dependabot ignore les images `python` 3.13 et plus** (`.github/dependabot.yml`) : Python reste en 3.12 tant que la CI, les scans de sécurité et les images ne migrent pas ensemble, par étapes.
 - **Registre des traitements RGPD (modèle) à jour pour la 0.8.0** : `docs/modeles/registre-traitements-rgpd.md` décrit la version 0.8.0, le constat de non-restitution (`non_restitue_le`, `motif_non_restitution` en liste fermée, migration `0023`, routes `POST /lifecycle/non-restitue` et `POST /lifecycle/depart/{user_id}/cloturer`), ses destinataires (motif réservé à l'informatique), sa durée de conservation et son effacement par la purge RGPD. Le modèle signale aussi que la purge ignore un salarié `sorti` sans `date_sortie`. Documentation seule, aucun changement de comportement.
 - **Exemples de version à jour dans la documentation** : `docs/INSTALLATION.md`, `docs/PUBLIER.md`, `docker-compose.ghcr.yml`, `scripts/update.sh` et le commentaire de `.github/workflows/release.yml` citent la version 0.8.0 en exemple (au lieu de 0.7.0) ; la procédure de publication et le commentaire de `release.yml` utilisent `vX.Y.Z`. Commentaire du CI précisé (le comportement de `node --test` avec un dossier dépend de la version de Node). Aucun changement de comportement.
 - **Noms fictifs dans le jeu de démonstration, les exemples d'import et la documentation** : les entités (« Groupe Exemple », « Exemple Nord », « Exemple Sud », « Exemple Est », « Exemple Ouest », « Exemple Services ») et l'application (« ERP Gestion ») remplacent des noms d'organisations réelles. Concerne `scripts/demo_data.py`, les exemples du module d'import, les fichiers de `import-modeles/`, le README, la SPEC et `docs/API.md`. Aucun changement de comportement. Pour obtenir les nouveaux noms sur une instance déjà chargée : `bash scripts/demo.sh effacer` puis `bash scripts/demo.sh charger`. Les 14 captures du guide (`docs/captures/`) qui montraient ces noms, ou des identifiants de comptes de test les contenant, ont été refaites avec le jeu à noms fictifs. Les exemples de clé de rangement documentaire (`docname.py`, `filestore.py`, `docs/DOCUWARE.md`) utilisent désormais des initiales génériques (CMA) plutôt que celles de l'auteur.
