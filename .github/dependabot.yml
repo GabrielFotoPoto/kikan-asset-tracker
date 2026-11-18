@@ -43,6 +43,11 @@ updates:
       # images backend et converter et la CI. Retirer cette regle a ce moment-la.
       - dependency-name: python
         versions: [">=3.13"]
+      # Node reste en 24 (supporte jusqu'en avril 2028) : le Dockerfile du frontend, la CI (ci.yml) et le scan
+      # (scripts/securite_scan.sh) doivent migrer ensemble, une fois Node 26 confirme en LTS.
+      # Retirer cette regle a ce moment-la.
+      - dependency-name: node
+        versions: [">=25"]
   - package-ecosystem: docker-compose
     directory: /
     schedule:
