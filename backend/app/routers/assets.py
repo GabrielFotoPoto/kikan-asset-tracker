@@ -187,8 +187,14 @@ def reform_assets_batch(
     ids = list(dict.fromkeys(data.ids))
     reformables: list[Asset] = []
     refuses: list[dict] = []
+    # Verrou des actifs (ordre des identifiants : pas d'interblocage), comme la remise : sans lui, une remise validee entre la
+    # lecture du statut et l'ecriture serait ecrasee (actif reforme alors qu'il est affecte). Pas de verrou en simulation.
+    stmt = select(Asset).where(Asset.id.in_(ids)).order_by(Asset.id)
+    if not data.simulation:
+        stmt = stmt.with_for_update()
+    locked = {a.id: a for a in session.exec(stmt).all()}
     for asset_id in ids:
-        obj = session.get(Asset, asset_id)
+        obj = locked.get(asset_id)
         if not obj or not scope.allows(obj.entite_id):
             refuses.append({"id": asset_id, "raison": "Actif introuvable"})
         elif obj.statut == AssetStatus.affecte:
@@ -233,8 +239,14 @@ def delete_assets_batch(
     ids = list(dict.fromkeys(data.ids))
     supprimables: list[Asset] = []
     refuses: list[dict] = []
+    # Verrou des actifs (ordre des identifiants) : une remise simultanee attend, puis les affectations sont relues avant de
+    # supprimer ; sans lui, la suppression pouvait echouer sur la cle etrangere (erreur 500). Pas de verrou en simulation.
+    stmt = select(Asset).where(Asset.id.in_(ids)).order_by(Asset.id)
+    if not data.simulation:
+        stmt = stmt.with_for_update()
+    locked = {a.id: a for a in session.exec(stmt).all()}
     for asset_id in ids:
-        obj = session.get(Asset, asset_id)
+        obj = locked.get(asset_id)
         if not obj or not scope.allows(obj.entite_id):
             refuses.append({"id": asset_id, "raison": "Actif introuvable"})
         elif count(session, AssignmentAsset, AssignmentAsset.asset_id == obj.id):

@@ -172,7 +172,7 @@ def restituer(
 ):
     user = visible_user(session, scope, data.user_id)
     # Verrou sur le salarie : deux restitutions simultanees se suivent, la seconde ne voit plus que le materiel restant.
-    session.exec(select(User).where(User.id == data.user_id).with_for_update()).first()
+    session.exec(select(User).where(User.id == data.user_id).with_for_update().execution_options(populate_existing=True)).first()
 
     held = _holdings(session, data.user_id)
     if data.asset_ids is not None:
@@ -300,7 +300,7 @@ def constat_non_restitue(
     """Constat d'impossibilite de restitution d'actifs (reserve a l'informatique seule)."""
     user = visible_user(session, scope, data.user_id)
     # Verrou sur le salarie : deux constats/restitutions simultanes se suivent.
-    session.exec(select(User).where(User.id == data.user_id).with_for_update()).first()
+    session.exec(select(User).where(User.id == data.user_id).with_for_update().execution_options(populate_existing=True)).first()
     if user.statut != EmployeeStatus.en_depart:
         raise HTTPException(409, "Le salarie doit etre en cours de depart")
 
@@ -343,7 +343,7 @@ def cloturer_depart(
 ):
     """Cloture d'un depart sans materiel (ou dont tout le materiel a ete traite). RH ou informatique."""
     user = visible_user(session, scope, user_id)
-    session.exec(select(User).where(User.id == user_id).with_for_update()).first()
+    session.exec(select(User).where(User.id == user_id).with_for_update().execution_options(populate_existing=True)).first()
 
     if user.statut != EmployeeStatus.en_depart:
         raise HTTPException(409, "Le salarie doit etre en cours de depart pour etre cloture")

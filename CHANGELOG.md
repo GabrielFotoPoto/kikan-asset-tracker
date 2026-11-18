@@ -5,6 +5,27 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- **Index sur les clés étrangères (migration `0024_index_cles_etrangeres`)** : dix clés étrangères n'avaient aucun index (`users`, `assets`, `applications`, `policies`, `account_scopes`, `api_token_scopes` sur `entite_id` ; `assignments.policy_id` ; `assignment_assets.asset_id` ; `echange_retours.asset_id` ; `besoins.assignment_id`), relevé par une requête de diagnostic sur la base de test. Les colonnes `entite_id` servent au cloisonnement par entité. Migration additive et réversible, aucune donnée modifiée ; les modèles (`index=True`) et la base concordent. Nouvelle suite `tests/index_check.py` (aucune clé étrangère sans index, présence des 10 index, révision). `tests/depart_exception_check.py` cible désormais la révision `0022` au lieu de `-1` (le test ne dépendait pas de la révision de tête). Aucune donnée personnelle nouvelle.
+
+### Modifié
+- **Registre des traitements RGPD (modèle) à jour pour la 0.8.0** : `docs/modeles/registre-traitements-rgpd.md` décrit la version 0.8.0, le constat de non-restitution (`non_restitue_le`, `motif_non_restitution` en liste fermée, migration `0023`, routes `POST /lifecycle/non-restitue` et `POST /lifecycle/depart/{user_id}/cloturer`), ses destinataires (motif réservé à l'informatique), sa durée de conservation et son effacement par la purge RGPD. Le modèle signale aussi que la purge ignore un salarié `sorti` sans `date_sortie`. Documentation seule, aucun changement de comportement.
+- **Exemples de version à jour dans la documentation** : `docs/INSTALLATION.md`, `docs/PUBLIER.md`, `docker-compose.ghcr.yml`, `scripts/update.sh` et le commentaire de `.github/workflows/release.yml` citent la version 0.8.0 en exemple (au lieu de 0.7.0) ; la procédure de publication et le commentaire de `release.yml` utilisent `vX.Y.Z`. Commentaire du CI précisé (le comportement de `node --test` avec un dossier dépend de la version de Node). Aucun changement de comportement.
+- **Noms fictifs dans le jeu de démonstration, les exemples d'import et la documentation** : les entités (« Groupe Exemple », « Exemple Nord », « Exemple Sud », « Exemple Est », « Exemple Ouest », « Exemple Services ») et l'application (« ERP Gestion ») remplacent des noms d'organisations réelles. Concerne `scripts/demo_data.py`, les exemples du module d'import, les fichiers de `import-modeles/`, le README, la SPEC et `docs/API.md`. Aucun changement de comportement. Pour obtenir les nouveaux noms sur une instance déjà chargée : `bash scripts/demo.sh effacer` puis `bash scripts/demo.sh charger`. Les 14 captures du guide (`docs/captures/`) qui montraient ces noms, ou des identifiants de comptes de test les contenant, ont été refaites avec le jeu à noms fictifs. Les exemples de clé de rangement documentaire (`docname.py`, `filestore.py`, `docs/DOCUWARE.md`) utilisent désormais des initiales génériques (CMA) plutôt que celles de l'auteur.
+- **Chaîne de construction du frontend sous Node 24 (LTS)** : l'étape de build de `frontend/Dockerfile`, le CI et `scripts/securite_scan.sh` passent de Node 20 (fin de vie depuis avril 2026) à Node 24. Aucun changement pour l'utilisateur : l'image finale reste servie par nginx, le code et les dépendances du frontend sont inchangés.
+
+## [0.8.0] - 2026-11-06
+
+### Mise à jour depuis 0.7.1
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Cette version contient une **migration** (`0023`, ajout de colonnes et d'une valeur d'énumération, aucune perte de données). Changer `KIKAN_VERSION` dans `.env` pour `0.8.0`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.8.0` sous Linux) ; les quatre images ensemble.
+- Les fichiers compose n'ont pas changé depuis la 0.7.1.
+- Retour en arrière : restaurer la sauvegarde (la migration `0023` ne se défait pas si des matériels sont déjà « non restitués »).
+
+### Vérifié
+- Pré-version 0.8.0-rc.1 essayée à la main sur la préprod par des testeurs, retours favorables (le détail des scénarios essayés n'est pas consigné).
+- Suite de tests complète sur une base de test (hors sauvegarde de bout en bout), et intégration continue de `main` verte.
+- Images de la 0.8.0 identiques à celles de la rc.1 sur le plan du code : aucune modification entre les deux.
+
 ### Ajouté
 - **Agent de relecture de la base de données (`.claude/agents/database-reviewer.md`)** : relecteur PostgreSQL pour Kikan (index, verrous, migrations Alembic, données personnelles dans le schéma, cloisonnement côté application). Adapté de l'agent du dépôt ECC (affaan-m/ECC, licence MIT, lui-même issu des Supabase Agent Skills, MIT) : mentions Supabase retirées, règles de Kikan ajoutées. Il n'interroge que la base de test, en lecture seule. Aucun code applicatif, aucune donnée personnelle.
 - **Matériel non restitué et clôture de départ sans matériel (lot 1bis)** :
@@ -28,14 +49,22 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
   - **Cinq questions RGPD (nouvelle donnée : constat de non-restitution)** : 1) *Quelle donnée ?* la date du constat et un motif en liste fermée (`perte`, `vol`, `refus_de_restituer`, `salarie_injoignable`, `autre`, sans texte libre), par matériel, sur la ligne d'affectation du salarié. 2) *Pourquoi ?* tracer qu'un matériel n'a pas été récupéré après un départ (suivi des actifs) et le sortir des rappels et renouvellements. 3) *Qui la voit ?* le motif et la liste des matériels non restitués (avec numéro de série) : l'informatique seule ; l'existence d'un constat (nombre, journal daté sans motif) : les trois rôles dans leur portée d'entité ; les RH voient déjà le numéro de série du matériel encore détenu (décision du parcours de départ) ; jamais de matricule ni d'e-mail. 4) *Combien de temps ?* comme l'affectation du salarié ; l'actif, lui, reste dans l'inventaire. 5) *Comment l'effacer ?* par la purge RGPD du salarié, qui supprime ses lignes d'affectation et donc le constat et le motif (vérifié par `C1bis-8a`) ; aucun numéro de série ni nom de salarié dans l'entrée du journal d'audit.
 - Tests : nouvelle suite `tests/depart_exception_check.py` (36 vérifications couvrant les 8 critères d'acceptation du lot 1bis), tests unitaires frontend (`frontend/src/parcours.test.js` à 9 tests, 36 au total), actualisation de `tests/parcours_depart_check.py`.
 
-### Corrigé
-- **Parcours de départ : la pastille n'affiche plus « Parcours terminé » tant que la clôture reste à faire.** Pour un salarié en départ sans matériel, elle indique maintenant « Clôture du départ en attente ». Aucun changement d'API.
-- **Un matériel non restitué n'invite plus à le « passer au statut réformé ».** Ce statut est figé : la suppression (unitaire et en lot) répond « se conserve dans l'inventaire », et le bouton *Supprimer* n'est plus proposé pour ce matériel dans la liste. Le refus de suppression (409) est inchangé.
-
 ### Modifié
 - **Contrat de `GET /parcours/depart/{user_id}`** : le champ `message_attente` est retiré (il n'avait de sens que tant que la clôture d'un départ n'existait pas) ; le champ `prochaine_action` peut maintenant porter `"vers": null` avec un `action_id` (`cloturer_depart`), pour une action exécutée dans la page. Les champs `materiels_non_restitues` (informatique seule) et `reserves` (« n materiel(s) non restitue(s) ») sont ajoutés.
 - **Rapport mensuel par e-mail** : la ligne « Parc » compte les matériels « non restitués », et le compteur « Renouvellements dans les 12 prochains mois » n'inclut plus les matériels non restitués (les autres statuts sont inchangés).
 - **Messages d'erreur 409 de la remise et de l'échange** : un matériel non restitué est désigné par son identifiant interne (jamais par son numéro de série) ; le constat de non-restitution ne donne aucun identifiant pour un matériel refusé.
+
+### Corrigé
+- **Verrous sur les opérations en lot** : `POST /assets/reforme-lot`, `POST /assets/suppression-lot` et `POST /users/suppression-lot` verrouillent
+  maintenant les lignes concernées (ordre des identifiants, comme la remise) avant de décider et d'écrire. Avant, une remise validée au même instant
+  pouvait être écrasée (actif réformé alors qu'il est affecté) ou faire échouer la suppression sur la clé étrangère (erreur 500). La simulation ne
+  verrouille rien. Nouveaux scénarios dans `tests/verrous_check.py`.
+- **Statut du salarié relu après le verrou** : le verrou pris sur le salarié rafraîchit sa fiche (`populate_existing`) ; l'échange de matériel
+  revérifie « en poste » après le verrou, la restitution, le constat de non-restitution et la clôture de départ lisent le statut à jour.
+- **Mode de production par défaut partout** : la vérification de mise à jour (`À propos`) utilise le même réglage `KIKAN_ENV` que le reste de l'API
+  (sans réglage : production, donc HTTPS exigé).
+- **Parcours de départ : la pastille n'affiche plus « Parcours terminé » tant que la clôture reste à faire.** Pour un salarié en départ sans matériel, elle indique maintenant « Clôture du départ en attente ». Aucun changement d'API.
+- **Un matériel non restitué n'invite plus à le « passer au statut réformé ».** Ce statut est figé : la suppression (unitaire et en lot) répond « se conserve dans l'inventaire », et le bouton *Supprimer* n'est plus proposé pour ce matériel dans la liste. Le refus de suppression (409) est inchangé.
 
 ## [0.7.1] - 2026-11-05
 

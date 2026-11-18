@@ -140,5 +140,57 @@ show("une seule des deux restitutions simultanees aboutit", codes == [201, 400],
 s, a1c = j("GET", f"/assets/{a1['id']}")
 show("le materiel est rendu", a1c.get("statut") == "rendu", a1c.get("statut"))
 
+print("== Reforme en lot et remise simultanes ==")
+s, u3 = j("POST", "/users", {"nom": "ZZVL", "prenom": "Trois", "matricule": "ZZVL3", "statut": "actif"})
+s, a2 = j("POST", "/assets", {"type": "PC", "marque": "ZZVL-HP", "numero_serie": "ZZVL-SN2", "statut": "stock"})
+barrier2, res2 = threading.Barrier(2), {}
+
+
+def reformer():
+    barrier2.wait()
+    res2["reforme"] = call("POST", "/assets/reforme-lot", {"ids": [a2["id"]], "simulation": False}, T)[0]
+
+
+def remettre():
+    barrier2.wait()
+    res2["remise"] = call("POST", "/assignments", {"user_id": u3["id"], "asset_ids": [a2["id"]]}, T)[0]
+
+
+ths = [threading.Thread(target=f) for f in (reformer, remettre)]
+for t in ths:
+    t.start()
+for t in ths:
+    t.join()
+s, a2b = j("GET", f"/assets/{a2['id']}")
+show("aucun appel en erreur serveur", res2.get("reforme") == 200 and res2.get("remise") in (201, 409), res2)
+show("un actif remis n'est jamais reforme (statut coherent avec la remise)",
+     (res2.get("remise") == 201) == (a2b.get("statut") == "affecte"), (res2, a2b.get("statut")))
+
+print("== Suppression en lot d'actifs et remise simultanees ==")
+s, a3 = j("POST", "/assets", {"type": "PC", "marque": "ZZVL-HP", "numero_serie": "ZZVL-SN3", "statut": "stock"})
+barrier3, res3 = threading.Barrier(2), {}
+
+
+def supprimer():
+    barrier3.wait()
+    res3["suppression"] = call("POST", "/assets/suppression-lot", {"ids": [a3["id"]], "simulation": False}, T)[0]
+
+
+def remettre3():
+    barrier3.wait()
+    res3["remise"] = call("POST", "/assignments", {"user_id": u3["id"], "asset_ids": [a3["id"]]}, T)[0]
+
+
+ths = [threading.Thread(target=f) for f in (supprimer, remettre3)]
+for t in ths:
+    t.start()
+for t in ths:
+    t.join()
+s, a3b = j("GET", f"/assets/{a3['id']}")
+show("aucune erreur serveur (pas de 500 sur la cle etrangere)",
+     res3.get("suppression") == 200 and res3.get("remise") in (201, 404, 409), res3)
+show("remise acceptee : l'actif existe et est affecte ; sinon il est supprime",
+     (a3b.get("statut") == "affecte") if res3.get("remise") == 201 else (s == 404), (res3, s, a3b.get("statut") if s == 200 else None))
+
 print(f"\n{'ECHEC' if fails else 'OK'} : {fails} test(s) en echec")
 sys.exit(1 if fails else 0)
