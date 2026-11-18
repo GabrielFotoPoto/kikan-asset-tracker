@@ -69,7 +69,7 @@ SPECS: dict[str, dict] = {
             col("code_parent", False, "Code de l'entite parente (vide pour la racine)"),
             col("actif", False, "oui ou non (oui par defaut)"),
         ],
-        "exemples": [["GROUPE", "SICA Atlantique", "", "oui"], ["SICA-AT", "SICA Atlantique (siège)", "GROUPE", "oui"]],
+        "exemples": [["GROUPE", "Groupe Exemple", "", "oui"], ["SIEGE", "Groupe Exemple (siège)", "GROUPE", "oui"]],
     },
     "applications": {
         "ordre": 2, "titre": "Applications",
@@ -80,7 +80,7 @@ SPECS: dict[str, dict] = {
             col("code_entite", False, "Code de l'entite concernee (vide = toutes)"),
             col("actif", False, "oui ou non (oui par defaut)"),
         ],
-        "exemples": [["ERP Cereo", "ERP de gestion", "GROUPE", "oui"], ["Messagerie", "Microsoft 365", "GROUPE", "oui"]],
+        "exemples": [["ERP Gestion", "ERP de gestion", "GROUPE", "oui"], ["Messagerie", "Microsoft 365", "GROUPE", "oui"]],
     },
     "utilisateurs": {
         "ordre": 3, "titre": "Salaries",
@@ -96,7 +96,7 @@ SPECS: dict[str, dict] = {
             col("statut", False, "actif, sorti ou en_depart (actif par defaut)"),
         ],
         "exemples": [
-            ["E001", "Durand", "Claude", "claude.durand@exemple.fr", "SICA-AT", "Comptabilité", "2026-09-01", "actif"],
+            ["E001", "Durand", "Claude", "claude.durand@exemple.fr", "SIEGE", "Comptabilité", "2026-09-01", "actif"],
             ["E002", "Martin", "Dominique", "dominique.martin@exemple.fr", "FILIALE-A", "Logistique", "2026-10-15", "actif"],
         ],
     },
@@ -117,7 +117,7 @@ SPECS: dict[str, dict] = {
             col("notes", False, "Notes libres"),
         ],
         "exemples": [
-            ["PC-0001", "PC portable", "Dell", "Latitude 5550", "SN-DELL-0001", "2025-06-10", "2028-06-10", "2029-06-10", "stock", "SICA-AT", ""],
+            ["PC-0001", "PC portable", "Dell", "Latitude 5550", "SN-DELL-0001", "2025-06-10", "2028-06-10", "2029-06-10", "stock", "SIEGE", ""],
             ["PC-0002", "PC portable", "Lenovo", "ThinkPad T14", "SN-LEN-0002", "2026-02-20", "2029-02-20", "2030-02-20", "stock", "FILIALE-A", ""],
         ],
     },
@@ -140,7 +140,7 @@ SPECS: dict[str, dict] = {
             col("acces", False, "oui ou non (oui par defaut)"),
             col("note", False, "Precision libre (ex. profil, droits)"),
         ],
-        "exemples": [["E001", "ERP Cereo", "oui", "Utilisateur standard"], ["E001", "Messagerie", "oui", ""]],
+        "exemples": [["E001", "ERP Gestion", "oui", "Utilisateur standard"], ["E001", "Messagerie", "oui", ""]],
     },
 }
 KINDS = list(SPECS)

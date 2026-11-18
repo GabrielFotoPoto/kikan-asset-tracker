@@ -487,7 +487,7 @@ show(
 cfg = Config("/app/alembic.ini")
 downgrade_refused = False
 try:
-    command.downgrade(cfg, "-1")
+    command.downgrade(cfg, "0022")
 except RuntimeError as exc:
     downgrade_refused = "non_restitue" in str(exc)
 except Exception:
@@ -504,7 +504,7 @@ with Session(engine) as session:
 
 migration_cycle_ok = False
 try:
-    command.downgrade(cfg, "-1")
+    command.downgrade(cfg, "0022")
     command.upgrade(cfg, "head")
     migration_cycle_ok = True
 except Exception as e:
