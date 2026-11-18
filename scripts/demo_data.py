@@ -39,20 +39,20 @@ ACTION = os.environ.get("DEMO_ACTION", "charger")
 TODAY = date.today()
 
 ENTITES = [  # code, nom, parent
-    ("DEMO-GRP", "Groupe SICA Atlantique", ""),
-    ("DEMO-SICA", "SICA Atlantique", "DEMO-GRP"),
-    ("DEMO-AMT", "AMT", "DEMO-GRP"),
-    ("DEMO-SISP", "SISP", "DEMO-GRP"),
-    ("DEMO-ALLFAST", "ALLFAST", "DEMO-GRP"),
-    ("DEMO-ATENA", "ATENA", "DEMO-GRP"),
+    ("DEMO-GRP", "Groupe Exemple", ""),
+    ("DEMO-NORD", "Exemple Nord", "DEMO-GRP"),
+    ("DEMO-SUD", "Exemple Sud", "DEMO-GRP"),
+    ("DEMO-EST", "Exemple Est", "DEMO-GRP"),
+    ("DEMO-OUEST", "Exemple Ouest", "DEMO-GRP"),
+    ("DEMO-SERVICES", "Exemple Services", "DEMO-GRP"),
 ]
-FILIALES = ["DEMO-SICA", "DEMO-AMT", "DEMO-SISP", "DEMO-ALLFAST", "DEMO-ATENA"]
+FILIALES = ["DEMO-NORD", "DEMO-SUD", "DEMO-EST", "DEMO-OUEST", "DEMO-SERVICES"]
 POIDS = [14, 10, 8, 9, 7]  # repartition des salaries entre les filiales
 SERVICES = ["Comptabilite", "Ressources humaines", "Informatique", "Logistique", "Commercial", "Production", "Direction", "Qualite"]
 APPLICATIONS = [  # nom, description, entites concernees (None = tout le groupe)
-    ("ERP Cereo", "ERP de gestion", None), ("Messagerie Microsoft 365", "Messagerie et agenda", None),
-    ("VPN", "Acces distant", None), ("CRM Commercial", "Suivi des clients", ["DEMO-SICA", "DEMO-AMT"]),
-    ("Paie", "Gestion de la paie", ["DEMO-SICA"]), ("Outil qualite", "Non-conformites et audits", ["DEMO-ALLFAST", "DEMO-ATENA"]),
+    ("ERP Gestion", "ERP de gestion", None), ("Messagerie Microsoft 365", "Messagerie et agenda", None),
+    ("VPN", "Acces distant", None), ("CRM Commercial", "Suivi des clients", ["DEMO-NORD", "DEMO-SUD"]),
+    ("Paie", "Gestion de la paie", ["DEMO-NORD"]), ("Outil qualite", "Non-conformites et audits", ["DEMO-OUEST", "DEMO-SERVICES"]),
 ]
 PRENOMS = ["Camille", "Julien", "Sophie", "Nicolas", "Laura", "Thomas", "Emilie", "Antoine", "Claire", "Mathieu", "Marion", "Pierre", "Sarah",
            "Alexandre", "Lucie", "Maxime", "Julie", "Romain", "Anais", "Vincent", "Helene", "Benoit", "Charlotte", "Damien", "Elodie", "Fabien"]
@@ -288,7 +288,7 @@ def charger():
     log(f"Acces applicatifs : {nb}")
 
     # 8 bis. Cas pour la revue des acces : deux acces encore actifs de salaries sortis, une application arretee
-    for i, nom in ((50, "ERP Cereo"), (51, "VPN")):
+    for i, nom in ((50, "ERP Gestion"), (51, "VPN")):
         need(f"acces d'un sorti {i}", call("POST", f"/users/{made[i]['id']}/applications",
                                           {"application_id": apps[nom][0][0], "acces": True, "note": "Profil standard"}, token))
     for app_id, code in apps["Outil qualite"]:
