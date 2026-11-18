@@ -1,7 +1,7 @@
 # Kikan : service isole de conversion Word (.docx) vers PDF.
 # Aucun acces a Internet (reseau interne), systeme de fichiers en lecture seule, utilisateur non privilegie.
 # Les polices Carlito et Caladea sont metriquement compatibles avec Calibri et Cambria (mise en page fidele).
-FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libreoffice-writer fonts-liberation fonts-dejavu-core \
