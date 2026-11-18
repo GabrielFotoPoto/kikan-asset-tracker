@@ -96,7 +96,7 @@ class UserBase(SQLModel):
     matricule: Optional[str] = Field(default=None, index=True)
     nom: str
     prenom: str
-    entite_id: Optional[int] = Field(default=None, foreign_key="entite.id")
+    entite_id: Optional[int] = Field(default=None, index=True, foreign_key="entite.id")
     email: Optional[str] = None
     service: Optional[str] = None
     statut: EmployeeStatus = EmployeeStatus.actif
@@ -140,7 +140,7 @@ class AssetBase(SQLModel):
     statut: AssetStatus = AssetStatus.stock
     source: str = "manuel"
     id_externe: Optional[str] = None
-    entite_id: Optional[int] = Field(default=None, foreign_key="entite.id")
+    entite_id: Optional[int] = Field(default=None, index=True, foreign_key="entite.id")
     notes: Optional[str] = None
 
     @field_validator("identifiant_interne", "type", "marque", "modele", "numero_serie", "source", "id_externe", "notes")
@@ -168,7 +168,7 @@ class Asset(AssetBase, table=True):
 class ApplicationBase(SQLModel):
     nom: str = Field(index=True)
     description: Optional[str] = None
-    entite_id: Optional[int] = Field(default=None, foreign_key="entite.id")
+    entite_id: Optional[int] = Field(default=None, index=True, foreign_key="entite.id")
     actif: bool = True
 
     @field_validator("nom", "description")
@@ -203,7 +203,7 @@ class Assignment(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", index=True)
     date_remise: NaiveDatetime = Field(default_factory=utcnow)
     date_restitution: Optional[NaiveDatetime] = None
-    policy_id: Optional[int] = Field(default=None, foreign_key="policies.id")
+    policy_id: Optional[int] = Field(default=None, index=True, foreign_key="policies.id")
     statut: str = "en_cours"
     cree_par: Optional[str] = None
     type: str = "remise"          # remise | echange (renouvellement : remise du nouveau materiel et restitution de l'ancien)
@@ -212,7 +212,7 @@ class Assignment(SQLModel, table=True):
 class AssignmentAsset(SQLModel, table=True):
     __tablename__ = "assignment_assets"
     assignment_id: int = Field(foreign_key="assignments.id", primary_key=True)
-    asset_id: int = Field(foreign_key="assets.id", primary_key=True)
+    asset_id: int = Field(index=True, foreign_key="assets.id", primary_key=True)
     date_retour: Optional[NaiveDatetime] = None   # restitution de cet actif (l'affectation, elle, ne se cloture que lorsque tout est rendu)
     non_restitue_le: Optional[NaiveDatetime] = None   # constat d'impossibilite de restitution (lot 1bis)
     motif_non_restitution: Optional[str] = None      # motif parmi MOTIFS_NON_RESTITUTION
@@ -234,7 +234,7 @@ class EchangeRetour(SQLModel, table=True):
     """Materiel ancien restitue lors d'un echange (renouvellement) : rattache a l'affectation de l'echange, avec son devenir."""
     __tablename__ = "echange_retours"
     assignment_id: int = Field(foreign_key="assignments.id", primary_key=True)
-    asset_id: int = Field(foreign_key="assets.id", primary_key=True)
+    asset_id: int = Field(index=True, foreign_key="assets.id", primary_key=True)
     destination: str = "rendu"    # rendu | stock | reforme
 
 
@@ -265,7 +265,7 @@ class Policy(SQLModel, table=True):
     texte: Optional[str] = None  # ancien format (texte brut), conserve pour compatibilite
     date_version: Optional[date] = None
     titre: Optional[str] = None
-    entite_id: Optional[int] = Field(default=None, foreign_key="entite.id")
+    entite_id: Optional[int] = Field(default=None, index=True, foreign_key="entite.id")
     format_source: Optional[str] = None   # pdf | markdown | docx
     statut: str = "active"                # active | archivee
     fichier_ref: Optional[str] = None     # PDF normalise (reference de stockage)
@@ -358,7 +358,7 @@ class AccountScope(SQLModel, table=True):
     """Entites auxquelles un compte RH ou lecture est limite (leurs sous-entites sont incluses)."""
     __tablename__ = "account_scopes"
     account_id: int = Field(foreign_key="accounts.id", primary_key=True)
-    entite_id: int = Field(foreign_key="entite.id", primary_key=True)
+    entite_id: int = Field(index=True, foreign_key="entite.id", primary_key=True)
 
 
 class RevokedToken(SQLModel, table=True):
@@ -470,7 +470,7 @@ class ApiToken(SQLModel, table=True):
 class ApiTokenScope(SQLModel, table=True):
     __tablename__ = "api_token_scopes"
     token_id: int = Field(foreign_key="api_tokens.id", primary_key=True)
-    entite_id: int = Field(foreign_key="entite.id", primary_key=True)
+    entite_id: int = Field(index=True, foreign_key="entite.id", primary_key=True)
 
 
 class ExternalLink(SQLModel, table=True):
@@ -515,7 +515,7 @@ class Besoin(SQLModel, table=True):
     statut: str = Field(default="demande", index=True)   # demande, en_preparation, satisfait, annule
     cree_par: Optional[str] = None
     traite_par: Optional[str] = None
-    assignment_id: Optional[int] = Field(default=None, foreign_key="assignments.id")  # remise qui a solde le besoin
+    assignment_id: Optional[int] = Field(default=None, index=True, foreign_key="assignments.id")  # remise qui a solde le besoin
     cree_le: NaiveDatetime = Field(default_factory=utcnow)
     maj_le: NaiveDatetime = Field(default_factory=utcnow)
 
