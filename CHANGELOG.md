@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Modifié
+- **Feuille de route du README alignée sur le SPEC** : ajout des lots déjà livrés qui n'y figuraient pas (C6, D5, D6, D7, E9, E10, parcours de départ lots 1 et 1bis), doublon E5 retiré, E3 décrit comme « journal d'audit chaîné », lien vers le projet GitHub [Kikan - feuille de route](https://github.com/users/GabrielFotoPoto/projects/1) qui suit chaque lot (statut, version, PR, vérification, revues sécurité et RGPD). Documentation seule, aucun changement de comportement.
+
 ## [0.8.1] - 2026-11-18
 
 Version corrective : une migration d'index (`0024`), des dépendances mises à jour (dont pypdf 7 et uritools 7) et une chaîne de construction du frontend sous Node 24. Les exemples d'import de l'API utilisent des noms fictifs. **Aucune fonction nouvelle.**

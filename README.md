@@ -636,7 +636,9 @@ docker-compose.yml    pile complete ; docker-compose.ghcr.yml : images publiees
 
 ## Feuille de route
 
-Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1 est livrée.
+Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). Le suivi lot par lot (statut, version de livraison,
+PR, vérification, revues sécurité et RGPD) est dans le projet GitHub
+[Kikan - feuille de route](https://github.com/users/GabrielFotoPoto/projects/1) ; les points restant à faire y sont des issues.
 
 - **v0.1.x - combler les écarts avec le SPEC (prioritaire)** : signature manuscrite à l'écran (A1, **fait**), gestion des
   chartes d'usage (A2, **fait**), page d'import CSV (A3, **fait**), annulation d'un import (A3b, **fait**), modification et suppression dans l'interface (A4, **fait**), interface de
@@ -646,11 +648,14 @@ Détail et origine de chaque point dans [SPEC.md](SPEC.md) (section 13). La v0.1
   entité (B2, **fait**), rappels par e-mail (B3, **fait**), rapport mensuel automatique (B4, **fait**), connecteur GLPI et API d'import (B5, **fait**), dépôt via l'API
   SharePoint Online et DocuWare (B6, **fait**), besoins matériels exprimés par les RH avec leur gamme (B7, **fait**), import et export Excel (B8, **fait**).
 - **v0.3 - pilotage** : revue périodique des droits d'accès (C2, **fait**), statistiques exportables (C1, **fait**), prévision des
-  renouvellements (C3, **fait**), étiquettes et QR codes (C4), pièces jointes (C5).
-- **v0.4 - montée en échelle** : multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).
-- **Sécurité et exploitation, en continu** : MFA locale (E1), certificat de scellement reconnu et clé dans un coffre
-  (E2), journal d'audit infalsifiable (E3), révocation des sessions (E4, **fait**), intégration continue, Dependabot et images
-  publiées (E5), tests unitaires et d'interface (E6), sauvegarde et restauration (E7, **fait**), GitHub Actions et images publiées (E5, **fait**), accessibilité (E8 ; le thème sombre est **fait**).
+  renouvellements (C3, **fait**), renouvellement du matériel d'un salarié en poste par échange (C6, **fait**), étiquettes et QR codes (C4), pièces jointes (C5).
+- **v0.4 - montée en échelle** : personnalisation de l'apparence (D5, **fait**), listes triables et paginées (D6, **fait**), journal d'audit
+  paginé côté serveur (D7, **fait**), multi-organisations (D1), interface multilingue (D2), API publique (D3), webhooks (D4).
+- **Sécurité et exploitation, en continu** : révocation des sessions (E4, **fait**), intégration continue, Dependabot et images
+  publiées (E5, **fait**), sauvegarde et restauration (E7, **fait**), intégrité des données (E9, **fait**), durcissement du journal et de la
+  purge RGPD (E10, **fait**), MFA locale (E1), certificat de scellement reconnu et clé dans un coffre (E2), journal d'audit chaîné (E3),
+  tests unitaires et d'interface (E6 ; les suites d'intégration dans une pile séparée sont **faites**), accessibilité (E8 ; le thème sombre est **fait**).
+- **Parcours guidés** (SPEC §6.3bis) : parcours de départ guidé (lot 1, **fait**), matériel non restitué et clôture de départ sans matériel (lot 1bis, **fait**).
 
 ## Développement et intégration continue
 
