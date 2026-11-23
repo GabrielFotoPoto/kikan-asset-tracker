@@ -7,6 +7,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ### Modifié
 - **Feuille de route du README alignée sur le SPEC** : ajout des lots déjà livrés qui n'y figuraient pas (C6, D5, D6, D7, E9, E10, parcours de départ lots 1 et 1bis), doublon E5 retiré, E3 décrit comme « journal d'audit chaîné », lien vers le projet GitHub [Kikan - feuille de route](https://github.com/users/GabrielFotoPoto/projects/1) qui suit chaque lot (statut, version, PR, vérification, revues sécurité et RGPD). Documentation seule, aucun changement de comportement.
+- **Dépendances mises à jour** (chacune testée par la CI avant fusion) : `fastapi` 0.163.1, `pydantic-settings` 2.16.3, `pypdf` 7.1.0, `sqlmodel` 0.0.50 (#173) et image de construction `node:24-alpine` du frontend (nouvelle empreinte, #172). Aucun changement de comportement attendu.
 
 ## [0.8.1] - 2026-11-18
 
@@ -19,7 +20,8 @@ Version corrective : une migration d'index (`0024`), des dépendances mises à j
 
 ### Vérifié
 - Intégration continue de `main` verte à chaque changement fusionné (les 11 contrôles, dont la pile complète de tests et la sauvegarde de bout en bout).
-- Pré-version 0.8.1-rc.1 essayée à la main sur la préprod, validée (le détail des scénarios essayés n'est pas consigné).
+- Pré-version 0.8.1-rc.1 essayée à la main sur une instance de préproduction, validée (ni l'instance utilisée ni le détail des scénarios ne sont consignés).
+- Version 0.8.1 déployée sur le serveur de préproduction le 2026-11-23 depuis la 0.8.0 (sauvegarde préalable, migration `0024` appliquée, dix index présents, santé et page d'accueil OK). Parcours non rejoués à la main après ce déploiement.
 - Images de la 0.8.1 identiques à celles de la rc.1 sur le plan du code : seul le CHANGELOG change entre les deux.
 
 ### Historique Git réécrit (à lire si vous avez cloné le dépôt)
