@@ -51,14 +51,21 @@ La dernière version publiée figure dans les [versions GitHub](https://github.c
 - **Accès applicatifs** (A.5.18) : catalogue d'applications, attribution par salarié avec précision de niveau.
 - **Revue périodique des droits d'accès** : anomalies (accès d'un salarié sorti, application désactivée), rapport « qui a accès à quoi », campagnes de validation par les RH, clôture avec **rapport PDF scellé**, suivi des retraits : voir [docs/REVUE-ACCES.md](docs/REVUE-ACCES.md).
 
+**Support, tickets et portail salarié (v0.9)**
+- **Tickets natifs (IT)** : ouverture, qualification (nature, criticité), cycle de vie complet (`nouveau`, `en_cours`, `en_attente`, `resolu`, `ferme`, `annule`), notes internes IT, recherche `Ctrl+K`, notifications e-mail sans texte libre, clôture automatique des tickets résolus, et API d'intégration `/api/v1/tickets*` (avec passerelle e-mail documentée dans [docs/TICKETS-EMAIL.md](docs/TICKETS-EMAIL.md)).
+- **Événements et incidents de sécurité** (ISO 27001 A.6.8, A.5.24 à A.5.27) : signalement, escalade en incident, dossier d'investigation isolé réservé à l'informatique, suivi 72 h DPO/CNIL (RGPD art. 33), alerte e-mail immédiate.
+- **Pièces jointes transversales** : liste blanche par octets magiques (PNG/JPEG/WEBP ré-encodés sans EXIF, PDF, TXT/LOG), quotas, profil de stockage indépendant (`KIKAN_ATTACHMENTS_BACKEND`) et quarantaine `A_PURGER/`.
+- **Portail salarié (`demandeur`)** : 4e rôle strictement isolé (*Mes tickets*, *Mon matériel*), provisionnement local unitaire/en lot ou SSO Entra ID (`Kikan.Demandeur`, invités B2B exclus), coupure d'accès immédiate au départ, journalisation pseudonyme `dem-<id>`.
+- **Statistiques et KPI tickets** : onglet `Tickets` dans *Statistiques* réservé à l'informatique (activité, backlog, MTTA/MTTR net, réouvertures, fiabilité du parc, pilotage sécurité), exports CSV et Excel sans PII, 3 chiffres globaux dans le rapport mensuel IT.
+
 **Organisation et comptes**
 - **Multi-entités / filiales** : salariés, matériel et applications rattachés à une entité ; comptes RH et lecture **cloisonnés par entité** (sous-entités comprises), comptes informatique globaux.
-- **Authentification** : rôles informatique, RH et lecture ; connexion **Microsoft 365** (option) avec comptes de secours ; **mot de passe oublié** par e-mail ; limitation des tentatives ; session en **cookie HttpOnly**.
+- **Authentification** : rôles informatique, RH, lecture et **demandeur** (portail salarié) ; connexion **Microsoft 365** (option, `Kikan.IT`, `Kikan.RH`, `Kikan.Demandeur`) avec comptes de secours ; **mot de passe oublié** par e-mail ; limitation des tentatives ; session en **cookie HttpOnly**.
 
 **Reprise, échanges et intégrations**
 - **Import CSV et Excel** de l'existant (entités, applications, salariés, matériel, affectations, accès), simulation, rapport par ligne, import « tout ou rien » et **annulation d'un import**.
-- **Connecteur GLPI** (import sur sélection, export des salariés et du matériel avec numéros de série) et **API d'import par jetons**.
-- **Stockage des PDF scellés** : volume local, partage **SMB**, **WebDAV**, **SharePoint Online** ou **DocuWare**, avec vérification d'empreinte.
+- **Connecteur GLPI** (import sur sélection, export des salariés et du matériel avec numéros de série) et **API d'intégration par jetons** (`/api/v1` : matériel, salariés, tickets).
+- **Stockage des PDF scellés et des pièces jointes** : volume local, partage **SMB**, **WebDAV**, **SharePoint Online** ou **DocuWare**, avec vérification d'empreinte et profil indépendant pour les pièces jointes (`KIKAN_ATTACHMENTS_BACKEND`).
 
 **Pilotage et conformité**
 - **Reporting** « qui détient quoi » à l'instant T, export **CSV, Excel et PDF** ; **statistiques** de parc (modèles, répartition, renouvellements à venir, mouvements), filtrables par entité et par période, exportables en CSV, Excel et PDF ; **prévisions de renouvellement** avec **budget estimé** (par mois, année, type et entité), à partir d'un coût de remplacement par type saisi dans le Paramétrage.
@@ -77,7 +84,7 @@ La dernière version publiée figure dans les [versions GitHub](https://github.c
 | **installer** Kikan, le configurer, le sauvegarder et le mettre à jour | [Guide d'installation](docs/INSTALLATION.md) |
 | **utiliser** Kikan (RH, informatique, lecture) : arrivées, remises signées, départs, revue des accès, purge | [Guide d'utilisation](docs/GUIDE-UTILISATEUR.md) |
 | comprendre la sécurité et la mise en production | [SECURITY.md](SECURITY.md) |
-| brancher Microsoft 365, GLPI, SharePoint, DocuWare, l'API | [SSO](docs/SSO.md), [GLPI](docs/GLPI.md), [SharePoint](docs/SHAREPOINT.md), [DocuWare](docs/DOCUWARE.md), [API](docs/API.md) |
+| brancher Microsoft 365, GLPI, SharePoint, DocuWare, l'API, les tickets | [SSO](docs/SSO.md), [GLPI](docs/GLPI.md), [SharePoint](docs/SHAREPOINT.md), [DocuWare](docs/DOCUWARE.md), [API](docs/API.md), [Tickets](docs/TICKETS.md), [Passerelle e-mail](docs/TICKETS-EMAIL.md) |
 | sauvegarder et restaurer | [Sauvegarde](docs/SAUVEGARDE.md) |
 
 ## Pile technique
@@ -153,10 +160,10 @@ L'import des entités est un lot que l'on retrouve sur la page Import.
 
 ![Tableau de bord et navigation par sections](docs/captures/interface-tableau-de-bord.png)
 
-- **Navigation** : cinq sections repliables (Parc, Personnes, Cycle de vie, Pilotage, Administration, repliée par défaut), compteurs à côté des entrées qui demandent
-  une action (besoins à traiter, anomalies d'accès, renouvellements en retard) et fil d'Ariane. Le repli est mémorisé par navigateur ; arriver sur une page d'une section
+- **Navigation** : six sections repliables (Support en tête pour l'informatique, Parc, Personnes, Cycle de vie, Pilotage, Administration repliée par défaut), compteurs à côté des entrées qui demandent
+  une action (nouveaux tickets, besoins à traiter, anomalies d'accès, renouvellements en retard) et fil d'Ariane. Le repli est mémorisé par navigateur ; arriver sur une page d'une section
   repliée l'ouvre. Chaque tuile du tableau de bord mène à la liste déjà filtrée.
-- **Recherche globale (Ctrl+K, Cmd+K sur Mac)** : matériel et salariés, plus les pages et les actions que votre rôle permet. La recherche ignore la casse et les accents,
+- **Recherche globale (Ctrl+K, Cmd+K sur Mac)** : matériel, salariés et tickets (pour le rôle `informatique`), plus les pages et les actions que votre rôle permet. La recherche ignore la casse et les accents,
   exige tous les termes et **respecte le périmètre d'entités du compte** (`GET /search`) ; elle ne renvoie ni notes ni e-mails.
 
 ![Recherche globale](docs/captures/interface-recherche-globale.png)
@@ -196,12 +203,23 @@ L'import des entités est un lot que l'on retrouve sur la page Import.
 
 | Rôle | Droits |
 |---|---|
-| **informatique** | Tout : matériel, remises, restitutions, signatures, entités, import, paramétrage, RGPD, comptes, journal d'audit. |
-| **rh** | Cycle de vie des salariés (entrées, départs, **souhaits de matériel** à l'entrée), restitutions, accès applicatifs. Pas d'accès à la page Besoins. Lecture du reste. |
-| **lecture** | Consultation et export uniquement. |
+| **informatique** | Tout : tickets, incidents de sécurité, matériel, remises, restitutions, signatures, entités, import, paramétrage, RGPD, comptes, journal d'audit. |
+| **rh** | Cycle de vie des salariés (entrées, départs, **souhaits de matériel** à l'entrée), restitutions, accès applicatifs. Pas d'accès à la page Besoins ni aux tickets. Lecture du reste. |
+| **lecture** | Consultation et export uniquement (hors module tickets). |
+| **demandeur** | Portail salarié uniquement : ses propres tickets (ouverture, commentaires publics, pièces jointes) et son matériel affecté en lecture seule. Refus par défaut sur le reste de l'API. |
 
-> La connexion **Microsoft 365 (Entra ID)**, facultative, attribue le rôle à partir des **rôles d'application** Entra `Kikan.IT` (informatique) et `Kikan.RH` (rh) ;
+> La connexion **Microsoft 365 (Entra ID)**, facultative, attribue le rôle à partir des **rôles d'application** Entra `Kikan.IT` (informatique), `Kikan.RH` (rh) et `Kikan.Demandeur` (portail salarié, ou option membres du tenant hors invités) ;
 > voir la section « Connexion Microsoft 365 » et [docs/SSO.md](docs/SSO.md). Le rôle *lecture* se crée dans la page Comptes.
+
+## Tickets, sécurité et portail salarié (v0.9)
+
+Spécification complète dans [docs/TICKETS.md](docs/TICKETS.md). Toutes les captures ci-dessous reposent exclusivement sur des données fictives (`@exemple.test`).
+
+![Liste des tickets IT et section Support](docs/captures/tickets-liste.png)
+![Fiche ticket IT avec dossier sécurité et pièces jointes](docs/captures/tickets-detail-securite.png)
+![Onglet KPI Tickets dans Statistiques](docs/captures/tickets-statistiques.png)
+![Portail salarié : Mes tickets](docs/captures/tickets-portail-demandeur.png)
+![Portail salarié : Mon matériel](docs/captures/tickets-portail-materiel.png)
 
 ## Signature manuscrite
 
@@ -360,7 +378,7 @@ signée, là où GLPI est un outil d'assistance et d'inventaire technique. Les d
 | **Inventaire** | Saisi, importé (CSV, Excel, GLPI) ou envoyé par l'API ; tout type d'actif (liste de types paramétrable) | Inventaire automatique par agent, parc complet |
 | **Preuve de remise** | Signature manuscrite sur tablette, PDF scellé, charte annexée, archivage dans votre GED | Pas de remise signée et scellée native à notre connaissance |
 | **Public** | RH, informatique, lecture ; chaque RH voit son périmètre d'entités | Équipes informatique et support |
-| **Tickets, supervision** | Aucun : Kikan n'en fait pas | Oui |
+| **Tickets, supervision** | Tickets natifs et incidents de sécurité (v0.9) pour les structures sans GLPI ; pas de supervision réseau | Oui |
 
 En pratique : GLPI reste l'outil du support et de l'inventaire technique ; Kikan tient le **qui détient quoi, avec preuve**, la
 relation RH et informatique, et la démarche de conformité (ISO 27001, RGPD). La colonne GLPI décrit GLPI de base, hors plugins, d'après notre
@@ -656,7 +674,7 @@ PR, vérification, revues sécurité et RGPD) est dans le projet GitHub
   purge RGPD (E10, **fait**), MFA locale (E1), certificat de scellement reconnu et clé dans un coffre (E2), journal d'audit chaîné (E3),
   tests unitaires et d'interface (E6 ; les suites d'intégration dans une pile séparée sont **faites**), accessibilité (E8 ; le thème sombre est **fait**).
 - **Parcours guidés** (SPEC §6.3bis) : parcours de départ guidé (lot 1, **fait**), matériel non restitué et clôture de départ sans matériel (lot 1bis, **fait**).
-- **v0.9 - gestion de tickets native et portail salarié** (milestone `v0.9 - Tickets`, cadrage détaillé dans [docs/TICKETS.md](docs/TICKETS.md)) : socle tickets natif IT (G1, `#175`), événements et escalade en incident de sécurité (G2, `#176`), gestion transversale des pièces jointes (G3, `#177`), portail salarié `demandeur` et comptes locaux (G4a, `#178`), extension SSO Entra ID pour les salariés (G4b, `#181`), statistiques et KPI (G6, `#180`), API d'intégration tickets (G7, `#182`), connecteur Active Directory local LDAPS (G5, `#179`, dernier lot). Chaque lot livre sa propre purge RGPD.
+- **v0.9 - gestion de tickets native et portail salarié** (milestone `v0.9 - Tickets`, détail dans [docs/TICKETS.md](docs/TICKETS.md)) : socle tickets natif IT (G1, `#175`, **fait**), événements et escalade en incident de sécurité (G2, `#176`, **fait**), gestion transversale des pièces jointes et stockage dédié (G3, `#177`, **fait**), portail salarié `demandeur` et comptes locaux (G4a, `#178`, **fait**), extension SSO Entra ID pour les salariés (G4b, `#181`, **fait**), statistiques et KPI (G6, `#180`, **fait**), API d'intégration tickets et passerelle e-mail documentée (G7, `#182`, **fait**), connecteur Active Directory local LDAPS (G5, `#179`, à venir). Chaque lot livre sa propre purge RGPD.
 
 ## Développement et intégration continue
 

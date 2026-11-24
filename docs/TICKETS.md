@@ -1,7 +1,7 @@
 # Spécification fonctionnelle et technique - Gestion de tickets native (v0.9)
 
-> **Statut** : cadrage relu et corrigé (relecture critique confrontée au code, relecture de cohérence d'ensemble, puis contre-analyse indépendante dont les corrections sont intégrées) ; les sept points ouverts sont tranchés (§14). Prochaine étape : maquettage UI, avant tout développement.
-> **Milestone GitHub** : `v0.9 - Tickets` (lots `G1` à `G7` dans le projet *Kikan - feuille de route*).
+> **Statut** : lots `G1`, `G2`, `G3`, `G4a`, `G4b`, `G6` et `G7` livrés et fusionnés sur `main` (migrations `0025` à `0029`, suites automatisées vertes). Seul le lot conditionnel `G5` (`#179`, AD local LDAP/LDAPS) reste à implémenter.
+> **Milestone GitHub** : `v0.9 - Tickets` (7/8 issues fermées dans le projet *Kikan - feuille de route*).
 > **Date** : 2026-11-24.
 
 ---
@@ -346,11 +346,10 @@ flowchart TD
 Conçue dès le départ pour les tickets (`entity_type = "ticket"`) et prête à être réutilisée pour `C5` (`entity_type = "asset"` : factures, garanties).
 
 ### Règles techniques et de sécurité
-- **Moteur de stockage** : réutilisation de `backend/app/filestore.py` avec un préfixe dédié `pieces-jointes/AAAA/<uuid>.<ext>`.
-  - Compatible `local`, `smb` et `webdav` (tampon local durable + relecture et vérification SHA-256).
-  - **Reprise après panne du partage** : `sync_pending` et `migrate_to_active` ne parcourent aujourd'hui que les `Signature`. Ils sont étendus aux `attachments`, sinon une pièce jointe restée dans le tampon local ne serait jamais redéposée sur le partage.
-  - **Espace disque** : pièces jointes et PDF scellés partagent le volume `/archive`, et une remise ne peut pas être signée si ce volume est plein. Un plafond global des pièces jointes (réglable, 2 Gio par défaut) et un contrôle de l'espace libre avant écriture refusent le dépôt (507) avant d'en arriver là ; l'état est visible dans la page *Stockage*.
-  - **Exclu de SharePoint et DocuWare** (ajout de `"pieces-jointes/"` dans `LOCAL_ONLY_PREFIXES` ou règles `DOCUMENT_ONLY`, ces GED restant strictement réservées aux PDF scellés).
+- **Moteur de stockage (Option 1 - profil indépendant)** : `backend/app/filestore.py` gère un profil dédié aux pièces jointes (`KIKAN_ATTACHMENTS_BACKEND`, `inherit` par défaut, ou `local`, `smb`, `webdav`, `sharepoint`, `docuware`) et des variables d'environnement indépendantes `KIKAN_ATTACHMENTS_*` (sans interférer avec le stockage des PDF scellés `KIKAN_STORAGE_BACKEND`), avec préfixe `pieces-jointes/AAAA/<uuid>.<ext>`.
+  - En mode `inherit`, si `KIKAN_STORAGE_BACKEND` vaut `sharepoint` ou `docuware`, les pièces jointes basculent automatiquement en `local` ; un backend dédié `sharepoint` ou `docuware` reste possible lorsqu'il est explicitement configuré via `KIKAN_ATTACHMENTS_BACKEND`.
+  - **Reprise après panne du partage** : `sync_pending_attachments` et `migrate_to_active` couvrent les `attachments` en plus des `Signature` (tampon local durable + vérification SHA-256).
+  - **Espace disque** : un plafond global des pièces jointes (réglable, 2 Gio par défaut) et un contrôle de l'espace libre avant écriture sur `/archive` refusent le dépôt (`507`) avant de saturer le volume ; l'état et le test de connexion du profil pièces jointes sont visibles dans la page *Stockage*.
 - **Liste blanche stricte** (vérification des octets magiques côté serveur, jamais sur la seule extension ni sur le `Content-Type` HTTP) :
   - Images : `image/png`, `image/jpeg`, `image/webp`, **toujours ré-encodées** par Pillow avant stockage (**SVG interdit**). Le ré-encodage retire les métadonnées EXIF (position GPS et modèle du téléphone sur une photo d'écran) et neutralise les fichiers à double format. Dimensions plafonnées (25 mégapixels) contre les images piégées ; l'empreinte SHA-256 est celle du fichier ré-encodé.
   - Documents : `application/pdf` (en-tête `%PDF-` vérifié, jamais rendu ni ouvert côté serveur).
@@ -495,7 +494,7 @@ Réutilisation de `backend/app/mailer.py` et `backend/app/reminders.py` (avec d�
 
 ## 10. Rapports statistiques et KPI
 
-Page *Statistiques > Tickets* (ou page dédiée *KPI Tickets*), réservée à `informatique`, filtrable par **période**, **entité**, **nature** et **criticité**. Exports **CSV et Excel (.xlsx)** aux couleurs de Kikan (`#1D428A`) (l'export PDF est reporté après la v0.9), **strictement sans donnée nominative**.
+Onglet **Tickets** (`?tab=tickets`) intégré dans la page **Statistiques** (à côté de l'onglet *Parc matériel*), réservé à `informatique` (barre d'onglets masquée hors IT, `403` sur `GET /stats/tickets` pour `rh`, `lecture` et `demandeur`), filtrable par **période**, **entité**, **nature** et **criticité**. Exports **CSV et Excel (.xlsx)** aux couleurs de Kikan (`#1D428A`) (l'export PDF est reporté après la v0.9), **strictement sans donnée nominative**.
 
 **Tableau de bord natif** : les indicateurs sont affichés dans Kikan, comme la page *Statistiques* actuelle, et passent tous par l'API (droits et thème appliqués par construction). Aucun outil de tableaux de bord (Grafana, Metabase, Superset...) n'est embarqué : un tel outil lirait la base en SQL, hors du cloisonnement de l'API, imposerait un service, des comptes et un suivi de failles supplémentaires, et obligerait à assouplir la CSP pour l'afficher. Si les graphiques le demandent (courbes mensuelles, répartitions), une bibliothèque de graphiques open source côté navigateur peut être ajoutée, sans service supplémentaire et sans changement de CSP.
 
@@ -588,16 +587,16 @@ Conformément aux pratiques de Kikan (pile isolée `kiktest`, aucune touche à l
 
 ## 14. Découpage en lots (Milestone `v0.9 - Tickets`) et décisions
 
-| Lot | Issue | Contenu | Dépendances |
-|---|---|---|---|
-| **G1** | `#175` - Socle tickets natif (IT) | Modèle `Ticket` + `TicketComment` + `TicketNature`, module de service partagé `tickets.py`, workflow, page Tickets IT, `Ctrl+K` (IT), SMTP, audit, tests. **Purge livrée avec le lot** : anonymisation des tickets, suppression des commentaires, durée des tickets clos | - |
-| **G2** | `#176` - Événements et escalade en incident de sécurité | `ticket_security_details`, escalade, alerte immédiate, suivi 72h DPO/CNIL, tests d'étanchéité. **Purge livrée avec le lot** : effacement des textes du dossier, durée dédiée aux violations de données | G1 |
-| **G3** | `#177` - Gestion transversale des pièces jointes | `Attachment`, `filestore.py`, magic bytes, ré-encodage des images, téléchargement protégé, reprise après panne du partage, plafond du volume (socle prêt pour `C5`). **Purge livrée avec le lot** : quarantaine `A_PURGER/` puis suppression | G1 |
-| **G4a** | `#178` - Portail salarié (`demandeur`) et comptes locaux | 4e rôle, refus par défaut (liste blanche), isolation stricte (`demandeur_dep`), portail *Mes tickets* et *Mon matériel*, provisionnement local unitaire/lot, coupure d'accès au départ, acteur d'audit pseudonyme. **Purge livrée avec le lot** : suppression du compte du salarié sorti | G1 |
-| **G4b** | `#181` - Extension SSO Entra ID pour les salariés | Rôle `Kikan.Demandeur`, liaison par `sso_oid`, invités exclus, règles de combinaison du §3.4 | G4a |
-| **G6** | `#180` - Statistiques et KPI tickets | Tableau de bord KPI natif réservé à `informatique` (aucun outil externe embarqué), exports CSV et Excel sans PII, chiffres tickets dans le rapport mensuel, durée de conservation des statistiques (suppression des lignes anonymisées). Reportés après la v0.9 : export PDF, taux de respect des cibles, sortie `/v1` pour outils externes | G1, G2 |
-| **G7** | `#182` - API d'intégration tickets | Routes `/v1/tickets*`, droits `tickets_lecture` / `tickets_ecriture` / `tickets_interne`, idempotence, désignation du salarié par adresse e-mail, champs `canal` et `demandeur_verifie`, `docs/API.md`, tests de parité (§8bis). Puis `docs/TICKETS-EMAIL.md` (exemple de flux n8n, brique externe) | G1, G3 |
-| **G5** | `#179` - Connecteur Active Directory local (LDAP / LDAPS) | Auth LDAPS/StartTLS, connexion en variables d'environnement, rôle `demandeur` seul (groupe AD autorisé facultatif), `docs/AD-LDAP.md`, tests annuaire simulé. **Dernier lot** : lancé seulement après validation réelle de G4a, et reporté en v0.10 si aucune structure visée n'a un AD sans Microsoft 365 | G4a |
+| Lot | Issue | Statut | Contenu | Dépendances |
+|---|---|---|---|---|
+| **G1** | `#175` - Socle tickets natif (IT) | **Livré** (PR `#184`) | Modèle `Ticket` + `TicketComment` + `TicketNature`, module de service partagé `tickets.py`, workflow, page Tickets IT, `Ctrl+K` (IT), SMTP, audit, tests. **Purge livrée avec le lot** : anonymisation des tickets, suppression des commentaires, durée des tickets clos | - |
+| **G2** | `#176` - Événements et escalade en incident de sécurité | **Livré** (PR `#187`) | `ticket_security_details`, escalade, alerte immédiate, suivi 72h DPO/CNIL, tests d'étanchéité. **Purge livrée avec le lot** : effacement des textes du dossier, durée dédiée aux violations de données | G1 |
+| **G3** | `#177` - Gestion transversale des pièces jointes | **Livré** (PR `#185`) | `Attachment`, profil indépendant `KIKAN_ATTACHMENTS_*` dans `filestore.py`, magic bytes, ré-encodage des images, téléchargement protégé, reprise après panne du partage, plafond du volume (socle prêt pour `C5`). **Purge livrée avec le lot** : quarantaine `A_PURGER/` puis suppression | G1 |
+| **G4a** | `#178` - Portail salarié (`demandeur`) et comptes locaux | **Livré** (PR `#186`) | 4e rôle, refus par défaut (liste blanche), isolation stricte (`demandeur_dep`), portail *Mes tickets* et *Mon matériel*, provisionnement local unitaire/lot, coupure d'accès au départ, acteur d'audit pseudonyme. **Purge livrée avec le lot** : suppression du compte du salarié sorti | G1 |
+| **G4b** | `#181` - Extension SSO Entra ID pour les salariés | **Livré** (PR `#189`) | Rôle `Kikan.Demandeur`, option membre du tenant, liaison par `sso_oid`, invités exclus, règles de combinaison du §3.4 | G4a |
+| **G6** | `#180` - Statistiques et KPI tickets | **Livré** (PR `#188`) | Onglet KPI natif dans *Statistiques* réservé à `informatique` (aucun outil externe embarqué), exports CSV et Excel sans PII, chiffres tickets dans le rapport mensuel, durée de conservation des statistiques (suppression des lignes anonymisées). Reportés après la v0.9 : export PDF, taux de respect des cibles, sortie `/v1` pour outils externes | G1, G2 |
+| **G7** | `#182` - API d'intégration tickets | **Livré** (PR `#190`) | Routes `/v1/tickets*`, droits `tickets_lecture` / `tickets_ecriture` / `tickets_interne`, idempotence, désignation du salarié par adresse e-mail, champs `canal` et `demandeur_verifie`, `docs/API.md`, `docs/TICKETS-EMAIL.md`, tests de parité (§8bis) | G1, G3 |
+| **G5** | `#179` - Connecteur Active Directory local (LDAP / LDAPS) | **À venir** | Auth LDAPS/StartTLS, connexion en variables d'environnement, rôle `demandeur` seul (groupe AD autorisé facultatif), `docs/AD-LDAP.md`, tests annuaire simulé | G4a |
 
 **Règles du découpage**
 - **Chaque lot livre sa propre purge RGPD.** Aucun lot ne met en service une donnée personnelle sans le moyen de l'effacer : il n'y a plus de lot « purge complète » en fin de parcours.
