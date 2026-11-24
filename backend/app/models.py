@@ -637,6 +637,7 @@ class TicketSecurityDetail(SQLModel, table=True):
     confine_le: Optional[NaiveDatetime] = None
     cause_racine: Optional[str] = Field(default=None, max_length=3000)
     actions_correctives: Optional[str] = Field(default=None, max_length=3000)
+    nb_retrogradations: int = 0
 
 
 class Attachment(SQLModel, table=True):

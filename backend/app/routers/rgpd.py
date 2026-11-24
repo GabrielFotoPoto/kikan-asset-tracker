@@ -21,7 +21,7 @@ Reserve au role informatique. Le deroulement est decrit dans app/purge.py.
 """
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
@@ -44,6 +44,9 @@ class RetentionSetting(BaseModel):
     retention_violations_mois: int | None = Field(
         default=None, ge=tickets_svc.RETENTION_VIOLATIONS_MIN, le=tickets_svc.RETENTION_VIOLATIONS_MAX,
     )
+    retention_stats_tickets_mois: int | None = Field(
+        default=None, ge=tickets_svc.RETENTION_STATS_TICKETS_MIN, le=tickets_svc.RETENTION_STATS_TICKETS_MAX,
+    )
 
 
 class PurgeRequest(BaseModel):
@@ -60,6 +63,7 @@ def _reglages(session: Session) -> dict:
         "delai_grace_jours": purge.delai_grace(session),
         "retention_tickets_clos_mois": tickets_svc.retention_tickets_clos_mois(session),
         "retention_violations_mois": tickets_svc.retention_violations_mois(session),
+        "retention_stats_tickets_mois": tickets_svc.retention_stats_tickets_mois(session),
     }
 
 
@@ -72,6 +76,13 @@ def get_retention(session: Session = Depends(get_session)):
 def set_retention(data: RetentionSetting, session: Session = Depends(get_session),
                   admin: Account = Depends(require_roles("informatique"))):
     before = _reglages(session)
+    eff_clos = data.retention_tickets_clos_mois if data.retention_tickets_clos_mois is not None else before["retention_tickets_clos_mois"]
+    eff_stats = data.retention_stats_tickets_mois if data.retention_stats_tickets_mois is not None else before["retention_stats_tickets_mois"]
+    if eff_stats < eff_clos:
+        raise HTTPException(
+            422,
+            "La duree de conservation des statistiques de tickets ne peut pas etre inferieure a celle des tickets clos",
+        )
     appsettings.put(session, purge.RETENTION_KEY, str(data.mois))
     if data.delai_grace_jours is not None:
         appsettings.put(session, purge.GRACE_KEY, str(data.delai_grace_jours))
@@ -79,6 +90,8 @@ def set_retention(data: RetentionSetting, session: Session = Depends(get_session
         appsettings.put(session, tickets_svc.RETENTION_TICKETS_CLOS_KEY, str(data.retention_tickets_clos_mois))
     if data.retention_violations_mois is not None:
         appsettings.put(session, tickets_svc.RETENTION_VIOLATIONS_KEY, str(data.retention_violations_mois))
+    if data.retention_stats_tickets_mois is not None:
+        appsettings.put(session, tickets_svc.RETENTION_STATS_TICKETS_KEY, str(data.retention_stats_tickets_mois))
     session.commit()
     after = _reglages(session)
     if after != before:
@@ -87,7 +100,8 @@ def set_retention(data: RetentionSetting, session: Session = Depends(get_session
                   f"conservation {before['mois']} -> {after['mois']} mois, "
                   f"grace {before['delai_grace_jours']} -> {after['delai_grace_jours']} jours, "
                   f"tickets clos {before['retention_tickets_clos_mois']} -> {after['retention_tickets_clos_mois']} mois, "
-                  f"violations {before['retention_violations_mois']} -> {after['retention_violations_mois']} mois"
+                  f"violations {before['retention_violations_mois']} -> {after['retention_violations_mois']} mois, "
+                  f"stats tickets {before['retention_stats_tickets_mois']} -> {after['retention_stats_tickets_mois']} mois"
               ))
     return after
 
@@ -101,12 +115,15 @@ def etat(session: Session = Depends(get_session)):
 def purge_preview(session: Session = Depends(get_session)):
     retention = purge.retention_mois(session)
     retention_tkt = tickets_svc.retention_tickets_clos_mois(session)
+    retention_stats = tickets_svc.retention_stats_tickets_mois(session)
     candidats = purge.candidats(session)
     tickets_clos = tickets_svc.candidats_tickets_clos(session)
+    tickets_stats = tickets_svc.candidats_stats_tickets(session)
     return {
         "retention_mois": retention,
         "delai_grace_jours": purge.delai_grace(session),
         "retention_tickets_clos_mois": retention_tkt,
+        "retention_stats_tickets_mois": retention_stats,
         "count": len(candidats),
         "candidats": [
             {"id": u.id, "matricule": u.matricule, "nom": u.nom, "prenom": u.prenom,
@@ -120,6 +137,13 @@ def purge_preview(session: Session = Depends(get_session)):
              "ferme_le": str(t.ferme_le.date()) if t.ferme_le else None,
              "suppression_prevue": str(purge.add_months(t.ferme_le.date(), retention_tkt)) if t.ferme_le else None}
             for t in tickets_clos
+        ],
+        "tickets_stats_count": len(tickets_stats),
+        "tickets_stats": [
+            {"id": t.id, "reference": t.reference,
+             "cree_le": str(t.cree_le.date()) if t.cree_le else None,
+             "suppression_prevue": str(echeance)}
+            for t, echeance in tickets_stats
         ],
     }
 
@@ -140,6 +164,14 @@ def run_purge_tickets(data: IdsRequest | None = None, session: Session = Depends
     """Anonymise les tickets clos dont la duree de conservation est depassee."""
     n = tickets_svc.purger_tickets_clos(session, admin.username, (data.ids if data else None))
     return {"anonymises": n}
+
+
+@router.post("/purge-stats-tickets")
+def run_purge_stats_tickets(data: IdsRequest | None = None, session: Session = Depends(get_session),
+                            admin: Account = Depends(require_roles("informatique"))):
+    """Supprime definitivement les lignes de tickets anonymisees dont la conservation statistique est echue."""
+    n = tickets_svc.purger_stats_tickets(session, admin.username, (data.ids if data else None))
+    return {"supprimes": n}
 
 
 @router.get("/documents")

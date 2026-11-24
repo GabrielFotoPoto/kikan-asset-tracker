@@ -6,6 +6,14 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Ajouté
+- **Lot G6 (#180) - Statistiques et KPI tickets** :
+  - **Migration `0029_ticket_stats_retrogradations`** : compteur `nb_retrogradations` sur `ticket_security_details` pour le pilotage sécurité filtrable et conservé après anonymisation.
+  - **Endpoint `GET /stats/tickets`** (`backend/app/routers/stats.py`) : réservé exclusivement au rôle `informatique` (`403` pour `rh`, `lecture`, `demandeur`), filtres `entite_id` (sous-entités incluses), `du`/`au`, `nature`, `criticite`, 4 blocs d'indicateurs (activité/backlog, réactivité MTTA/MTTR net/réouvertures, fiabilité du parc matériel rapportée au parc, pilotage sécurité), exports CSV (`;` + BOM UTF-8, anti-injection de formules) et Excel (`.xlsx`), strictement sans donnée nominative (aucune PII).
+  - **Rapport mensuel par e-mail (`backend/app/reminders.py`)** : ajout de 3 chiffres globaux tickets du mois écoulé (ouverts, résolus, délai médian de résolution) dans le rapport réservé à l'informatique, sans KPI sécurité ni PII.
+  - **Purge RGPD des statistiques anonymes** : réglage `retention_stats_tickets_mois` (60 mois par défaut, 12..120, jamais inférieur à `retention_tickets_clos_mois`), prévisualisation dans `/rgpd/purge-preview` et `/rgpd/etat`, suppression définitive manuelle (`POST /rgpd/purge-stats-tickets`) en respectant l'échéance la plus tardive avec `retention_violations_mois` pour les dossiers avec violation de données.
+  - **Interface IT** : onglet `Tickets` intégré dans la page `Statistiques` (`Stats.jsx`, masqué hors rôle `informatique`) et réglage + purge des statistiques anonymes dans `Rgpd.jsx`.
+  - **Vérifié** : suite `tests/stats_tickets_check.py`, non-régression sur `kiktest` (`stats_check`, `purge_check`, `mail_check`, `tickets_securite_check`, `portail_demandeur_check`, `index_check`), tests et build frontend (`node:24-alpine`).
+  - **Non vérifié** : parcours manuel dans un navigateur réel.
 - **Lot G2 (#176) - Événements et escalade en incident de sécurité** :
   - **Migration `0028_tickets_securite`** : table isolée `ticket_security_details` (1-1 avec `tickets`, réservée au rôle `informatique`).
   - **Cycle sécurité (`backend/app/tickets.py`, `/tickets/{id}/securite*`)** : dossier créé dès le signalement (`signale`), transitions `aucun -> signale -> incident / sans_suite`, rétrogradation tracée (refusée tant qu'une violation de données est cochée), aucun retour à `aucun`, alerte e-mail immédiate sans texte libre, suivi 72 h DPO/CNIL (RGPD art. 33) bloquant la clôture tant que `notification_cnil_requise == a_evaluer`, étanchéité complète (`403` pour `demandeur`, `rh` et `lecture`).

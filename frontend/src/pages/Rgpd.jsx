@@ -31,7 +31,10 @@ export default function Rgpd() {
   const { user } = useAuth();
   const confirm = useConfirm();
   const writable = canWrite(user.role, "entites"); // informatique
-  const [reg, setReg] = useState({ mois: 12, delai_grace_jours: 30, retention_tickets_clos_mois: 24, retention_violations_mois: 60 });
+  const [reg, setReg] = useState({
+    mois: 12, delai_grace_jours: 30,
+    retention_tickets_clos_mois: 24, retention_violations_mois: 60, retention_stats_tickets_mois: 60,
+  });
   const [etat, setEtat] = useState(null);
   const [preview, setPreview] = useState(null);
   const [docs, setDocs] = useState([]);
@@ -55,6 +58,7 @@ export default function Rgpd() {
       delai_grace_jours: Number(reg.delai_grace_jours),
       retention_tickets_clos_mois: Number(reg.retention_tickets_clos_mois ?? 24),
       retention_violations_mois: Number(reg.retention_violations_mois ?? 60),
+      retention_stats_tickets_mois: Number(reg.retention_stats_tickets_mois ?? 60),
     }),
     () => "Reglages enregistres.");
   const doPurgeTickets = async () => {
@@ -70,6 +74,20 @@ export default function Rgpd() {
       setPreview(null);
       return r;
     }, (r) => `${r.anonymises} ticket(s) clos anonymise(s).`);
+  };
+  const doPurgeStatsTickets = async () => {
+    if (!preview || !preview.tickets_stats_count) return;
+    const ok = await confirm({
+      title: `Supprimer ${preview.tickets_stats_count} ticket(s) anonymise(s) echu(s) ?`,
+      message: <>Les lignes statistiques anonymes arrivees a echeance seront supprimees definitivement. <strong>Action irreversible.</strong></>,
+      confirmLabel: "Supprimer definitivement", danger: true,
+    });
+    if (!ok) return;
+    run(async () => {
+      const r = await api.post("/rgpd/purge-stats-tickets", { ids: preview.tickets_stats.map((t) => t.id) });
+      setPreview(null);
+      return r;
+    }, (r) => `${r.supprimes} ticket(s) anonymise(s) supprime(s).`);
   };
   const doPreview = () => run(async () => { setPreview(await api.get("/rgpd/purge-preview")); });
   const doPurge = async () => {
@@ -146,17 +164,20 @@ export default function Rgpd() {
             <input type="number" min="0" max="120" value={reg.retention_tickets_clos_mois ?? 24} onChange={(e) => setReg({ ...reg, retention_tickets_clos_mois: e.target.value })} style={num} /> mois</label>
           <label style={row}>Dossiers violation de donnees (DPO)
             <input type="number" min="12" max="120" value={reg.retention_violations_mois ?? 60} onChange={(e) => setReg({ ...reg, retention_violations_mois: e.target.value })} style={num} /> mois</label>
+          <label style={row}>Statistiques anonymes (tickets)
+            <input type="number" min="12" max="120" value={reg.retention_stats_tickets_mois ?? 60} onChange={(e) => setReg({ ...reg, retention_stats_tickets_mois: e.target.value })} style={num} /> mois</label>
           <button onClick={save}>Enregistrer</button>
         </div>
         <p className="muted">Le delai de grace s'applique aux PDF purges a partir de maintenant. Le rappel par e-mail se regle dans Parametrage, E-mails.</p>
       </div>
 
-      {etat && (etat.candidats > 0 || echus > 0 || etat.ged_echus > 0 || etat.a_deplacer > 0 || etat.tickets_clos > 0) && (
+      {etat && (etat.candidats > 0 || echus > 0 || etat.ged_echus > 0 || etat.a_deplacer > 0 || etat.tickets_clos > 0 || etat.tickets_stats > 0) && (
         <div className="card">
           <h3>A traiter</h3>
           <ul>
             {etat.candidats > 0 && <li>{etat.candidats} salarie(s) a purger.</li>}
             {etat.tickets_clos > 0 && <li>{etat.tickets_clos} ticket(s) clos a anonymiser.</li>}
+            {etat.tickets_stats > 0 && <li>{etat.tickets_stats} ticket(s) anonymise(s) echu(s) a supprimer.</li>}
             {echus > 0 && <li>{echus} document(s) en quarantaine dont le delai de grace est ecoule.</li>}
             {etat.ged_echus > 0 && <li>{etat.ged_echus} document(s) a faire supprimer par l'equipe de la GED.</li>}
             {etat.a_deplacer > 0 && <li>{etat.a_deplacer} document(s) pas encore ranges en quarantaine (partage indisponible).</li>}
@@ -170,6 +191,7 @@ export default function Rgpd() {
           <button className="ghost" onClick={doPreview}>Previsualiser</button>
           {preview && preview.count > 0 && <button onClick={doPurge}>Purger ({preview.count})</button>}
           {preview && preview.tickets_clos_count > 0 && <button className="ghost" onClick={doPurgeTickets}>Anonymiser tickets clos ({preview.tickets_clos_count})</button>}
+          {preview && preview.tickets_stats_count > 0 && <button className="ghost" onClick={doPurgeStatsTickets}>Supprimer stats tickets echues ({preview.tickets_stats_count})</button>}
           {attente.length > 0 && <button className="ghost" onClick={retry}>Reessayer le rangement ({attente.length})</button>}
         </div>
         {preview && (
@@ -192,6 +214,19 @@ export default function Rgpd() {
               <tbody>
                 {preview.tickets_clos.map((t) => (
                   <tr key={t.id}><td>{t.reference}</td><td>{t.statut}</td><td>{t.ferme_le || "-"}</td><td>{t.suppression_prevue || "-"}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {preview && preview.tickets_stats_count > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <h4>Statistiques tickets anonymes echues ({preview.tickets_stats_count})</h4>
+            <table>
+              <thead><tr><th>Reference</th><th>Mois de creation</th><th>Echeance</th></tr></thead>
+              <tbody>
+                {preview.tickets_stats.map((t) => (
+                  <tr key={t.id}><td>{t.reference}</td><td>{t.cree_le || "-"}</td><td>{t.suppression_prevue || "-"}</td></tr>
                 ))}
               </tbody>
             </table>
