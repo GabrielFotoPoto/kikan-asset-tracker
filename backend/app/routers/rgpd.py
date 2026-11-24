@@ -142,7 +142,7 @@ def documents(session: Session = Depends(get_session)):
     return {
         "aujourdhui": str(today),
         "documents": [
-            {"id": d.id, "statut": d.statut, "moteur": d.moteur, "reference": d.reference, "echeance": str(d.echeance),
+            {"id": d.id, "statut": d.statut, "type_doc": d.type_doc, "moteur": d.moteur, "reference": d.reference, "echeance": str(d.echeance),
              "echu": d.echeance <= today, "empreinte": d.empreinte}
             for d in rows
         ],

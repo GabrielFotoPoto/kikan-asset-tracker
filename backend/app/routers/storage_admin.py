@@ -21,11 +21,11 @@ from collections import Counter
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
-from .. import filestore as storage
+from .. import attachments as att_svc, filestore as storage
 from ..audit import audit
 from ..auth import require_roles
 from ..db import get_session
-from ..models import Account, Signature
+from ..models import Account, Attachment, Signature
 
 router = APIRouter(
     prefix="/storage", tags=["storage"],
@@ -48,6 +48,18 @@ def status(session: Session = Depends(get_session)):
             unreadable += 1
         if storage.is_pending(sig.ged_reference):
             pending += 1
+    pj_per_backend: Counter = Counter()
+    pj_pending = 0
+    pj_total = 0
+    for att in session.exec(select(Attachment)).all():
+        pj_total += 1
+        try:
+            pj_per_backend[storage.parse_reference(att.storage_ref)[0]] += 1
+        except storage.StorageError:
+            pass
+        if storage.is_attachment_pending(att.storage_ref):
+            pj_pending += 1
+    pj_active = storage.attachments_active_name()
     return {
         "active": storage.ACTIVE,
         "backends": list(storage.BACKENDS),
@@ -55,6 +67,17 @@ def status(session: Session = Depends(get_session)):
         "documents_seulement": storage.ACTIVE in storage.DOCUMENT_ONLY,
         "documents": {"par_backend": dict(per_backend), "en_attente_de_depot": pending,
                       "references_illisibles": unreadable},
+        "pieces_jointes": {
+            "active": pj_active,
+            "config_raw": storage.ATTACHMENTS_BACKEND_RAW,
+            "description": storage.describe_attachments(),
+            "par_backend": dict(pj_per_backend),
+            "total": pj_total,
+            "en_attente_de_depot": pj_pending,
+            "volume_octets": att_svc.volume_total_octets(session),
+            "plafond_octets": att_svc.plafond_global_mio(session) * 1024 * 1024,
+            "espace_libre_octets": storage.archive_disk_free_bytes(),
+        },
     }
 
 
@@ -78,3 +101,15 @@ def migrate(dry_run: bool = True, session: Session = Depends(get_session),
 def sync(session: Session = Depends(get_session)):
     """Depose sur le partage distant les documents restes dans le tampon local."""
     return storage.sync_pending(session)
+
+
+@router.post("/pieces-jointes/test")
+def test_attachments_connection():
+    """Teste ecriture, lecture et suppression sur le stockage dedie aux pieces jointes."""
+    return storage.check_attachments()
+
+
+@router.post("/pieces-jointes/sync")
+def sync_attachments(session: Session = Depends(get_session)):
+    """Depose sur le stockage PJ distant les pieces jointes restees dans le tampon local."""
+    return storage.sync_pending_attachments(session)

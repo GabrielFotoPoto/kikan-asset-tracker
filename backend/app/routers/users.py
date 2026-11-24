@@ -186,13 +186,16 @@ def delete_users_batch(
         for o in supprimables
     ]
     if not data.simulation:
-        from .. import tickets as tickets_svc
+        from .. import purge as purge_svc, tickets as tickets_svc
+        nb_tkt = 0
         for obj in supprimables:
-            tickets_svc.purger_tickets_salarie(session, obj.id)
+            nb_tkt += tickets_svc.purger_tickets_salarie(session, obj.id)
             integration.retirer_liens(session, "user", obj.id)
             session.flush()
             session.delete(obj)
         session.commit()
+        if nb_tkt:
+            purge_svc.deplacer_en_attente(session, account.username)
         for user_id in supprimes_ids:
             audit(account.username, "suppression", target=f"users/{user_id}", detail="suppression en lot")
     return {
@@ -214,9 +217,11 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
         "Un salarie avec historique se conserve (statut sorti via la page Sorties) ; "
         "son effacement definitif releve de la purge RGPD.",
     )
-    from .. import tickets as tickets_svc
-    tickets_svc.purger_tickets_salarie(session, obj.id)
+    from .. import purge as purge_svc, tickets as tickets_svc
+    nb_tkt = tickets_svc.purger_tickets_salarie(session, obj.id)
     integration.retirer_liens(session, "user", obj.id)
     session.flush()
     session.delete(obj)
     session.commit()
+    if nb_tkt:
+        purge_svc.deplacer_en_attente(session, "informatique")

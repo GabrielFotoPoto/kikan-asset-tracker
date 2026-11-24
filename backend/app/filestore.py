@@ -27,10 +27,12 @@ Principes :
 - Les identifiants du partage viennent de l'environnement, jamais de la base ni des journaux.
 """
 import base64
+from contextlib import contextmanager
 import hashlib
 import logging
 import os
 import re
+import shutil
 import ssl
 import threading
 import time
@@ -43,12 +45,13 @@ log = logging.getLogger("kikan.filestore")
 
 LOCAL_ROOT = os.environ.get("KIKAN_ARCHIVE_DIR", "/archive")
 ACTIVE = os.environ.get("KIKAN_STORAGE_BACKEND", "local").strip().lower()
+ATTACHMENTS_BACKEND_RAW = os.environ.get("KIKAN_ATTACHMENTS_BACKEND", "inherit").strip().lower()
 TIMEOUT = int(os.environ.get("KIKAN_STORAGE_TIMEOUT_SEC", "15"))
 BACKENDS = ("local", "smb", "webdav", "sharepoint", "docuware")
-# SharePoint et DocuWare ne recoivent QUE les PDF scelles (remises et restitutions) : les autres fichiers (chartes) restent
-# dans le volume local de Kikan. Un seul moteur est actif a la fois.
+# SharePoint et DocuWare ne recoivent QUE les PDF scelles (remises et restitutions) sur le profil principal.
+# Les pieces jointes disposent de leur propre profil KIKAN_ATTACHMENTS_BACKEND (Option 1).
 DOCUMENT_ONLY = ("sharepoint", "docuware")
-LOCAL_ONLY_PREFIXES = ("chartes/",)
+LOCAL_ONLY_PREFIXES = ("chartes/", "pieces-jointes/")
 
 _KEY_RE = re.compile(r"^[A-Za-z0-9_.\-]+(/[A-Za-z0-9_.\-]+)*$")
 
@@ -334,30 +337,61 @@ class WebDavBackend:
 
 # --- Acces aux backends ---
 
-_instances: dict[str, object] = {}
+_instances: dict[tuple[str, str], object] = {}
 _instances_lock = threading.Lock()
 
 
-def get_backend(name: str):
+@contextmanager
+def _attachments_env_overlay():
+    """Recouvre temporairement KIKAN_<X> par KIKAN_ATTACHMENTS_<X> lors de l'instanciation du profil pieces jointes."""
+    prefix = "KIKAN_ATTACHMENTS_"
+    saved: dict[str, str | None] = {}
+    try:
+        for k, v in list(os.environ.items()):
+            if k.startswith(prefix) and k not in ("KIKAN_ATTACHMENTS_BACKEND", "KIKAN_ATTACHMENTS_DIR"):
+                target_key = "KIKAN_" + k[len(prefix):]
+                saved[target_key] = os.environ.get(target_key)
+                os.environ[target_key] = v
+        yield
+    finally:
+        for k, old in saved.items():
+            if old is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = old
+
+
+def _instantiate_backend(name: str, profile: str):
+    if name == "local":
+        root = _env("KIKAN_ATTACHMENTS_DIR") if profile == "attachments" else ""
+        return LocalBackend(root or LOCAL_ROOT)
+    if name == "sharepoint":
+        from .storage_sharepoint import SharePointBackend
+        return SharePointBackend()
+    if name == "docuware":
+        from .storage_docuware import DocuWareBackend
+        return DocuWareBackend()
+    return {"smb": SmbBackend, "webdav": WebDavBackend}[name]()
+
+
+def get_backend(name: str, profile: str = "default"):
     if name not in BACKENDS:
         raise StorageError(f"Backend de stockage inconnu : {name}")
+    key = (profile, name)
     with _instances_lock:
-        if name not in _instances:
-            if name == "sharepoint":
-                from .storage_sharepoint import SharePointBackend
-                _instances[name] = SharePointBackend()
-            elif name == "docuware":
-                from .storage_docuware import DocuWareBackend
-                _instances[name] = DocuWareBackend()
+        if key not in _instances:
+            if profile == "attachments":
+                with _attachments_env_overlay():
+                    _instances[key] = _instantiate_backend(name, profile)
             else:
-                _instances[name] = {"local": LocalBackend, "smb": SmbBackend, "webdav": WebDavBackend}[name]()
-        return _instances[name]
+                _instances[key] = _instantiate_backend(name, profile)
+        return _instances[key]
 
 
 def describe_active() -> dict:
     """Reglages non secrets du moteur actif (site, bibliotheque, armoire...), pour la page Stockage."""
     try:
-        backend = get_backend(active_name())
+        backend = get_backend(active_name(), profile="default")
     except StorageError as exc:
         return {"erreur": str(exc)}
     return backend.describe() if hasattr(backend, "describe") else {}
@@ -367,6 +401,33 @@ def active_name() -> str:
     if ACTIVE not in BACKENDS:
         raise StorageError(f"KIKAN_STORAGE_BACKEND invalide : {ACTIVE} (local, smb, webdav, sharepoint ou docuware)")
     return ACTIVE
+
+
+def attachments_active_name() -> str:
+    raw = os.environ.get("KIKAN_ATTACHMENTS_BACKEND", ATTACHMENTS_BACKEND_RAW).strip().lower() or "inherit"
+    if raw == "inherit":
+        return ACTIVE if ACTIVE in ("local", "smb", "webdav") else "local"
+    if raw not in BACKENDS:
+        raise StorageError(f"KIKAN_ATTACHMENTS_BACKEND invalide : {raw} (inherit, local, smb, webdav, sharepoint ou docuware)")
+    return raw
+
+
+def describe_attachments() -> dict:
+    """Reglages non secrets du moteur actif pour les pieces jointes."""
+    try:
+        backend = get_backend(attachments_active_name(), profile="attachments")
+    except StorageError as exc:
+        return {"erreur": str(exc)}
+    return backend.describe() if hasattr(backend, "describe") else {}
+
+
+def archive_disk_free_bytes() -> int:
+    """Espace libre en octets sur le volume local /archive."""
+    try:
+        os.makedirs(LOCAL_ROOT, exist_ok=True)
+        return shutil.disk_usage(LOCAL_ROOT).free
+    except OSError:
+        return 0
 
 
 # --- References ---
@@ -407,13 +468,114 @@ def is_pending(ref: str | None) -> bool:
 
 # --- API haut niveau ---
 
-def _push_verified(backend_name: str, key: str, data: bytes, meta: dict | None = None) -> str:
+def _push_verified(backend_name: str, key: str, data: bytes, meta: dict | None = None, *, profile: str = "default") -> str:
     """Depose, relit et compare l'empreinte. Retourne la cle de stockage (celle du moteur : DocuWare y ajoute l'identifiant)."""
-    remote = get_backend(backend_name)
+    remote = get_backend(backend_name, profile=profile)
     stored = remote.write(key, data, meta) or key
     if sha256_hex(remote.read(stored)) != sha256_hex(data):
         raise StorageError("Verification du depot echouee (empreinte differente)")
     return stored
+
+
+def store_attachment(key: str, data: bytes, meta: dict | None = None) -> str:
+    """Enregistre une piece jointe via le profil dedie KIKAN_ATTACHMENTS_BACKEND (tampon durable local + SHA-256)."""
+    safe_key(key)
+    local = get_backend("local", profile="attachments")
+    local.write(key, data)
+    target = attachments_active_name()
+    if target == "local":
+        return make_reference("local", key)
+    try:
+        stored = _push_verified(target, key, data, meta, profile="attachments")
+    except Exception as exc:  # noqa: BLE001
+        from .audit import audit
+        log.error("Depot PJ sur %s differe pour %s : %s", target, key, exc)
+        audit("systeme", "pj_depot_differe", target=key, detail=f"{target}: {exc}"[:500])
+        return make_reference("local", key)
+    local.delete(key)
+    return make_reference(target, stored)
+
+
+def read_attachment(reference: str) -> bytes:
+    backend, key = parse_reference(reference)
+    return get_backend(backend, profile="attachments").read(key)
+
+
+def delete_attachment(reference: str) -> bool:
+    try:
+        backend, key = parse_reference(reference)
+        get_backend(backend, profile="attachments").delete(key)
+        return True
+    except StorageError as exc:
+        log.warning("Suppression de la piece jointe impossible : %s", exc)
+        return False
+
+
+def is_attachment_pending(ref: str | None) -> bool:
+    if not ref:
+        return False
+    target = attachments_active_name()
+    if target == "local":
+        return False
+    try:
+        backend, _ = parse_reference(ref)
+        return backend == "local"
+    except StorageError:
+        return False
+
+
+def mettre_en_quarantaine_attachment(reference: str) -> tuple[str, str]:
+    """Deplace une piece jointe vers A_PURGER/ sur le profil pieces jointes."""
+    return _deplacer(reference, lambda key: f"{QUARANTAINE}/{key}", profile="attachments")
+
+
+def check_attachments() -> dict:
+    """Teste ecriture, lecture et suppression sur le moteur actif des pieces jointes."""
+    started = time.time()
+    try:
+        name = attachments_active_name()
+        key = f"_kikan_test_pj/{uuid.uuid4().hex}.pdf"
+        payload = _test_pdf(uuid.uuid4().hex)
+        backend = get_backend(name, profile="attachments")
+        stored = backend.write(key, payload, {"type": "TestPJ", "annee": "test"}) or key
+        ok = backend.read(stored) == payload
+        backend.delete(stored)
+        return {"backend": name, "ok": ok, "latency_ms": int((time.time() - started) * 1000),
+                "detail": "ecriture, lecture et suppression reussies" if ok else "contenu relu different"}
+    except StorageError as exc:
+        return {"backend": ATTACHMENTS_BACKEND_RAW, "ok": False, "latency_ms": int((time.time() - started) * 1000), "detail": str(exc)}
+
+
+def sync_pending_attachments(session) -> dict:
+    """Depose sur le moteur PJ distant les pieces jointes restees dans le tampon local."""
+    from sqlmodel import select
+    from .models import Attachment
+
+    target = attachments_active_name()
+    result = {"active": target, "pending": 0, "synced": 0, "failed": 0, "errors": []}
+    if target == "local":
+        return result
+    local = get_backend("local", profile="attachments")
+    for att in session.exec(select(Attachment).order_by(Attachment.id)).all():
+        if not is_attachment_pending(att.storage_ref):
+            continue
+        result["pending"] += 1
+        try:
+            _, key = parse_reference(att.storage_ref)
+            data = local.read(key)
+            if att.sha256 and sha256_hex(data) != att.sha256:
+                raise StorageError("Empreinte du tampon local differente de celle enregistree")
+            stored = _push_verified(target, key, data, {"type": "PieceJointe"}, profile="attachments")
+            att.storage_ref = make_reference(target, stored)
+            session.add(att)
+            session.commit()
+            local.delete(key)
+            result["synced"] += 1
+        except Exception as exc:  # noqa: BLE001
+            session.rollback()
+            result["failed"] += 1
+            result["errors"].append({"attachment_id": att.id, "detail": str(exc)[:200]})
+    return result
 
 
 def store_document(key: str, data: bytes, meta: dict | None = None) -> str:
@@ -456,14 +618,14 @@ def delete_document(reference: str) -> bool:
 QUARANTAINE = "A_PURGER"
 
 
-def _deplacer(reference: str, cle_cible) -> tuple[str, str]:
+def _deplacer(reference: str, cle_cible, *, profile: str = "default") -> tuple[str, str]:
     """Copie le document sous une autre cle du meme moteur, relit et compare l'empreinte, puis supprime l'original.
 
     Retourne (reference de la copie, empreinte SHA-256). Les moteurs SharePoint et DocuWare sont exclus : leur suppression releve de la GED."""
     backend, key = parse_reference(reference)
     if backend in DOCUMENT_ONLY:
         raise StorageError("Document de la GED : deplacement impossible")
-    engine = get_backend(backend)
+    engine = get_backend(backend, profile=profile)
     data = engine.read(key)
     cible = cle_cible(key)
     engine.write(cible, data)
@@ -624,4 +786,9 @@ def sync_pending(session) -> dict:
             session.rollback()
             result["failed"] += 1
             result["errors"].append({"signature_id": sig.id, "detail": str(exc)[:200]})
+    pj = sync_pending_attachments(session)
+    result["pending"] += pj["pending"]
+    result["synced"] += pj["synced"]
+    result["failed"] += pj["failed"]
+    result["errors"].extend(pj["errors"])
     return result

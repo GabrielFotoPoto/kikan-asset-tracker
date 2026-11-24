@@ -929,7 +929,12 @@ function Integrations({ setErr, setMsg }) {
 }
 
 function TicketsSettings({ setErr, setMsg }) {
-  const [cfg, setCfg] = useState({ cloture_auto_jours: 7, delais_cibles_heures: { critique: 4, haute: 24, moyenne: 72, faible: 120 } });
+  const [cfg, setCfg] = useState({
+    cloture_auto_jours: 7,
+    delais_cibles_heures: { critique: 4, haute: 24, moyenne: 72, faible: 120 },
+    pj_taille_max_mio: 5,
+    pj_plafond_global_mio: 2048,
+  });
   const [natures, setNatures] = useState([]);
   const [nouvelle, setNouvelle] = useState({ code: "", libelle: "", signale_securite: false, ordre: 90 });
 
@@ -949,6 +954,8 @@ function TicketsSettings({ setErr, setMsg }) {
         delais_cibles_heures: Object.fromEntries(
           Object.entries(cfg.delais_cibles_heures).map(([k, v]) => [k, Number(v)])
         ),
+        pj_taille_max_mio: Number(cfg.pj_taille_max_mio ?? 5),
+        pj_plafond_global_mio: Number(cfg.pj_plafond_global_mio ?? 2048),
       });
       setCfg(r);
       setMsg("Parametres tickets enregistres.");
@@ -984,6 +991,14 @@ function TicketsSettings({ setErr, setMsg }) {
           <label>Cloture automatique apres resolution (jours, 0 = desactivee)
             <input type="number" min="0" max="90" value={cfg.cloture_auto_jours}
               onChange={(e) => setCfg({ ...cfg, cloture_auto_jours: e.target.value })} />
+          </label>
+          <label>Taille max par piece jointe (1 a 10 Mio)
+            <input type="number" min="1" max="10" value={cfg.pj_taille_max_mio ?? 5}
+              onChange={(e) => setCfg({ ...cfg, pj_taille_max_mio: e.target.value })} />
+          </label>
+          <label>Plafond global pieces jointes (Mio sur /archive)
+            <input type="number" min="10" max="51200" value={cfg.pj_plafond_global_mio ?? 2048}
+              onChange={(e) => setCfg({ ...cfg, pj_plafond_global_mio: e.target.value })} />
           </label>
           <div />
           {["critique", "haute", "moyenne", "faible"].map((c) => (

@@ -174,13 +174,14 @@ def annuler(session: Session, lot: ImportLot, account: str) -> dict:
             asset.statut = AssetStatus(prev)
             session.add(asset)
     supprimes = 0
+    nb_tkt = 0
     for key, model in TRACKED.items():  # ordre : dependants d'abord
         for ref in _ids(lot, key):
             obj = session.get(model, tuple(ref) if key == "affectation_actif" else ref)
             if obj is not None:
                 if key == "salarie":
                     from . import tickets as tickets_svc
-                    tickets_svc.purger_tickets_salarie(session, obj.id)
+                    nb_tkt += tickets_svc.purger_tickets_salarie(session, obj.id)
                 if key in ("actif", "salarie"):
                     integration.retirer_liens(session, "asset" if key == "actif" else "user", obj.id)
                 session.delete(obj)
@@ -191,4 +192,7 @@ def annuler(session: Session, lot: ImportLot, account: str) -> dict:
     lot.annule_par = account
     session.add(lot)
     session.commit()
+    if nb_tkt:
+        from . import purge as purge_svc
+        purge_svc.deplacer_en_attente(session, account)
     return {"supprimes": supprimes}

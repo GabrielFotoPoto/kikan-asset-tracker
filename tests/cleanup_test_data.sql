@@ -13,6 +13,7 @@
 BEGIN;
 CREATE TEMP TABLE tu AS SELECT id FROM users WHERE matricule LIKE 'ZZ%' OR prenom LIKE 'ZZ%' OR nom LIKE '%ZZ';
 CREATE TEMP TABLE ta AS SELECT id FROM assignments WHERE user_id IN (SELECT id FROM tu);
+DELETE FROM attachments WHERE entity_type = 'ticket' AND entity_id IN (SELECT id FROM tickets WHERE titre LIKE 'ZZ%' OR user_id IN (SELECT id FROM tu) OR reference LIKE 'ANON-%');
 DELETE FROM ticket_comments WHERE ticket_id IN (SELECT id FROM tickets WHERE titre LIKE 'ZZ%' OR user_id IN (SELECT id FROM tu) OR reference LIKE 'ANON-%');
 DELETE FROM tickets WHERE titre LIKE 'ZZ%' OR user_id IN (SELECT id FROM tu) OR reference LIKE 'ANON-%';
 DELETE FROM ticket_natures WHERE code LIKE 'zz%';
@@ -57,7 +58,7 @@ DELETE FROM import_lots;
 DELETE FROM revue_lignes;
 DELETE FROM revues_acces;
 DELETE FROM settings WHERE key IN ('retention_apres_sortie_mois', 'purge_delai_grace_jours', 'retention_tickets_clos_mois');
-DELETE FROM settings WHERE key LIKE 'tickets\_%';
+DELETE FROM settings WHERE key LIKE 'tickets\_%' OR key LIKE 'pj\_%';
 DELETE FROM settings WHERE key = 'remise_inclure_acces';
 DELETE FROM settings WHERE key = 'app_icone';
 COMMIT;

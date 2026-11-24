@@ -20,15 +20,15 @@
 Les roles rh et lecture recoivent 403 sur l'ensemble des routes /tickets*.
 Toute la logique metier est deleguee a app/tickets.py.
 """
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
-from .. import tickets as svc
+from .. import attachments as att_svc, filestore, tickets as svc
 from ..asset_catalog import fold
 from ..auth import require_roles
 from ..db import get_session
-from ..models import Account, Asset, Entite, Ticket, TicketComment, TicketNature, User, utcnow
+from ..models import Account, Asset, Attachment, Entite, Ticket, TicketComment, TicketNature, User, utcnow
 
 router = APIRouter(
     tags=["tickets"],
@@ -84,6 +84,8 @@ class NatureUpdate(BaseModel):
 class TicketsParametresUpdate(BaseModel):
     cloture_auto_jours: int = Field(ge=0, le=svc.CLOTURE_AUTO_MAX)
     delais_cibles_heures: dict[str, int] = Field(default_factory=dict)
+    pj_taille_max_mio: int | None = Field(default=None, ge=att_svc.TAILLE_MAX_MIN_MIO, le=att_svc.TAILLE_MAX_MAX_MIO)
+    pj_plafond_global_mio: int | None = Field(default=None, ge=att_svc.PLAFOND_GLOBAL_MIN_MIO, le=att_svc.PLAFOND_GLOBAL_MAX_MIO)
 
 
 def _hors_delai(ticket: Ticket, delais: dict[str, int], now) -> bool:
@@ -356,6 +358,17 @@ def get_ticket(ticket_id: int, session: Session = Depends(get_session)):
         }
         for c in comments
     ]
+    out["pieces_jointes"] = [
+        {
+            "id": a.id,
+            "display_name": a.display_name,
+            "mime_type": a.mime_type,
+            "size_bytes": a.size_bytes,
+            "sha256": a.sha256,
+            "cree_le": a.cree_le.isoformat() if a.cree_le else None,
+        }
+        for a in att_svc.lister_pieces_jointes(session, "ticket", ticket.id)
+    ]
     return out
 
 
@@ -443,6 +456,88 @@ def add_ticket_comment(
     }
 
 
+@router.post("/tickets/{ticket_id}/pieces-jointes", status_code=201)
+async def upload_ticket_attachment(
+    ticket_id: int,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    admin: Account = Depends(require_roles("informatique")),
+):
+    ticket = session.get(Ticket, ticket_id)
+    if not ticket or ticket.anonymise_le is not None:
+        raise HTTPException(404, "Ticket introuvable")
+    if ticket.statut in svc.STATUTS_FINAUX:
+        raise HTTPException(409, "Impossible d'ajouter une piece jointe sur un ticket ferme ou annule")
+    # Lecture bornee pour ne pas charger un fichier gigantesque en RAM
+    max_read = (att_svc.taille_max_mio(session) * 1024 * 1024) + 1
+    data = await file.read(max_read)
+    att = att_svc.ajouter_piece_jointe(
+        session,
+        admin,
+        entity_type="ticket",
+        entity_id=ticket.id,
+        filename=file.filename,
+        data=data,
+        target_audit=ticket.reference,
+    )
+    now = utcnow()
+    ticket.maj_le = now
+    ticket.maj_publique_le = now
+    session.add(ticket)
+    session.commit()
+    return {
+        "id": att.id,
+        "display_name": att.display_name,
+        "mime_type": att.mime_type,
+        "size_bytes": att.size_bytes,
+        "sha256": att.sha256,
+        "cree_le": att.cree_le.isoformat() if att.cree_le else None,
+    }
+
+
+@router.get("/tickets/{ticket_id}/pieces-jointes/{pj_id}")
+def download_ticket_attachment(
+    ticket_id: int,
+    pj_id: int,
+    session: Session = Depends(get_session),
+):
+    ticket = session.get(Ticket, ticket_id)
+    if not ticket or ticket.anonymise_le is not None:
+        raise HTTPException(404, "Ticket introuvable")
+    att = session.get(Attachment, pj_id)
+    if not att or att.entity_type != "ticket" or att.entity_id != ticket.id:
+        raise HTTPException(404, "Piece jointe introuvable")
+    data = filestore.read_attachment(att.storage_ref)
+    safe_name = att.display_name.replace('"', "_")
+    return Response(
+        content=data,
+        media_type=att.mime_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_name}"',
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.delete("/tickets/{ticket_id}/pieces-jointes/{pj_id}", status_code=204)
+def delete_ticket_attachment(
+    ticket_id: int,
+    pj_id: int,
+    session: Session = Depends(get_session),
+    admin: Account = Depends(require_roles("informatique")),
+):
+    ticket = session.get(Ticket, ticket_id)
+    if not ticket or ticket.anonymise_le is not None:
+        raise HTTPException(404, "Ticket introuvable")
+    if ticket.statut in svc.STATUTS_FINAUX:
+        raise HTTPException(409, "Impossible de supprimer une piece jointe sur un ticket ferme ou annule")
+    att = session.get(Attachment, pj_id)
+    if not att or att.entity_type != "ticket" or att.entity_id != ticket.id:
+        raise HTTPException(404, "Piece jointe introuvable")
+    att_svc.supprimer_piece_jointe(session, admin, att, ticket.reference)
+
+
 @router.get("/parametres/tickets")
 def get_tickets_parametres(session: Session = Depends(get_session)):
     return svc.charger_parametres(session)
@@ -454,4 +549,11 @@ def put_tickets_parametres(
     session: Session = Depends(get_session),
     admin: Account = Depends(require_roles("informatique")),
 ):
-    return svc.sauver_parametres(session, admin.username, data.cloture_auto_jours, data.delais_cibles_heures)
+    return svc.sauver_parametres(
+        session,
+        admin.username,
+        data.cloture_auto_jours,
+        data.delais_cibles_heures,
+        pj_taille_max_mio=data.pj_taille_max_mio,
+        pj_plafond_global_mio=data.pj_plafond_global_mio,
+    )

@@ -204,13 +204,18 @@ export default function Rgpd() {
               <button disabled={echus === 0} onClick={suppr}>Supprimer definitivement les documents echus ({echus})</button>
             </div>
             <table>
-              <thead><tr><th>Emplacement</th><th>Suppression possible le</th><th></th></tr></thead>
+              <thead><tr><th>Type</th><th>Emplacement</th><th>Suppression possible le</th><th></th></tr></thead>
               <tbody>
                 {quarantaine.map((d) => (
                   <tr key={d.id}>
+                    <td>{d.type_doc === "piece_jointe" ? "Piece jointe" : "PDF scelle"}</td>
                     <td>{d.moteur}</td>
                     <td>{d.echeance} {d.echu && <span className="badge bad">echu</span>}</td>
-                    <td><button className="ghost" onClick={() => restore(d)}>Remettre a l'origine</button></td>
+                    <td>
+                      {d.type_doc === "piece_jointe"
+                        ? <span className="muted">Non restaurable</span>
+                        : <button className="ghost" onClick={() => restore(d)}>Remettre a l'origine</button>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
