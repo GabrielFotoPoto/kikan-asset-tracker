@@ -191,7 +191,8 @@ def exchange(data: Ticket, request: Request, response: Response, session: Sessio
     if not account or not account.actif:
         login_limiter.fail(ip, "sso-ticket")
         raise HTTPException(401, "Ticket invalide ou expire")
-    token = create_access_token(account.username, account.role.value, account.token_epoch)
+    from ..auth import audit_actor
+    token = create_access_token(account.username, account.role.value, account.token_epoch, act=audit_actor(account))
     set_session_cookie(request, response, token)
     return TokenResponse(access_token=token, username=account.username, role=account.role.value,
                          must_change_password=False)

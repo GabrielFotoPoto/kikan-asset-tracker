@@ -181,7 +181,9 @@ def annuler(session: Session, lot: ImportLot, account: str) -> dict:
             if obj is not None:
                 if key == "salarie":
                     from . import tickets as tickets_svc
+                    from .auth import supprimer_compte_salarie
                     nb_tkt += tickets_svc.purger_tickets_salarie(session, obj.id)
+                    supprimer_compte_salarie(session, obj.id)
                 if key in ("actif", "salarie"):
                     integration.retirer_liens(session, "asset" if key == "actif" else "user", obj.id)
                 session.delete(obj)

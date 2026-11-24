@@ -30,8 +30,8 @@ DELETE FROM assignment_assets WHERE asset_id IN (SELECT id FROM assets WHERE num
 DELETE FROM assets WHERE numero_serie LIKE 'ZZ%' OR marque LIKE 'ZZ%' OR source = 'glpi' OR source LIKE 'zz%';
 DELETE FROM user_applications WHERE application_id IN (SELECT id FROM applications WHERE nom LIKE 'ZZ%');
 DELETE FROM applications WHERE nom LIKE 'ZZ%';
-DELETE FROM password_reset_tokens WHERE account_id IN (SELECT id FROM accounts WHERE username LIKE 'sec\_%');
-DELETE FROM account_scopes WHERE account_id IN (SELECT id FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE '%@exemple.test' OR sso_upn LIKE '%@exemple.test')
+DELETE FROM password_reset_tokens WHERE account_id IN (SELECT id FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE 'zz%');
+DELETE FROM account_scopes WHERE account_id IN (SELECT id FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE 'zz%' OR username LIKE '%@exemple.test' OR sso_upn LIKE '%@exemple.test')
   OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
 DELETE FROM api_token_scopes WHERE token_id IN (SELECT id FROM api_tokens WHERE nom LIKE 'ZZ%')
   OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
@@ -41,7 +41,7 @@ DELETE FROM integration_runs;
 UPDATE assignments SET policy_id = NULL WHERE policy_id IN (SELECT id FROM policies WHERE titre LIKE 'ZZ%');
 DELETE FROM policies WHERE titre LIKE 'ZZ%' OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
 DELETE FROM entite WHERE code LIKE 'ZZ%';
-DELETE FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE '%@exemple.test' OR sso_upn LIKE '%@exemple.test';
+DELETE FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE 'zz%' OR username LIKE '%@exemple.test' OR sso_upn LIKE '%@exemple.test';
 DELETE FROM settings WHERE key LIKE 'sso\_%' OR key = 'session_ttl_min';
 -- Les types d'actifs et services s'enrichissent seuls (liste souple) : on retire ceux qui ne servent plus.
 -- (Instance de developpement uniquement : cela retire aussi un type ou service cree a la main et inutilise.)

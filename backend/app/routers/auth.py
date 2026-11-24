@@ -29,6 +29,7 @@ from sqlmodel import Session, select
 from ..audit import audit
 from ..auth import (
     acteur_saisi,
+    audit_actor,
     check_password_policy,
     clear_session_cookie,
     client_ip,
@@ -159,6 +160,7 @@ class AccountOut(BaseModel):
     sso_lie: bool = False
     secours: bool = False
     portee_globale: bool = True
+    user_id: int | None = None
     entites: list[int] = []          # entites choisies (les sous-entites sont incluses automatiquement)
     portee: dict | None = None       # portee effective du compte connecte (/auth/me)
 
@@ -193,21 +195,26 @@ def login(data: LoginRequest, request: Request, response: Response, session: Ses
 
     hashed = account.hashed_password if account else _DUMMY_HASH
     valid = verify_password(data.password, hashed)
-    if not account or not account.actif or not valid:
+    demandeur_ok = True
+    if account and account.role == Role.demandeur:
+        from ..models import EmployeeStatus, User
+        u = session.get(User, account.user_id) if account.user_id is not None else None
+        demandeur_ok = bool(u and u.statut == EmployeeStatus.actif)
+    if not account or not account.actif or not valid or not demandeur_ok:
         login_limiter.fail(ip, username)
         audit(acteur_saisi(account, username), "login_echec", ip=ip, status=401)
         raise HTTPException(401, "Identifiants invalides")
 
     if not sso_policy.local_login_allowed(session, account):
         login_limiter.success(ip, username)
-        audit(account.username, "login_local_refuse", ip=ip, status=403, detail="reserve a Microsoft 365 ou aux comptes de secours")
+        audit(audit_actor(account), "login_local_refuse", ip=ip, status=403, detail="reserve a Microsoft 365 ou aux comptes de secours")
         raise HTTPException(403, "Connexion par mot de passe reservee aux comptes de secours : utilisez Microsoft 365")
     login_limiter.success(ip, username)
     account.derniere_connexion = datetime.utcnow()
     session.add(account)
     session.commit()
-    audit(account.username, "login_ok", ip=ip, status=200)
-    token = create_access_token(account.username, account.role.value, account.token_epoch)
+    audit(audit_actor(account), "login_ok", ip=ip, status=200)
+    token = create_access_token(account.username, account.role.value, account.token_epoch, act=audit_actor(account))
     set_session_cookie(request, response, token)
     return TokenResponse(access_token=token, username=account.username, role=account.role.value,
                          must_change_password=account.must_change_password)
@@ -292,7 +299,7 @@ def forgot_password(data: ForgotRequest, request: Request, background: Backgroun
         session.add(PasswordResetToken(account_id=account.id, token_hash=_empreinte(token),
                                        expire_le=now + timedelta(minutes=RESET_TTL_MIN)))
         session.commit()
-        audit(account.username, "reset_demande", ip=ip, status=202)
+        audit(audit_actor(account), "reset_demande", ip=ip, status=202)
         background.add_task(_send_reset_mail, address, f"{mailer.public_url()}/reinitialisation?token={token}")
     else:
         session.commit()
@@ -309,7 +316,12 @@ def reset_password_with_token(data: ResetRequest, request: Request, session: Ses
     now = datetime.utcnow()
     row = session.exec(select(PasswordResetToken).where(PasswordResetToken.token_hash == _empreinte(data.token))).first()
     account = session.get(Account, row.account_id) if row else None
-    if (not row or row.utilise_le or row.expire_le < now or not account or not account.actif
+    dem_actif = True
+    if account and account.role == Role.demandeur:
+        from ..models import EmployeeStatus, User
+        u = session.get(User, account.user_id) if account.user_id is not None else None
+        dem_actif = bool(u and u.statut == EmployeeStatus.actif)
+    if (not row or row.utilise_le or row.expire_le < now or not account or not account.actif or not dem_actif
             or not sso_policy.local_login_allowed(session, account)):
         reset_limiter.fail(ip, "lien")
         audit("anonyme", "reset_lien_refuse", ip=ip, status=400)
@@ -322,7 +334,7 @@ def reset_password_with_token(data: ResetRequest, request: Request, session: Ses
     for other in session.exec(select(PasswordResetToken).where(PasswordResetToken.account_id == account.id)).all():
         session.delete(other)  # le lien utilise, comme les autres, disparait
     session.commit()
-    audit(account.username, "mot_de_passe_reinitialise_par_lien", ip=ip, status=200)
+    audit(audit_actor(account), "mot_de_passe_reinitialise_par_lien", ip=ip, status=200)
     return {"detail": "Mot de passe modifie : vous pouvez vous connecter."}
 
 
@@ -378,8 +390,8 @@ def change_password(
     account.token_epoch += 1  # les autres sessions de ce compte sont revoquees
     session.add(account)
     session.commit()
-    audit(account.username, "mot_de_passe_change", ip=ip, status=200)
-    token = create_access_token(account.username, account.role.value, account.token_epoch)
+    audit(audit_actor(account), "mot_de_passe_change", ip=ip, status=200)
+    token = create_access_token(account.username, account.role.value, account.token_epoch, act=audit_actor(account))
     set_session_cookie(request, response, token)
     return TokenResponse(access_token=token, username=account.username, role=account.role.value)
 
@@ -410,6 +422,8 @@ def list_accounts(session: Session = Depends(get_session)):
 @router.post("/accounts", response_model=AccountCreated, status_code=201)
 def create_account(data: AccountCreate, session: Session = Depends(get_session),
                    admin: Account = Depends(require_roles("informatique"))):
+    if data.role == Role.demandeur:
+        raise HTTPException(422, "Un compte demandeur se cree depuis la fiche salarie (/users/{id}/compte-demandeur)")
     provisional = None
     password = data.password
     if password is None:
@@ -449,6 +463,8 @@ def update_account(
     target = session.get(Account, account_id)
     if not target:
         raise HTTPException(404, "Compte introuvable")
+    if data.role is not None and (data.role == Role.demandeur or target.role == Role.demandeur) and data.role != target.role:
+        raise HTTPException(422, "Le role demandeur ne peut pas etre modifie depuis cette route")
 
     if target.id == admin.id and data.actif is False:
         raise HTTPException(409, "Vous ne pouvez pas desactiver votre propre compte")
@@ -517,7 +533,7 @@ def update_account(
     session.add(target)
     session.commit()
     session.refresh(target)
-    audit(admin.username, "compte_modifie", target=target.username,
+    audit(admin.username, "compte_modifie", target=audit_actor(target),
           detail=",".join(changed) if changed else "aucun changement")
     return account_out(session, target)
 
@@ -537,7 +553,7 @@ def reset_password(account_id: int, session: Session = Depends(get_session),
     target.token_epoch += 1
     session.add(target)
     session.commit()
-    audit(admin.username, "mot_de_passe_reinitialise", target=target.username)
+    audit(admin.username, "mot_de_passe_reinitialise", target=audit_actor(target))
     return ResetResult(mot_de_passe_provisoire=provisional)
 
 
@@ -561,6 +577,8 @@ def link_sso(account_id: int, data: LierSso, session: Session = Depends(get_sess
     target = session.get(Account, account_id)
     if not target:
         raise HTTPException(404, "Compte introuvable")
+    if target.role == Role.demandeur:
+        raise HTTPException(409, "La liaison SSO des comptes demandeurs releve du lot G4b")
     if target.sso_oid:
         raise HTTPException(409, "Ce compte est deja lie a un compte Microsoft 365")
     if session.exec(select(Account).where(func.lower(Account.sso_upn) == data.upn, Account.id != target.id)).first():
@@ -569,7 +587,7 @@ def link_sso(account_id: int, data: LierSso, session: Session = Depends(get_sess
     session.add(target)
     session.commit()
     session.refresh(target)
-    audit(admin.username, "compte_lie_sso", target=target.username, detail=f"upn : {data.upn}")
+    audit(admin.username, "compte_lie_sso", target=audit_actor(target), detail=f"upn : {data.upn}")
     return AccountOut.from_account(target)
 
 
@@ -588,5 +606,5 @@ def unlink_sso(account_id: int, session: Session = Depends(get_session),
     session.add(target)
     session.commit()
     session.refresh(target)
-    audit(admin.username, "compte_delie_sso", target=target.username)
+    audit(admin.username, "compte_delie_sso", target=audit_actor(target))
     return AccountOut.from_account(target)

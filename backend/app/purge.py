@@ -97,7 +97,9 @@ def purger(session: Session, actor: str, ids: list[int] | None = None, today: da
     nb_documents = 0
     nb_tickets = 0
     for user in selection:
+        from .auth import supprimer_compte_salarie
         nb_tickets += tickets_svc.purger_tickets_salarie(session, user.id)
+        supprimer_compte_salarie(session, user.id)
         for besoin in session.exec(select(Besoin).where(Besoin.user_id == user.id)).all():
             session.delete(besoin)  # references une remise : supprimes avant elles
         session.flush()

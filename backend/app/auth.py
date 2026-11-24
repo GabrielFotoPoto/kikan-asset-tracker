@@ -169,23 +169,30 @@ def _ttl_minutes() -> int:
     return TOKEN_TTL_MIN
 
 
+def audit_actor(account: "Account") -> str:
+    """Libelle d'audit d'un compte : pseudonyme 'dem-<id>' pour un demandeur (RGPD), username sinon."""
+    if account.role == Role.demandeur:
+        return f"dem-{account.id}"
+    return account.username
+
+
 def acteur_saisi(account: "Account | None", saisi: str) -> str:
     """Libelle d'audit d'un identifiant saisi a la connexion.
 
-    Compte connu : son identifiant. Inconnu : une empreinte HMAC, jamais la saisie (ce peut etre un mot de passe
-    tape dans le mauvais champ ou l'adresse d'un tiers) ; la meme saisie donne la meme empreinte, donc les
-    tentatives restent correlables sans conserver de donnee personnelle.
+    Compte connu : son libelle d'audit (dem-<id> pour un demandeur). Inconnu : une empreinte HMAC, jamais la saisie
+    (ce peut etre un mot de passe tape dans le mauvais champ ou l'adresse d'un tiers).
     """
     if account:
-        return account.username
+        return audit_actor(account)
     digest = hmac.new(SECRET.encode(), saisi.strip().lower().encode(), hashlib.sha256).hexdigest()
     return f"inconnu:{digest[:10]}"
 
 
-def create_access_token(username: str, role: str, epoch: int = 0) -> str:
+def create_access_token(username: str, role: str, epoch: int = 0, act: str | None = None) -> str:
     now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
         "sub": username,
+        "act": act or username,  # libelle d'audit (dem-<id> pour un demandeur)
         "role": role,
         "te": epoch,  # version de session du compte : change a chaque revocation
         "jti": secrets.token_urlsafe(16),  # identifiant du jeton : permet de le revoquer a la deconnexion
@@ -219,7 +226,8 @@ def actor_from_request(request: Request) -> str:
         return "api"  # jeton d'integration : le nom du jeton est ajoute au journal par l'API elle-meme
     if header.lower().startswith("bearer "):
         try:
-            return str(jwt.decode(header[7:], SECRET, algorithms=[ALGO]).get("sub", "?"))
+            payload = jwt.decode(header[7:], SECRET, algorithms=[ALGO])
+            return str(payload.get("act") or payload.get("sub", "?"))
         except jwt.PyJWTError:
             return "jeton-invalide"
     return "anonyme"
@@ -230,6 +238,21 @@ _bearer = HTTPBearer(auto_error=False)
 
 # Tant que le mot de passe est provisoire, seules ces routes sont accessibles.
 ALLOWED_WHEN_PASSWORD_MUST_CHANGE = {"/auth/me", "/auth/change-password"}
+# Refus par defaut pour le role demandeur : seules ces routes (gabarits FastAPI) lui sont accessibles.
+ALLOWED_FOR_DEMANDEUR = {
+    "/auth/me",
+    "/auth/change-password",
+    "/auth/logout",
+    "/branding",
+    "/mon-espace/materiel",
+    "/tickets",
+    "/tickets/natures",
+    "/tickets/{ticket_id}",
+    "/tickets/{ticket_id}/statut",
+    "/tickets/{ticket_id}/commentaires",
+    "/tickets/{ticket_id}/pieces-jointes",
+    "/tickets/{ticket_id}/pieces-jointes/{pj_id}",
+}
 _PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"  # sans caracteres ambigus
 
 
@@ -293,7 +316,65 @@ def get_current_account(
         raise HTTPException(401, "Session revoquee, reconnectez-vous", headers={"WWW-Authenticate": "Bearer"})
     if account.must_change_password and request.url.path not in ALLOWED_WHEN_PASSWORD_MUST_CHANGE:
         raise HTTPException(403, "Changement de mot de passe requis")
+    if account.role == Role.demandeur:
+        route = request.scope.get("route")
+        route_path = getattr(route, "path", None)
+        if route_path not in ALLOWED_FOR_DEMANDEUR:
+            raise HTTPException(403, "Acces reserve")
     return account
+
+
+def demandeur_dep(
+    account: Account = Depends(get_current_account),
+    session: Session = Depends(get_session),
+):
+    """Dependance unique d'isolation pour le portail salarie (regle 1 du §2 de docs/TICKETS.md).
+
+    Pour un demandeur, verifie a CHAQUE requete que user_id n'est pas nul et que la fiche User
+    liee existe et a le statut actif. Retourne (account, user) pour un demandeur, (account, None) sinon.
+    """
+    from .models import EmployeeStatus, User
+
+    if account.role != Role.demandeur:
+        return account, None
+    if account.user_id is None:
+        raise HTTPException(403, "Compte demandeur non rattache a une fiche salarie active")
+    user = session.get(User, account.user_id)
+    if not user or user.statut != EmployeeStatus.actif:
+        raise HTTPException(403, "Acces portail suspendu (salarie inactif)")
+    return account, user
+
+
+def desactiver_compte_salarie(session: Session, user_id: int) -> bool:
+    """Coupe immediatement l'acces portail d'un salarie passe sorti (revoque ses sessions et jetons reset)."""
+    from .models import PasswordResetToken
+
+    acc = session.exec(select(Account).where(Account.user_id == user_id).with_for_update()).first()
+    if not acc:
+        return False
+    acc.actif = False
+    acc.token_epoch += 1
+    session.add(acc)
+    for tok in session.exec(select(PasswordResetToken).where(PasswordResetToken.account_id == acc.id)).all():
+        session.delete(tok)
+    return True
+
+
+def supprimer_compte_salarie(session: Session, user_id: int) -> bool:
+    """Supprime le compte portail d'un salarie (et ses jetons/portees) dans la transaction de purge/suppression."""
+    from .models import AccountScope, PasswordResetToken
+
+    acc = session.exec(select(Account).where(Account.user_id == user_id).with_for_update()).first()
+    if not acc:
+        return False
+    for tok in session.exec(select(PasswordResetToken).where(PasswordResetToken.account_id == acc.id)).all():
+        session.delete(tok)
+    for sc in session.exec(select(AccountScope).where(AccountScope.account_id == acc.id)).all():
+        session.delete(sc)
+    session.flush()
+    session.delete(acc)
+    session.flush()
+    return True
 
 
 def writer_guard(*write_roles: str):

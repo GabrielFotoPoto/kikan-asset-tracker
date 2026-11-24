@@ -53,6 +53,7 @@ from .routers import (
     parametres,
     parcours,
     policies,
+    portail,
     previsions,
     renouvellements,
     reports,
@@ -200,3 +201,4 @@ app.include_router(integrations.router)
 app.include_router(glpi_admin.router)
 app.include_router(api_v1.router)
 app.include_router(tickets_router.router)
+app.include_router(portail.router)

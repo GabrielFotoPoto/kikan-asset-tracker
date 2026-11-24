@@ -36,6 +36,7 @@ from sqlmodel import Session, select
 
 from . import appsettings, filestore
 from .audit import audit
+from .auth import audit_actor
 from .models import Account, Attachment, PurgeDocument, utcnow
 
 MAX_FILES_PER_ENTITY = 5
@@ -224,7 +225,7 @@ def ajouter_piece_jointe(
     session.add(att)
     session.commit()
     session.refresh(att)
-    audit(actor_account.username, "pj_ajout", target=target_audit, detail=f"mime={mime} size={len(final_bytes)}")
+    audit(audit_actor(actor_account), "pj_ajout", target=target_audit, detail=f"mime={mime} size={len(final_bytes)}")
     return att
 
 
@@ -245,7 +246,7 @@ def supprimer_piece_jointe(session: Session, actor_account: Account, att: Attach
             empreinte=digest, echeance=date.today(),
         ))
         session.commit()
-    audit(actor_account.username, "pj_suppression", target=target_audit, detail=f"sha256={digest}")
+    audit(audit_actor(actor_account), "pj_suppression", target=target_audit, detail=f"sha256={digest}")
 
 
 def planifier_purge_attachments(

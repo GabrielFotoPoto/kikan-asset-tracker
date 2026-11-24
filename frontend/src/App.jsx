@@ -63,6 +63,9 @@ import Arrivant from "./pages/Arrivant.jsx";
 import DepartParcours from "./pages/DepartParcours.jsx";
 import Tickets from "./pages/Tickets.jsx";
 import TicketDetail from "./pages/TicketDetail.jsx";
+import MesTickets from "./pages/MesTickets.jsx";
+import MonTicketDetail from "./pages/MonTicketDetail.jsx";
+import MonMateriel from "./pages/MonMateriel.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -111,6 +114,45 @@ export default function App() {
   }
   if (user.mustChange) {
     return <ForcePassword user={user} onDone={() => setUser({ ...user, mustChange: false })} onLogout={logout} />;
+  }
+
+  if (user.role === "demandeur") {
+    return (
+      <AuthContext.Provider value={{ user }}>
+       <NotificationsProvider>
+        <ConfirmProvider>
+        <div className="layout">
+          <aside className="sidebar">
+            <h1>Kikan</h1>
+            <div className="sub">Mon espace salarie</div>
+            <nav>
+              <NavLink to="/mes-tickets">Mes tickets</NavLink>
+              <NavLink to="/mon-materiel">Mon materiel</NavLink>
+              <NavLink to="/compte">Mon compte</NavLink>
+            </nav>
+            <div style={{ marginTop: 24, fontSize: 12, opacity: 0.85 }}>
+              <div>{user.username}</div>
+              <div style={{ marginTop: 10 }}><ThemeSwitch /></div>
+              <button className="ghost" style={{ marginTop: 10, color: "#fff", borderColor: "rgba(255,255,255,0.4)" }} onClick={logout}>
+                Deconnexion
+              </button>
+            </div>
+          </aside>
+          <main className="main">
+            <Routes>
+              <Route path="/mes-tickets" element={<MesTickets />} />
+              <Route path="/mes-tickets/:id" element={<MonTicketDetail />} />
+              <Route path="/mon-materiel" element={<MonMateriel />} />
+              <Route path="/compte" element={<Compte />} />
+              <Route path="/a-propos" element={<APropos />} />
+              <Route path="*" element={<Navigate to="/mes-tickets" />} />
+            </Routes>
+          </main>
+        </div>
+        </ConfirmProvider>
+       </NotificationsProvider>
+      </AuthContext.Provider>
+    );
   }
 
   return (

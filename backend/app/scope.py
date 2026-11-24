@@ -111,6 +111,8 @@ def restreindre_entite(session: Session, scope: Scope, entite_id: int | None) ->
 
 
 def compute_scope(session: Session, account: Account) -> Scope:
+    if account.role == Role.demandeur:
+        return Scope(False)
     if account.role == Role.informatique or account.portee_globale:
         return GLOBAL
     chosen = {r.entite_id for r in session.exec(select(AccountScope).where(AccountScope.account_id == account.id)).all()}

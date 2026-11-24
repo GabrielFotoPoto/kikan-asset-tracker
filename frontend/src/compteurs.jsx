@@ -32,6 +32,7 @@ export function CompteursProvider({ role, children }) {
   const vivant = useRef(true);  // les effets des enfants (accueil) s'executent avant ceux du parent : `dernier` ne doit pas etre remis a zero ici
 
   const recharger = useCallback(() => {
+    if (role === "demandeur") return;
     const maintenant = Date.now();
     if (!fautRecharger(dernier.current, maintenant)) return;
     dernier.current = maintenant;

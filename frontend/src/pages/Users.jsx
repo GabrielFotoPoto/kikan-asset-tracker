@@ -148,8 +148,26 @@ export default function Users() {
   const [sel, setSel] = useState(() => new Set());
   const [lot, setLot] = useState(null);
   const [lotBusy, setLotBusy] = useState(false);
+  const [portailRes, setPortailRes] = useState(null);
   const basculer = (id) => setSel((cur) => basculerId(cur, id));
   const cocher = (liste, valeur) => setSel((cur) => cocherListe(cur, liste, valeur));
+  const creerComptePortail = async (u) => {
+    setErr(null); setMsg(null); setPortailRes(null);
+    try {
+      const r = await api.post(`/users/${u.id}/compte-demandeur`, { mode: "mot_de_passe" });
+      setPortailRes({ crees: [r], ignores: [] });
+      setMsg(`Compte portail cree pour ${u.prenom} ${u.nom}.`);
+    } catch (ex) { setErr(errorText(ex)); }
+  };
+  const creerComptesPortailLot = async () => {
+    setErr(null); setMsg(null); setLotBusy(true); setPortailRes(null);
+    try {
+      const r = await api.post("/users/comptes-demandeurs-lot", { ids: [...sel], mode: "mot_de_passe" });
+      setPortailRes(r);
+      setMsg(`${r.crees.length} compte(s) portail cree(s)${r.ignores.length ? `, ${r.ignores.length} ignore(s)` : ""}.`);
+      setSel(new Set());
+    } catch (ex) { setErr(errorText(ex)); } finally { setLotBusy(false); }
+  };
   const apercuLot = async () => {
     setErr(null); setMsg(null); setLotBusy(true);
     try {
@@ -246,9 +264,32 @@ export default function Users() {
             {selNb > 0 && <>
               <strong>{selNb} selectionne(s)</strong>
               <button type="button" className="ghost" onClick={() => { setSel(new Set()); setLot(null); }}>Vider la selection</button>
+              <button type="button" className="ghost" onClick={creerComptesPortailLot} disabled={lotBusy || selNb > 200}>Creer comptes portail</button>
               <button type="button" onClick={apercuLot} disabled={lotBusy || selNb > 500}>Supprimer la selection...</button>
               {selNb > 500 && <span className="err">500 salaries au plus par suppression.</span>}
             </>}
+          </div>
+        )}
+        {portailRes && (
+          <div className="card" role="status">
+            <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0 }}>Comptes portail crees ({portailRes.crees.length})</h3>
+              <button type="button" className="ghost" onClick={() => setPortailRes(null)}>Fermer</button>
+            </div>
+            <p className="muted">Les mots de passe provisoires ne sont affiches qu'une seule fois et doivent etre changes a la premiere connexion.</p>
+            {portailRes.crees.length > 0 && (
+              <table>
+                <thead><tr><th>Identifiant</th><th>Mot de passe provisoire</th></tr></thead>
+                <tbody>
+                  {portailRes.crees.map((c) => (
+                    <tr key={c.account_id}><td><code>{c.username}</code></td><td><code>{c.mot_de_passe_provisoire || "(lien envoye)"}</code></td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {portailRes.ignores?.length > 0 && (
+              <p className="muted" style={{ marginTop: 8 }}>{portailRes.ignores.length} salarie(s) ignore(s) (compte deja existant ou salarie non actif).</p>
+            )}
           </div>
         )}
         {lot && (
@@ -300,6 +341,7 @@ export default function Users() {
                       {(u.statut === "prevu" || u.statut === "actif") && <Link to={`/arrivee/${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Parcours</Link>}
                       {user.role !== "rh" && <Link to={`/besoins?user=${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Besoins</Link>}
                       {user.role === "informatique" && u.statut === "actif" && <Link to={`/renouveler?user=${u.id}`} className="ghost" style={{ padding: "6px 10px" }}>Renouveler</Link>}
+                      {user.role === "informatique" && u.statut === "actif" && <button type="button" className="ghost" onClick={() => creerComptePortail(u)}>Compte portail</button>}
                       {canDelete && <ConfirmButton onConfirm={() => remove(u)}>Supprimer</ConfirmButton>}
                     </div>
                   </td>

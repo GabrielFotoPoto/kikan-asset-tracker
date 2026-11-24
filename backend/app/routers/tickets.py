@@ -26,14 +26,12 @@ from sqlmodel import Session, select
 
 from .. import attachments as att_svc, filestore, tickets as svc
 from ..asset_catalog import fold
-from ..auth import require_roles
+from ..auth import demandeur_dep, require_roles
 from ..db import get_session
-from ..models import Account, Asset, Attachment, Entite, Ticket, TicketComment, TicketNature, User, utcnow
+from ..models import Account, Asset, Attachment, Entite, Role, Ticket, TicketComment, TicketNature, User, utcnow
+from .portail import actifs_detenus_salarie
 
-router = APIRouter(
-    tags=["tickets"],
-    dependencies=[Depends(require_roles("informatique"))],
-)
+router = APIRouter(tags=["tickets"])
 
 
 class TicketCreate(BaseModel):
@@ -164,10 +162,43 @@ def _charger_maps(session: Session, rows: list[Ticket]):
     return users_map, accounts_map, assets_map, entites_map, natures_map
 
 
-@router.get("/tickets/natures")
-def list_natures(inclure_inactives: bool = False, session: Session = Depends(get_session)):
+def _serialize_ticket_portail(
+    ticket: Ticket,
+    *,
+    natures_map: dict[str, TicketNature],
+) -> dict:
+    """Vue salarie : jamais de maj_le interne, jamais de niveau_securite detaille (seul booleen signalement_securite)."""
+    nat = natures_map.get(ticket.nature_code)
+    return {
+        "id": ticket.id,
+        "reference": ticket.reference,
+        "asset_id": ticket.asset_id,
+        "materiel_type": ticket.materiel_type,
+        "materiel_marque": ticket.materiel_marque,
+        "materiel_modele": ticket.materiel_modele,
+        "nature_code": ticket.nature_code,
+        "nature_libelle": nat.libelle if nat else ticket.nature_code,
+        "criticite": ticket.criticite,
+        "statut": ticket.statut,
+        "titre": ticket.titre,
+        "description": ticket.description,
+        "signalement_securite": ticket.niveau_securite != "aucun",
+        "cree_le": ticket.cree_le.isoformat() if ticket.cree_le else None,
+        "resolu_le": ticket.resolu_le.isoformat() if ticket.resolu_le else None,
+        "ferme_le": ticket.ferme_le.isoformat() if ticket.ferme_le else None,
+        "maj_publique_le": ticket.maj_publique_le.isoformat() if ticket.maj_publique_le else None,
+    }
+
+
+@router.get("/tickets/natures", dependencies=[Depends(require_roles("informatique", "demandeur"))])
+def list_natures(
+    inclure_inactives: bool = False,
+    ctx=Depends(demandeur_dep),
+    session: Session = Depends(get_session),
+):
+    account, _ = ctx
     stmt = select(TicketNature)
-    if not inclure_inactives:
+    if not inclure_inactives or account.role == Role.demandeur:
         stmt = stmt.where(TicketNature.actif == True)  # noqa: E712
     rows = session.exec(stmt.order_by(TicketNature.ordre, TicketNature.id)).all()
     return [
@@ -177,7 +208,7 @@ def list_natures(inclure_inactives: bool = False, session: Session = Depends(get
     ]
 
 
-@router.post("/tickets/natures", status_code=201)
+@router.post("/tickets/natures", status_code=201, dependencies=[Depends(require_roles("informatique"))])
 def create_nature(
     data: NatureCreate,
     session: Session = Depends(get_session),
@@ -189,7 +220,7 @@ def create_nature(
     )
 
 
-@router.put("/tickets/natures/{nature_id}")
+@router.put("/tickets/natures/{nature_id}", dependencies=[Depends(require_roles("informatique"))])
 def update_nature(
     nature_id: int,
     data: NatureUpdate,
@@ -203,7 +234,7 @@ def update_nature(
     )
 
 
-@router.get("/tickets/compteurs")
+@router.get("/tickets/compteurs", dependencies=[Depends(require_roles("informatique"))])
 def ticket_compteurs(session: Session = Depends(get_session)):
     now = utcnow()
     delais = svc.delais_cibles(session)
@@ -230,7 +261,7 @@ def ticket_compteurs(session: Session = Depends(get_session)):
     }
 
 
-@router.get("/tickets")
+@router.get("/tickets", dependencies=[Depends(require_roles("informatique", "demandeur"))])
 def list_tickets(
     statut: str | None = None,
     nature: str | None = None,
@@ -242,25 +273,46 @@ def list_tickets(
     q: str = Query(default="", max_length=80),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    ctx=Depends(demandeur_dep),
     session: Session = Depends(get_session),
 ):
+    account, dem_user = ctx
     stmt = select(Ticket).where(Ticket.anonymise_le == None)  # noqa: E711
+    if account.role == Role.demandeur:
+        # Regle 1 §2 : filtre SQL strict sur user_id, jamais apres chargement
+        stmt = stmt.where(Ticket.user_id == dem_user.id)
+    else:
+        if canal:
+            stmt = stmt.where(Ticket.canal == canal)
+        if niveau_securite:
+            stmt = stmt.where(Ticket.niveau_securite == niveau_securite)
+        if user_id is not None:
+            stmt = stmt.where(Ticket.user_id == user_id)
+        if asset_id is not None:
+            stmt = stmt.where(Ticket.asset_id == asset_id)
     if statut:
         stmt = stmt.where(Ticket.statut == statut)
     if nature:
         stmt = stmt.where(Ticket.nature_code == nature)
     if criticite:
         stmt = stmt.where(Ticket.criticite == criticite)
-    if canal:
-        stmt = stmt.where(Ticket.canal == canal)
-    if niveau_securite:
-        stmt = stmt.where(Ticket.niveau_securite == niveau_securite)
-    if user_id is not None:
-        stmt = stmt.where(Ticket.user_id == user_id)
-    if asset_id is not None:
-        stmt = stmt.where(Ticket.asset_id == asset_id)
 
     rows = session.exec(stmt.order_by(Ticket.cree_le.desc(), Ticket.id.desc())).all()
+    if account.role == Role.demandeur:
+        natures_map = {n.code: n for n in session.exec(select(TicketNature)).all()}
+        termes = [t for t in fold(q).split(" ") if t]
+        if termes:
+            rows = [
+                t for t in rows
+                if all(terme in fold(" ".join(filter(None, [t.reference, t.titre, t.materiel_marque, t.materiel_modele]))) for terme in termes)
+            ]
+        total = len(rows)
+        page = rows[offset:offset + limit]
+        return {
+            "items": [_serialize_ticket_portail(t, natures_map=natures_map) for t in page],
+            "total": total,
+        }
+
     users_map, accounts_map, assets_map, entites_map, natures_map = _charger_maps(session, rows)
     now = utcnow()
     delais = svc.delais_cibles(session)
@@ -292,16 +344,41 @@ def list_tickets(
     }
 
 
-@router.post("/tickets", status_code=201)
+@router.post("/tickets", status_code=201, dependencies=[Depends(require_roles("informatique", "demandeur"))])
 def create_ticket(
     data: TicketCreate,
     background: BackgroundTasks,
+    ctx=Depends(demandeur_dep),
     session: Session = Depends(get_session),
-    admin: Account = Depends(require_roles("informatique")),
 ):
+    account, dem_user = ctx
+    if account.role == Role.demandeur:
+        asset_id = data.asset_id
+        if asset_id is not None:
+            mes_actifs = {a.id for a, _ in actifs_detenus_salarie(session, dem_user.id)}
+            if asset_id not in mes_actifs:
+                raise HTTPException(404, "Materiel introuvable")
+        ticket = svc.creer_ticket(
+            session,
+            account,
+            nature_code=data.nature_code,
+            titre=data.titre,
+            description=data.description,
+            criticite=data.criticite,
+            user_id=dem_user.id,
+            asset_id=asset_id,
+            assignment_id=None,
+            assigne_a_account_id=None,
+            canal="portail",
+            demandeur_verifie=True,
+            signaler_securite=data.signaler_securite,
+        )
+        natures_map = {n.code: n for n in session.exec(select(TicketNature)).all()}
+        return _serialize_ticket_portail(ticket, natures_map=natures_map)
+
     ticket = svc.creer_ticket(
         session,
-        admin,
+        account,
         nature_code=data.nature_code,
         titre=data.titre,
         description=data.description,
@@ -328,14 +405,52 @@ def create_ticket(
     )
 
 
-@router.get("/tickets/{ticket_id}")
-def get_ticket(ticket_id: int, session: Session = Depends(get_session)):
-    ticket = session.get(Ticket, ticket_id)
-    if not ticket or ticket.anonymise_le is not None:
+@router.get("/tickets/{ticket_id}", dependencies=[Depends(require_roles("informatique", "demandeur"))])
+def get_ticket(
+    ticket_id: int,
+    ctx=Depends(demandeur_dep),
+    session: Session = Depends(get_session),
+):
+    account, dem_user = ctx
+    stmt = select(Ticket).where(Ticket.id == ticket_id, Ticket.anonymise_le == None)  # noqa: E711
+    if account.role == Role.demandeur:
+        stmt = stmt.where(Ticket.user_id == dem_user.id)
+    ticket = session.exec(stmt).first()
+    if not ticket:
         raise HTTPException(404, "Ticket introuvable")
-    comments = session.exec(
-        select(TicketComment).where(TicketComment.ticket_id == ticket.id).order_by(TicketComment.cree_le, TicketComment.id)
-    ).all()
+
+    c_stmt = select(TicketComment).where(TicketComment.ticket_id == ticket.id)
+    if account.role == Role.demandeur:
+        c_stmt = c_stmt.where(TicketComment.interne == False)  # noqa: E712
+    comments = session.exec(c_stmt.order_by(TicketComment.cree_le, TicketComment.id)).all()
+
+    pjs = [
+        {
+            "id": a.id,
+            "display_name": a.display_name,
+            "mime_type": a.mime_type,
+            "size_bytes": a.size_bytes,
+            "sha256": a.sha256,
+            "cree_le": a.cree_le.isoformat() if a.cree_le else None,
+        }
+        for a in att_svc.lister_pieces_jointes(session, "ticket", ticket.id)
+    ]
+
+    if account.role == Role.demandeur:
+        natures_map = {n.code: n for n in session.exec(select(TicketNature)).all()}
+        out = _serialize_ticket_portail(ticket, natures_map=natures_map)
+        out["commentaires"] = [
+            {
+                "id": c.id,
+                "auteur": "Vous" if c.auteur_account_id == account.id else "Support informatique",
+                "contenu": c.contenu,
+                "cree_le": c.cree_le.isoformat() if c.cree_le else None,
+            }
+            for c in comments
+        ]
+        out["pieces_jointes"] = pjs
+        return out
+
     users_map, accounts_map, assets_map, entites_map, natures_map = _charger_maps(session, [ticket])
     c_acc_ids = {c.auteur_account_id for c in comments if c.auteur_account_id and c.auteur_account_id not in accounts_map}
     if c_acc_ids:
@@ -358,21 +473,11 @@ def get_ticket(ticket_id: int, session: Session = Depends(get_session)):
         }
         for c in comments
     ]
-    out["pieces_jointes"] = [
-        {
-            "id": a.id,
-            "display_name": a.display_name,
-            "mime_type": a.mime_type,
-            "size_bytes": a.size_bytes,
-            "sha256": a.sha256,
-            "cree_le": a.cree_le.isoformat() if a.cree_le else None,
-        }
-        for a in att_svc.lister_pieces_jointes(session, "ticket", ticket.id)
-    ]
+    out["pieces_jointes"] = pjs
     return out
 
 
-@router.put("/tickets/{ticket_id}")
+@router.put("/tickets/{ticket_id}", dependencies=[Depends(require_roles("informatique"))])
 def update_ticket(
     ticket_id: int,
     data: TicketUpdate,
@@ -401,15 +506,22 @@ def update_ticket(
     )
 
 
-@router.post("/tickets/{ticket_id}/statut")
+@router.post("/tickets/{ticket_id}/statut", dependencies=[Depends(require_roles("informatique", "demandeur"))])
 def update_ticket_status(
     ticket_id: int,
     data: StatutUpdate,
     background: BackgroundTasks,
+    ctx=Depends(demandeur_dep),
     session: Session = Depends(get_session),
-    admin: Account = Depends(require_roles("informatique")),
 ):
-    ticket = svc.changer_statut(session, admin, ticket_id, data.statut)
+    account, dem_user = ctx
+    ticket = svc.changer_statut(
+        session, account, ticket_id, data.statut,
+        demandeur_user_id=dem_user.id if dem_user else None,
+    )
+    if account.role == Role.demandeur:
+        natures_map = {n.code: n for n in session.exec(select(TicketNature)).all()}
+        return _serialize_ticket_portail(ticket, natures_map=natures_map)
     if ticket.statut == "resolu" and ticket.user_id:
         user = session.get(User, ticket.user_id)
         if user and user.email:
@@ -426,17 +538,34 @@ def update_ticket_status(
     )
 
 
-@router.post("/tickets/{ticket_id}/commentaires", status_code=201)
+@router.post("/tickets/{ticket_id}/commentaires", status_code=201, dependencies=[Depends(require_roles("informatique", "demandeur"))])
 def add_ticket_comment(
     ticket_id: int,
     data: CommentCreate,
     background: BackgroundTasks,
+    ctx=Depends(demandeur_dep),
     session: Session = Depends(get_session),
-    admin: Account = Depends(require_roles("informatique")),
 ):
+    account, dem_user = ctx
     ticket, comment = svc.ajouter_commentaire(
-        session, admin, ticket_id, contenu=data.contenu, interne=data.interne,
+        session, account, ticket_id, contenu=data.contenu, interne=data.interne,
+        demandeur_user_id=dem_user.id if dem_user else None,
     )
+    if account.role == Role.demandeur:
+        if ticket.assigne_a_account_id:
+            ass = session.get(Account, ticket.assigne_a_account_id)
+            if ass and ass.email:
+                background.add_task(
+                    svc.envoyer_notification_ticket,
+                    ticket.id, ticket.reference, ticket.criticite, "Nouvelle reponse du salarie", ass.email, est_it=True,
+                )
+        return {
+            "id": comment.id,
+            "ticket_id": comment.ticket_id,
+            "auteur": "Vous",
+            "contenu": comment.contenu,
+            "cree_le": comment.cree_le.isoformat() if comment.cree_le else None,
+        }
     # Une note interne ne declenche jamais d'e-mail vers le salarie.
     if not comment.interne and ticket.user_id:
         user = session.get(User, ticket.user_id)
@@ -449,31 +578,34 @@ def add_ticket_comment(
         "id": comment.id,
         "ticket_id": comment.ticket_id,
         "auteur_account_id": comment.auteur_account_id,
-        "auteur": admin.nom_affiche or admin.username,
+        "auteur": account.nom_affiche or account.username,
         "interne": comment.interne,
         "contenu": comment.contenu,
         "cree_le": comment.cree_le.isoformat() if comment.cree_le else None,
     }
 
 
-@router.post("/tickets/{ticket_id}/pieces-jointes", status_code=201)
-async def upload_ticket_attachment(
+@router.post("/tickets/{ticket_id}/pieces-jointes", status_code=201, dependencies=[Depends(require_roles("informatique", "demandeur"))])
+def upload_ticket_attachment(
     ticket_id: int,
     file: UploadFile = File(...),
+    ctx=Depends(demandeur_dep),
     session: Session = Depends(get_session),
-    admin: Account = Depends(require_roles("informatique")),
 ):
-    ticket = session.get(Ticket, ticket_id)
+    account, dem_user = ctx
+    stmt = select(Ticket).where(Ticket.id == ticket_id)
+    if dem_user is not None:
+        stmt = stmt.where(Ticket.user_id == dem_user.id)
+    ticket = session.exec(stmt.with_for_update()).first()
     if not ticket or ticket.anonymise_le is not None:
         raise HTTPException(404, "Ticket introuvable")
     if ticket.statut in svc.STATUTS_FINAUX:
         raise HTTPException(409, "Impossible d'ajouter une piece jointe sur un ticket ferme ou annule")
-    # Lecture bornee pour ne pas charger un fichier gigantesque en RAM
     max_read = (att_svc.taille_max_mio(session) * 1024 * 1024) + 1
-    data = await file.read(max_read)
+    data = file.file.read(max_read)
     att = att_svc.ajouter_piece_jointe(
         session,
-        admin,
+        account,
         entity_type="ticket",
         entity_id=ticket.id,
         filename=file.filename,
@@ -495,14 +627,19 @@ async def upload_ticket_attachment(
     }
 
 
-@router.get("/tickets/{ticket_id}/pieces-jointes/{pj_id}")
+@router.get("/tickets/{ticket_id}/pieces-jointes/{pj_id}", dependencies=[Depends(require_roles("informatique", "demandeur"))])
 def download_ticket_attachment(
     ticket_id: int,
     pj_id: int,
+    ctx=Depends(demandeur_dep),
     session: Session = Depends(get_session),
 ):
-    ticket = session.get(Ticket, ticket_id)
-    if not ticket or ticket.anonymise_le is not None:
+    _, dem_user = ctx
+    stmt = select(Ticket).where(Ticket.id == ticket_id, Ticket.anonymise_le == None)  # noqa: E711
+    if dem_user is not None:
+        stmt = stmt.where(Ticket.user_id == dem_user.id)
+    ticket = session.exec(stmt).first()
+    if not ticket:
         raise HTTPException(404, "Ticket introuvable")
     att = session.get(Attachment, pj_id)
     if not att or att.entity_type != "ticket" or att.entity_id != ticket.id:
@@ -520,14 +657,14 @@ def download_ticket_attachment(
     )
 
 
-@router.delete("/tickets/{ticket_id}/pieces-jointes/{pj_id}", status_code=204)
+@router.delete("/tickets/{ticket_id}/pieces-jointes/{pj_id}", status_code=204, dependencies=[Depends(require_roles("informatique"))])
 def delete_ticket_attachment(
     ticket_id: int,
     pj_id: int,
     session: Session = Depends(get_session),
     admin: Account = Depends(require_roles("informatique")),
 ):
-    ticket = session.get(Ticket, ticket_id)
+    ticket = session.exec(select(Ticket).where(Ticket.id == ticket_id).with_for_update()).first()
     if not ticket or ticket.anonymise_le is not None:
         raise HTTPException(404, "Ticket introuvable")
     if ticket.statut in svc.STATUTS_FINAUX:
@@ -538,12 +675,12 @@ def delete_ticket_attachment(
     att_svc.supprimer_piece_jointe(session, admin, att, ticket.reference)
 
 
-@router.get("/parametres/tickets")
+@router.get("/parametres/tickets", dependencies=[Depends(require_roles("informatique"))])
 def get_tickets_parametres(session: Session = Depends(get_session)):
     return svc.charger_parametres(session)
 
 
-@router.put("/parametres/tickets")
+@router.put("/parametres/tickets", dependencies=[Depends(require_roles("informatique"))])
 def put_tickets_parametres(
     data: TicketsParametresUpdate,
     session: Session = Depends(get_session),

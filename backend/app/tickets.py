@@ -36,6 +36,7 @@ from sqlmodel import Session, select
 
 from . import appsettings, mailer
 from .audit import audit
+from .auth import audit_actor
 from .db import engine
 from .models import Account, Asset, Assignment, Role, Ticket, TicketComment, TicketCompteur, TicketNature, User, utcnow
 
@@ -62,7 +63,7 @@ DELAIS_CIBLES_DEFAUT = {
     "faible": 120,
 }
 
-# Transitions autorisees pour le role informatique (G1).
+# Transitions autorisees par role.
 TRANSITIONS_IT: dict[str, set[str]] = {
     "nouveau": {"en_cours", "annule"},
     "en_cours": {"en_attente", "resolu"},
@@ -70,6 +71,10 @@ TRANSITIONS_IT: dict[str, set[str]] = {
     "resolu": {"en_cours", "ferme"},
     "ferme": set(),
     "annule": set(),
+}
+TRANSITIONS_DEMANDEUR: dict[str, set[str]] = {
+    "nouveau": {"annule"},
+    "resolu": {"en_cours", "ferme"},
 }
 
 _CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -339,7 +344,7 @@ def creer_ticket(
     session.add(ticket)
     session.commit()
     session.refresh(ticket)
-    audit(actor_account.username, "ticket_creation", target=ticket.reference, detail=f"nature={ticket.nature_code} criticite={ticket.criticite}")
+    audit(audit_actor(actor_account), "ticket_creation", target=ticket.reference, detail=f"nature={ticket.nature_code} criticite={ticket.criticite}")
     return ticket
 
 
@@ -406,19 +411,30 @@ def modifier_ticket(
     session.add(ticket)
     session.commit()
     session.refresh(ticket)
-    audit(actor_account.username, "ticket_maj", target=ticket.reference)
+    audit(audit_actor(actor_account), "ticket_maj", target=ticket.reference)
     return ticket
 
 
-def changer_statut(session: Session, actor_account: Account, ticket_id: int, nouveau_statut: str) -> Ticket:
+def changer_statut(
+    session: Session,
+    actor_account: Account,
+    ticket_id: int,
+    nouveau_statut: str,
+    *,
+    demandeur_user_id: int | None = None,
+) -> Ticket:
     if nouveau_statut not in STATUTS:
         raise HTTPException(422, "Statut invalide")
-    ticket = session.exec(select(Ticket).where(Ticket.id == ticket_id).with_for_update()).first()
+    stmt = select(Ticket).where(Ticket.id == ticket_id)
+    if demandeur_user_id is not None:
+        stmt = stmt.where(Ticket.user_id == demandeur_user_id)
+    ticket = session.exec(stmt.with_for_update()).first()
     if not ticket or ticket.anonymise_le is not None:
         raise HTTPException(404, "Ticket introuvable")
 
     ancien = ticket.statut
-    if nouveau_statut not in TRANSITIONS_IT.get(ancien, set()):
+    table = TRANSITIONS_DEMANDEUR if demandeur_user_id is not None else TRANSITIONS_IT
+    if nouveau_statut not in table.get(ancien, set()):
         raise HTTPException(409, f"Transition interdite : {ancien} -> {nouveau_statut}")
 
     if nouveau_statut == "ferme" and ticket.niveau_securite == "signale":
@@ -453,7 +469,7 @@ def changer_statut(session: Session, actor_account: Account, ticket_id: int, nou
     session.add(ticket)
     session.commit()
     session.refresh(ticket)
-    audit(actor_account.username, "ticket_statut", target=ticket.reference, detail=f"{ancien}->{nouveau_statut}")
+    audit(audit_actor(actor_account), "ticket_statut", target=ticket.reference, detail=f"{ancien}->{nouveau_statut}")
     return ticket
 
 
@@ -464,8 +480,14 @@ def ajouter_commentaire(
     *,
     contenu: str,
     interne: bool = False,
+    demandeur_user_id: int | None = None,
 ) -> tuple[Ticket, TicketComment]:
-    ticket = session.exec(select(Ticket).where(Ticket.id == ticket_id).with_for_update()).first()
+    if demandeur_user_id is not None and interne:
+        raise HTTPException(403, "Notes internes reservees a l'informatique")
+    stmt = select(Ticket).where(Ticket.id == ticket_id)
+    if demandeur_user_id is not None:
+        stmt = stmt.where(Ticket.user_id == demandeur_user_id)
+    ticket = session.exec(stmt.with_for_update()).first()
     if not ticket or ticket.anonymise_le is not None:
         raise HTTPException(404, "Ticket introuvable")
     if ticket.statut in STATUTS_FINAUX:
@@ -485,13 +507,19 @@ def ajouter_commentaire(
         ticket.maj_publique_le = now
         if ticket.premiere_reponse_le is None and actor_account.role == Role.informatique:
             ticket.premiere_reponse_le = now
+        # Reprise automatique lorsqu'un demandeur repond a un ticket en_attente
+        if demandeur_user_id is not None and ticket.statut == "en_attente":
+            if ticket.en_attente_depuis is not None:
+                ticket.duree_attente_sec += max(0, int((now - ticket.en_attente_depuis).total_seconds()))
+                ticket.en_attente_depuis = None
+            ticket.statut = "en_cours"
 
     session.add(comment)
     session.add(ticket)
     session.commit()
     session.refresh(comment)
     session.refresh(ticket)
-    audit(actor_account.username, "ticket_commentaire", target=ticket.reference, detail="interne" if interne else "public")
+    audit(audit_actor(actor_account), "ticket_commentaire", target=ticket.reference, detail="interne" if interne else "public")
     return ticket, comment
 
 
