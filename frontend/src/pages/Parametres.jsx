@@ -30,6 +30,7 @@ const TABS = [
   ["services", "Services"],
   ["couts", "Couts de remplacement"],
   ["marques", "Marques et modeles"],
+  ["tickets", "Tickets"],
   ["mail", "E-mails"],
   ["integrations", "Integrations"],
   ["apparence", "Apparence"],
@@ -927,6 +928,109 @@ function Integrations({ setErr, setMsg }) {
   );
 }
 
+function TicketsSettings({ setErr, setMsg }) {
+  const [cfg, setCfg] = useState({ cloture_auto_jours: 7, delais_cibles_heures: { critique: 4, haute: 24, moyenne: 72, faible: 120 } });
+  const [natures, setNatures] = useState([]);
+  const [nouvelle, setNouvelle] = useState({ code: "", libelle: "", signale_securite: false, ordre: 90 });
+
+  const load = async () => {
+    const [p, n] = await Promise.all([api.get("/parametres/tickets"), api.get("/tickets/natures?inclure_inactives=true")]);
+    setCfg(p);
+    setNatures(n || []);
+  };
+  useEffect(() => { load().catch((e) => setErr(errorText(e))); }, []);
+
+  const saveCfg = async (e) => {
+    e.preventDefault();
+    setErr(null); setMsg(null);
+    try {
+      const r = await api.put("/parametres/tickets", {
+        cloture_auto_jours: Number(cfg.cloture_auto_jours),
+        delais_cibles_heures: Object.fromEntries(
+          Object.entries(cfg.delais_cibles_heures).map(([k, v]) => [k, Number(v)])
+        ),
+      });
+      setCfg(r);
+      setMsg("Parametres tickets enregistres.");
+    } catch (e2) { setErr(errorText(e2)); }
+  };
+
+  const toggleNature = async (n, patch) => {
+    setErr(null); setMsg(null);
+    try {
+      await api.put(`/tickets/natures/${n.id}`, patch);
+      await load();
+      setMsg("Nature mise a jour.");
+    } catch (e2) { setErr(errorText(e2)); }
+  };
+
+  const addNature = async (e) => {
+    e.preventDefault();
+    setErr(null); setMsg(null);
+    try {
+      await api.post("/tickets/natures", { ...nouvelle, ordre: Number(nouvelle.ordre) });
+      setNouvelle({ code: "", libelle: "", signale_securite: false, ordre: 90 });
+      await load();
+      setMsg("Nature ajoutee.");
+    } catch (e2) { setErr(errorText(e2)); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="card">
+        <h3>Cloture automatique et delais cibles indicatifs</h3>
+        <p className="muted">Les delais cibles sont en heures calendaires (indicatifs). La cloture automatique (0 = desactivee) ne s'applique jamais aux tickets de securite.</p>
+        <form className="grid" onSubmit={saveCfg}>
+          <label>Cloture automatique apres resolution (jours, 0 = desactivee)
+            <input type="number" min="0" max="90" value={cfg.cloture_auto_jours}
+              onChange={(e) => setCfg({ ...cfg, cloture_auto_jours: e.target.value })} />
+          </label>
+          <div />
+          {["critique", "haute", "moyenne", "faible"].map((c) => (
+            <label key={c}>Delai cible {c} (heures)
+              <input type="number" min="1" max="720" value={cfg.delais_cibles_heures[c] ?? ""}
+                onChange={(e) => setCfg({ ...cfg, delais_cibles_heures: { ...cfg.delais_cibles_heures, [c]: e.target.value } })} />
+            </label>
+          ))}
+          <div className="row" style={{ gridColumn: "1 / -1" }}>
+            <button type="submit">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+
+      <div className="card">
+        <h3>Catalogue des natures de tickets</h3>
+        <table>
+          <thead><tr><th>Code</th><th>Libelle</th><th>Auto-securite</th><th>Actif</th></tr></thead>
+          <tbody>
+            {natures.map((n) => (
+              <tr key={n.id}>
+                <td><code>{n.code}</code></td>
+                <td>{n.libelle}</td>
+                <td><input type="checkbox" checked={n.signale_securite} onChange={(e) => toggleNature(n, { signale_securite: e.target.checked })} /></td>
+                <td><input type="checkbox" checked={n.actif} onChange={(e) => toggleNature(n, { actif: e.target.checked })} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <form className="grid" onSubmit={addNature} style={{ marginTop: 14 }}>
+          <label>Nouveau code (snake_case)
+            <input value={nouvelle.code} onChange={(e) => setNouvelle({ ...nouvelle, code: e.target.value })} placeholder="ex: telephonie" required />
+          </label>
+          <label>Libelle
+            <input value={nouvelle.libelle} onChange={(e) => setNouvelle({ ...nouvelle, libelle: e.target.value })} placeholder="Telephonie" required />
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={nouvelle.signale_securite} onChange={(e) => setNouvelle({ ...nouvelle, signale_securite: e.target.checked })} />
+            Coche le signalement de securite d'office
+          </label>
+          <div className="row"><button type="submit">Ajouter la nature</button></div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Parametres() {
   const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get("sso_test") ? "auth" : "types"));
   const [err, setErr] = useState(null);
@@ -958,6 +1062,7 @@ export default function Parametres() {
       {tab === "apparence" && <Apparence setErr={setErr} setMsg={setMsg} />}
       {tab === "couts" && <Couts setErr={setErr} setMsg={setMsg} />}
       {tab === "marques" && <MergeTool setErr={setErr} setMsg={setMsg} />}
+      {tab === "tickets" && <TicketsSettings setErr={setErr} setMsg={setMsg} />}
       {tab === "pdf" && <PdfTemplate setErr={setErr} setMsg={setMsg} />}
       {tab === "mail" && <Courriel setErr={setErr} setMsg={setMsg} />}
       {tab === "integrations" && <Integrations setErr={setErr} setMsg={setMsg} />}

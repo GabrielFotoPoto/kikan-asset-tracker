@@ -24,6 +24,9 @@ const IT = ["informatique"];
 export const ACCUEIL = { to: "/", label: "Tableau de bord" };
 
 export const SECTIONS = [
+  { id: "support", label: "Support", items: [
+    { to: "/tickets", label: "Tickets", roles: IT, badge: "tickets" },
+  ] },
   { id: "parc", label: "Parc", items: [
     { to: "/materiel", label: "Materiel" },
     { to: "/besoins", label: "Besoins", sauf: ["rh"], badge: "besoins" },
@@ -88,6 +91,7 @@ export function fil(pathname) {
 
 // Actions proposees par la palette ; droit = domaine d'ecriture a avoir (voir canWrite dans auth.jsx).
 export const ACTIONS = [
+  { label: "Creer un ticket", to: "/tickets?nouveau=1", droit: "tickets" },
   { label: "Ajouter du materiel", to: "/materiel", droit: "materiel" },
   { label: "Ajouter un salarie", to: "/utilisateurs", droit: "users" },
   { label: "Creer une remise", to: "/remises", droit: "remises" },

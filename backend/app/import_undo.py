@@ -178,6 +178,9 @@ def annuler(session: Session, lot: ImportLot, account: str) -> dict:
         for ref in _ids(lot, key):
             obj = session.get(model, tuple(ref) if key == "affectation_actif" else ref)
             if obj is not None:
+                if key == "salarie":
+                    from . import tickets as tickets_svc
+                    tickets_svc.purger_tickets_salarie(session, obj.id)
                 if key in ("actif", "salarie"):
                     integration.retirer_liens(session, "asset" if key == "actif" else "user", obj.id)
                 session.delete(obj)

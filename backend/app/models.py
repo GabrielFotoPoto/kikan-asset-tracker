@@ -548,3 +548,68 @@ class AuditLog(SQLModel, table=True):
     status: Optional[int] = None
     ip: Optional[str] = None
     detail: Optional[str] = None
+
+
+# --- Gestion de tickets native (lot G1) ---
+
+class TicketNature(SQLModel, table=True):
+    __tablename__ = "ticket_natures"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    code: str = Field(index=True, unique=True, max_length=40)
+    libelle: str = Field(max_length=100)
+    signale_securite: bool = False
+    actif: bool = True
+    ordre: int = 0
+
+
+class TicketCompteur(SQLModel, table=True):
+    """Compteur annuel dedie a la numerotation TKT-AAAA-NNNN (verrouille par SELECT FOR UPDATE)."""
+    __tablename__ = "ticket_compteurs"
+    annee: int = Field(primary_key=True)
+    dernier_numero: int = 0
+
+
+class Ticket(SQLModel, table=True):
+    __tablename__ = "tickets"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    reference: str = Field(index=True, unique=True, max_length=20)
+    entite_id: Optional[int] = Field(default=None, index=True, foreign_key="entite.id")
+    user_id: Optional[int] = Field(default=None, index=True, foreign_key="users.id")
+    cree_par_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
+    assigne_a_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
+    asset_id: Optional[int] = Field(default=None, index=True, foreign_key="assets.id")
+    assignment_id: Optional[int] = Field(default=None, index=True, foreign_key="assignments.id")
+    materiel_type: Optional[str] = Field(default=None, max_length=100)
+    materiel_marque: Optional[str] = Field(default=None, max_length=100)
+    materiel_modele: Optional[str] = Field(default=None, max_length=100)
+    nature_code: str = Field(index=True, foreign_key="ticket_natures.code", max_length=40)
+    criticite_demandeur: str = Field(default="moyenne", max_length=16)
+    criticite: str = Field(default="moyenne", max_length=16)
+    statut: str = Field(default="nouveau", index=True, max_length=20)
+    titre: Optional[str] = Field(default=None, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=5000)
+    canal: str = Field(default="it", index=True, max_length=16)
+    demandeur_verifie: bool = True
+    niveau_securite: str = Field(default="aucun", index=True, max_length=16)
+    cree_le: NaiveDatetime = Field(default_factory=utcnow, index=True)
+    premiere_reponse_le: Optional[NaiveDatetime] = None
+    en_attente_depuis: Optional[NaiveDatetime] = None
+    duree_attente_sec: int = 0
+    resolu_le: Optional[NaiveDatetime] = None
+    ferme_le: Optional[NaiveDatetime] = None
+    nb_reouvertures: int = 0
+    mtta_sec: Optional[int] = None
+    mttr_sec: Optional[int] = None
+    anonymise_le: Optional[NaiveDatetime] = None
+    maj_le: NaiveDatetime = Field(default_factory=utcnow)
+    maj_publique_le: NaiveDatetime = Field(default_factory=utcnow)
+
+
+class TicketComment(SQLModel, table=True):
+    __tablename__ = "ticket_comments"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ticket_id: int = Field(index=True, foreign_key="tickets.id")
+    auteur_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
+    interne: bool = False
+    contenu: str = Field(max_length=4000)
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)

@@ -352,6 +352,9 @@ def tick(now: datetime | None = None, *, force_rappels: bool = False, force_rapp
         if not got:
             return None
         with Session(engine) as session:
+            if not manual:
+                from . import tickets as tickets_svc
+                tickets_svc.cloturer_tickets_resolus_echus(session)
             cfg = mailer.load_config(session)
             if not cfg.actif or not cfg.pret:
                 return None

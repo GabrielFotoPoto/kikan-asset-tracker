@@ -186,7 +186,9 @@ def delete_users_batch(
         for o in supprimables
     ]
     if not data.simulation:
+        from .. import tickets as tickets_svc
         for obj in supprimables:
+            tickets_svc.purger_tickets_salarie(session, obj.id)
             integration.retirer_liens(session, "user", obj.id)
             session.flush()
             session.delete(obj)
@@ -203,7 +205,7 @@ def delete_users_batch(
 
 @router.delete("/{user_id}", status_code=204, dependencies=[Depends(require_roles("informatique"))])
 def delete_user(user_id: int, session: Session = Depends(get_session)):
-    obj = session.get(User, user_id)
+    obj = session.exec(select(User).where(User.id == user_id).with_for_update()).first()
     if not obj:
         raise HTTPException(404, "Utilisateur introuvable")
     refuse_delete(
@@ -212,6 +214,8 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
         "Un salarie avec historique se conserve (statut sorti via la page Sorties) ; "
         "son effacement definitif releve de la purge RGPD.",
     )
+    from .. import tickets as tickets_svc
+    tickets_svc.purger_tickets_salarie(session, obj.id)
     integration.retirer_liens(session, "user", obj.id)
     session.flush()
     session.delete(obj)

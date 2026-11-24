@@ -31,7 +31,7 @@ from datetime import date, timedelta
 
 from sqlmodel import Session, select
 
-from . import appsettings
+from . import appsettings, tickets as tickets_svc
 from .audit import audit
 from .filestore import (
     DOCUMENT_ONLY, StorageError, delete_document, mettre_en_quarantaine, parse_reference, sortir_de_quarantaine,
@@ -93,7 +93,9 @@ def purger(session: Session, actor: str, ids: list[int] | None = None, today: da
         selection = [u for u in selection if u.id in wanted]
     echeance = today + timedelta(days=delai_grace(session))
     nb_documents = 0
+    nb_tickets = 0
     for user in selection:
+        nb_tickets += tickets_svc.purger_tickets_salarie(session, user.id)
         for besoin in session.exec(select(Besoin).where(Besoin.user_id == user.id)).all():
             session.delete(besoin)  # references une remise : supprimes avant elles
         session.flush()
@@ -122,9 +124,9 @@ def purger(session: Session, actor: str, ids: list[int] | None = None, today: da
         session.flush()
         session.delete(user)
     session.commit()
-    audit(actor, "rgpd_purge", detail=f"{len(selection)} salarie(s), {nb_documents} document(s) suivis")
+    audit(actor, "rgpd_purge", detail=f"{len(selection)} salarie(s), {nb_documents} document(s) suivis, {nb_tickets} ticket(s) anonymise(s)")
     moved = deplacer_en_attente(session, actor)
-    return {"count": len(selection), "documents": nb_documents, "deplaces": moved["deplaces"], "en_attente": moved["en_attente"]}
+    return {"count": len(selection), "documents": nb_documents, "tickets_anonymises": nb_tickets, "deplaces": moved["deplaces"], "en_attente": moved["en_attente"]}
 
 
 def deplacer_en_attente(session: Session, actor: str) -> dict:
@@ -207,4 +209,5 @@ def etat(session: Session, today: date | None = None) -> dict:
         return sum(1 for d in docs if d.statut == statut and (not echus or d.echeance <= today))
 
     return {"candidats": len(candidats(session, today)), "a_deplacer": n("a_deplacer"), "quarantaine": n("quarantaine"),
-            "quarantaine_echus": n("quarantaine", True), "ged": n("ged_a_supprimer"), "ged_echus": n("ged_a_supprimer", True)}
+            "quarantaine_echus": n("quarantaine", True), "ged": n("ged_a_supprimer"), "ged_echus": n("ged_a_supprimer", True),
+            "tickets_clos": len(tickets_svc.candidats_tickets_clos(session, today))}

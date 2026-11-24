@@ -61,6 +61,8 @@ import Sauvegarde from "./pages/Sauvegarde.jsx";
 import Sign from "./pages/Sign.jsx";
 import Arrivant from "./pages/Arrivant.jsx";
 import DepartParcours from "./pages/DepartParcours.jsx";
+import Tickets from "./pages/Tickets.jsx";
+import TicketDetail from "./pages/TicketDetail.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -168,6 +170,8 @@ export default function App() {
             <Route path="/materiel" element={<Assets />} />
             <Route path="/acces" element={<Acces />} />
             <Route path="/besoins" element={user.role === "rh" ? <Navigate to="/" /> : <Besoins />} />
+            <Route path="/tickets" element={user.role === "informatique" ? <Tickets /> : <Navigate to="/" />} />
+            <Route path="/tickets/:id" element={user.role === "informatique" ? <TicketDetail /> : <Navigate to="/" />} />
             <Route path="/remises" element={<Assignments />} />
             <Route path="/chartes" element={<Policies />} />
             <Route path="/sorties" element={<Departures />} />
