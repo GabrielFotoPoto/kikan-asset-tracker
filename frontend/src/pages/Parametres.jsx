@@ -792,6 +792,9 @@ function Courriel({ setErr, setMsg }) {
 const DROITS_API = [
   ["assets_lecture", "Lire le materiel"], ["assets_ecriture", "Ecrire le materiel"],
   ["users_lecture", "Lire les salaries"], ["users_ecriture", "Ecrire les salaries"],
+  ["tickets_lecture", "Lire les tickets (droit sensible : textes libres)"],
+  ["tickets_ecriture", "Ecrire les tickets"],
+  ["tickets_interne", "Lire et ecrire les notes internes"],
 ];
 const fmtDate = (d) => (d ? String(d).replace("T", " ").slice(0, 16) : "jamais");
 

@@ -37,7 +37,10 @@ from .models import ApiToken, ApiTokenScope
 from .scope import GLOBAL, Scope, expand_scope
 
 PREFIX = "kik_"
-DROITS = ("assets_lecture", "assets_ecriture", "users_lecture", "users_ecriture")
+DROITS = (
+    "assets_lecture", "assets_ecriture", "users_lecture", "users_ecriture",
+    "tickets_lecture", "tickets_ecriture", "tickets_interne",
+)
 RATE_PER_MIN = 300
 MAX_BATCH = 100
 
@@ -58,8 +61,11 @@ class ApiAuth:
     token: ApiToken
     scope: Scope
 
+    def has(self, droit: str) -> bool:
+        return droit in self.token.droits.split(",")
+
     def need(self, droit: str) -> None:
-        if droit not in self.token.droits.split(","):
+        if not self.has(droit):
             raise HTTPException(403, "Droit insuffisant pour ce jeton")
 
     @property

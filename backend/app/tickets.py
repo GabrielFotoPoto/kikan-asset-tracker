@@ -305,9 +305,17 @@ def _valider_assigne(session: Session, account_id: int | None) -> Account | None
     return acc
 
 
+def _actor_label(actor_account: Account | None, actor_name: str | None = None) -> str:
+    if actor_name:
+        return actor_name
+    if actor_account is not None:
+        return audit_actor(actor_account)
+    return "systeme"
+
+
 def creer_ticket(
     session: Session,
-    actor_account: Account,
+    actor_account: Account | None,
     *,
     nature_code: str,
     titre: str,
@@ -320,6 +328,9 @@ def creer_ticket(
     canal: str = "it",
     demandeur_verifie: bool = True,
     signaler_securite: bool = False,
+    entite_id_override: int | None = None,
+    actor_name: str | None = None,
+    commit: bool = True,
 ) -> Ticket:
     nature = session.exec(select(TicketNature).where(TicketNature.code == nature_code)).first()
     if not nature or not nature.actif:
@@ -345,10 +356,12 @@ def creer_ticket(
 
     _valider_assigne(session, assigne_a_account_id)
 
-    # Entite figee a la creation : salarie, sinon materiel, sinon None (ticket interne IT)
+    # Entite figee a la creation : salarie, sinon materiel, sinon override explicite (API), sinon None (interne IT)
     entite_id = (user.entite_id if user and user.entite_id is not None else None)
     if entite_id is None and asset is not None:
         entite_id = asset.entite_id
+    if entite_id is None and entite_id_override is not None:
+        entite_id = entite_id_override
 
     now = utcnow()
     ref = prochaine_reference(session, now.year)
@@ -358,7 +371,7 @@ def creer_ticket(
         reference=ref,
         entite_id=entite_id,
         user_id=user.id if user else None,
-        cree_par_account_id=actor_account.id,
+        cree_par_account_id=actor_account.id if actor_account is not None else None,
         assigne_a_account_id=assigne_a_account_id,
         asset_id=asset.id if asset else None,
         assignment_id=assignment_id,
@@ -379,20 +392,24 @@ def creer_ticket(
     session.add(ticket)
     session.flush()
     if niveau == "signale":
+        est_dem = (actor_account is not None and actor_account.role == Role.demandeur) or canal == "email"
         session.add(TicketSecurityDetail(
             ticket_id=ticket.id,
             signale_le=now,
-            signale_par="demandeur" if actor_account.role == Role.demandeur else "informatique",
+            signale_par="demandeur" if est_dem else "informatique",
         ))
-    session.commit()
-    session.refresh(ticket)
-    audit(audit_actor(actor_account), "ticket_creation", target=ticket.reference, detail=f"nature={ticket.nature_code} criticite={ticket.criticite}")
+    if commit:
+        session.commit()
+        session.refresh(ticket)
+        audit(_actor_label(actor_account, actor_name), "ticket_creation", target=ticket.reference, detail=f"nature={ticket.nature_code} criticite={ticket.criticite}")
+    else:
+        session.flush()
     return ticket
 
 
 def modifier_ticket(
     session: Session,
-    actor_account: Account,
+    actor_account: Account | None,
     ticket_id: int,
     *,
     nature_code: str | None = None,
@@ -404,6 +421,8 @@ def modifier_ticket(
     assignment_id: int | None = None,
     assignment_fourni: bool = False,
     demandeur_verifie: bool | None = None,
+    actor_name: str | None = None,
+    commit: bool = True,
 ) -> Ticket:
     ticket = session.exec(select(Ticket).where(Ticket.id == ticket_id).with_for_update()).first()
     if not ticket or ticket.anonymise_le is not None:
@@ -455,19 +474,23 @@ def modifier_ticket(
     ticket.maj_le = now
     ticket.maj_publique_le = now
     session.add(ticket)
-    session.commit()
-    session.refresh(ticket)
-    audit(audit_actor(actor_account), "ticket_maj", target=ticket.reference)
+    if commit:
+        session.commit()
+        session.refresh(ticket)
+        audit(_actor_label(actor_account, actor_name), "ticket_maj", target=ticket.reference)
+    else:
+        session.flush()
     return ticket
 
 
 def changer_statut(
     session: Session,
-    actor_account: Account,
+    actor_account: Account | None,
     ticket_id: int,
     nouveau_statut: str,
     *,
     demandeur_user_id: int | None = None,
+    actor_name: str | None = None,
 ) -> Ticket:
     if nouveau_statut not in STATUTS:
         raise HTTPException(422, "Statut invalide")
@@ -494,7 +517,7 @@ def changer_statut(
     if ancien == "nouveau" and nouveau_statut == "en_cours":
         if ticket.premiere_reponse_le is None:
             ticket.premiere_reponse_le = now
-        if ticket.assigne_a_account_id is None and actor_account.role == Role.informatique:
+        if ticket.assigne_a_account_id is None and actor_account is not None and actor_account.role == Role.informatique:
             ticket.assigne_a_account_id = actor_account.id
     elif ancien == "nouveau" and nouveau_statut == "annule":
         ticket.ferme_le = now
@@ -519,18 +542,19 @@ def changer_statut(
     session.add(ticket)
     session.commit()
     session.refresh(ticket)
-    audit(audit_actor(actor_account), "ticket_statut", target=ticket.reference, detail=f"{ancien}->{nouveau_statut}")
+    audit(_actor_label(actor_account, actor_name), "ticket_statut", target=ticket.reference, detail=f"{ancien}->{nouveau_statut}")
     return ticket
 
 
 def ajouter_commentaire(
     session: Session,
-    actor_account: Account,
+    actor_account: Account | None,
     ticket_id: int,
     *,
     contenu: str,
     interne: bool = False,
     demandeur_user_id: int | None = None,
+    actor_name: str | None = None,
 ) -> tuple[Ticket, TicketComment]:
     if demandeur_user_id is not None and interne:
         raise HTTPException(403, "Notes internes reservees a l'informatique")
@@ -547,7 +571,7 @@ def ajouter_commentaire(
     now = utcnow()
     comment = TicketComment(
         ticket_id=ticket.id,
-        auteur_account_id=actor_account.id,
+        auteur_account_id=actor_account.id if actor_account is not None else None,
         interne=bool(interne),
         contenu=clean,
         cree_le=now,
@@ -555,7 +579,7 @@ def ajouter_commentaire(
     ticket.maj_le = now
     if not interne:
         ticket.maj_publique_le = now
-        if ticket.premiere_reponse_le is None and actor_account.role == Role.informatique:
+        if ticket.premiere_reponse_le is None and (actor_account is None or actor_account.role == Role.informatique):
             ticket.premiere_reponse_le = now
         # Reprise automatique lorsqu'un demandeur repond a un ticket en_attente
         if demandeur_user_id is not None and ticket.statut == "en_attente":
@@ -569,7 +593,7 @@ def ajouter_commentaire(
     session.commit()
     session.refresh(comment)
     session.refresh(ticket)
-    audit(audit_actor(actor_account), "ticket_commentaire", target=ticket.reference, detail="interne" if interne else "public")
+    audit(_actor_label(actor_account, actor_name), "ticket_commentaire", target=ticket.reference, detail="interne" if interne else "public")
     return ticket, comment
 
 
@@ -1075,10 +1099,13 @@ def purger_stats_tickets(
     locked = session.exec(
         select(Ticket).where(Ticket.id.in_(locked_ids)).order_by(Ticket.id).with_for_update()
     ).all()
+    from . import integration as integ_svc
+
     count = 0
     for ticket in locked:
         if ticket.anonymise_le is None:
             continue
+        integ_svc.retirer_liens(session, "ticket", ticket.id)
         sec = session.get(TicketSecurityDetail, ticket.id)
         if sec:
             session.delete(sec)

@@ -6,6 +6,13 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Ajouté
+- **Lot G7 (#182) - API d'intégration `/v1/tickets*` et passerelle e-mail documentée** :
+  - **Nouveaux droits de jetons API** (`backend/app/apitoken.py`, `frontend/src/pages/Parametres.jsx`) : `tickets_lecture` (signalé comme droit sensible : accès aux textes libres), `tickets_ecriture`, `tickets_interne`.
+  - **Endpoints `/v1/tickets*`** (`backend/app/routers/api_v1.py`, service unique `backend/app/tickets.py` et `backend/app/attachments.py`) : `GET /v1/tickets/natures`, `GET /v1/tickets` (filtres `statut`, `nature`, `criticite`, `modifie_depuis`), `GET /v1/tickets/{reference}`, `PUT /v1/tickets/{id_externe}` (idempotent via `external_links`, `?dry_run=1`, recherche salarié par `email` unique / `matricule` / `id_externe`, `canal = api|email` avec `demandeur_verifie = false` pour `email`), `POST /v1/tickets/{reference}/statut`, `POST /v1/tickets/{reference}/commentaires`, `GET/POST /v1/tickets/{reference}/pieces-jointes`.
+  - **Étanchéité sécurité** : sur les tickets `signale` ou `incident`, `titre`, `description`, `commentaires` et `pieces-jointes` sont systématiquement masqués (`texte_masque: true`) ; `ticket_security_details` n'est jamais exposé par `/v1`.
+  - **Documentation** : mise à jour de `docs/API.md` et ajout de `docs/TICKETS-EMAIL.md` (exemple de flux n8n boîte mail vers tickets, marqué comme non vérifié sur une vraie boîte).
+  - **Vérifié** : suite `tests/api_tickets_check.py`, non-régression sur `kiktest` (`api_check`, `tickets_check`, `attachments_check`, `tickets_securite_check`, `portail_demandeur_check`), tests et build frontend (`node:24-alpine`).
+  - **Non vérifié** : exécution réelle du workflow n8n (`docs/TICKETS-EMAIL.md`) sur une boîte aux lettres de production.
 - **Lot G4b (#181) - Extension SSO Entra ID pour les salariés (`Kikan.Demandeur`)** :
   - **Rôle `Kikan.Demandeur` et option membre du tenant** (`backend/app/sso.py`, `backend/app/sso_policy.py`, `backend/app/routers/sso.py`) : nouveau rôle d'application configurable `role_demandeur` (`Kikan.Demandeur` par défaut) et option `demandeur_membres_tenant` désactivée par défaut ; priorité conservée à `Kikan.IT` et `Kikan.RH` en cas de cumul ; exigence MFA appliquée comme pour les autres rôles.
   - **Exclusion des invités B2B** (`is_guest`) : rejet systématique des comptes invités (`acct=1`, `userType=guest`, `idtyp=app`, `#EXT#` dans UPN/e-mail) pour le portail salarié.
