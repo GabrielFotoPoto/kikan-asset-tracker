@@ -91,9 +91,11 @@ class NonRestitueRequest(BaseModel):
 def _cloturer_si_vide(session: Session, user: User) -> bool:
     """Si le salarie etait en_depart et n'a plus aucun actif affecte, il passe au statut sorti."""
     if user.statut == EmployeeStatus.en_depart and not _holdings(session, user.id):
+        from ..auth import desactiver_compte_salarie
         user.statut = EmployeeStatus.sorti
         user.maj_le = datetime.utcnow()
         session.add(user)
+        desactiver_compte_salarie(session, user.id)
         return True
     return False
 

@@ -187,9 +187,11 @@ def delete_users_batch(
     ]
     if not data.simulation:
         from .. import purge as purge_svc, tickets as tickets_svc
+        from ..auth import supprimer_compte_salarie
         nb_tkt = 0
         for obj in supprimables:
             nb_tkt += tickets_svc.purger_tickets_salarie(session, obj.id)
+            supprimer_compte_salarie(session, obj.id)
             integration.retirer_liens(session, "user", obj.id)
             session.flush()
             session.delete(obj)
@@ -218,7 +220,9 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
         "son effacement definitif releve de la purge RGPD.",
     )
     from .. import purge as purge_svc, tickets as tickets_svc
+    from ..auth import supprimer_compte_salarie
     nb_tkt = tickets_svc.purger_tickets_salarie(session, obj.id)
+    supprimer_compte_salarie(session, obj.id)
     integration.retirer_liens(session, "user", obj.id)
     session.flush()
     session.delete(obj)

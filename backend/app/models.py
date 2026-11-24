@@ -69,6 +69,7 @@ class Role(str, Enum):
     rh = "rh"
     informatique = "informatique"
     lecture = "lecture"
+    demandeur = "demandeur"
 
 
 # --- Entites (filiales) ---
@@ -348,6 +349,7 @@ class Account(SQLModel, table=True):
     # Portee (comptes RH et lecture) : globale, ou limitee aux entites de `account_scopes` et a leurs sous-entites.
     # Les comptes informatique sont TOUJOURS globaux (administrateurs), quelle que soit cette valeur.
     portee_globale: bool = True
+    user_id: Optional[int] = Field(default=None, index=True, unique=True, foreign_key="users.id")  # obligatoire pour demandeur
 
     @property
     def sso_lie(self) -> bool:
