@@ -19,7 +19,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, errorText } from "../api.js";
+import { api, downloadFile, errorText, fetchDataUrl, postForm } from "../api.js";
+import ConfirmButton from "../components/ConfirmButton.jsx";
 import { Feedback } from "../components/Notifications.jsx";
 import { Loading } from "../components/State.jsx";
 import { useCompteurs } from "../compteurs.jsx";
@@ -64,6 +65,8 @@ export default function TicketDetail() {
   const [msg, setMsg] = useState(null);
   const [contenu, setContenu] = useState("");
   const [interne, setInterne] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [thumbs, setThumbs] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,6 +74,12 @@ export default function TicketDetail() {
       const [t, n] = await Promise.all([api.get(`/tickets/${id}`), api.get("/tickets/natures?inclure_inactives=true")]);
       setTicket(t);
       setNatures((n || []).filter((x) => x.actif || x.code === t.nature_code));
+      const imgs = (t.pieces_jointes || []).filter((p) => p.mime_type.startsWith("image/"));
+      const map = {};
+      await Promise.all(imgs.map(async (p) => {
+        try { map[p.id] = await fetchDataUrl(`/tickets/${id}/pieces-jointes/${p.id}`); } catch { /* ignore */ }
+      }));
+      setThumbs(map);
     } catch (e) {
       setErr(errorText(e));
     } finally {
@@ -111,6 +120,35 @@ export default function TicketDetail() {
       await api.post(`/tickets/${id}/commentaires`, { contenu, interne });
       setContenu("");
       setMsg(interne ? "Note interne ajoutee." : "Reponse publique publiee.");
+      await load();
+    } catch (e2) {
+      setErr(errorText(e2));
+    }
+  };
+
+  const onUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setErr(null); setMsg(null); setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      await postForm(`/tickets/${id}/pieces-jointes`, fd);
+      setMsg("Piece jointe ajoutee.");
+      await load();
+    } catch (e2) {
+      setErr(errorText(e2));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const onDeletePj = async (pjId) => {
+    setErr(null); setMsg(null);
+    try {
+      await api.del(`/tickets/${id}/pieces-jointes/${pjId}`);
+      setMsg("Piece jointe supprimee.");
       await load();
     } catch (e2) {
       setErr(errorText(e2));
@@ -194,6 +232,45 @@ export default function TicketDetail() {
       <div className="card">
         <h3>Description</h3>
         <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{ticket.description || <span className="muted">Aucune description.</span>}</p>
+      </div>
+
+      <div className="card">
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <h3 style={{ margin: 0 }}>Pieces jointes ({(ticket.pieces_jointes || []).length} / 5)</h3>
+          {!estFinal && (ticket.pieces_jointes || []).length < 5 && (
+            <label className="ghost" style={{ cursor: "pointer" }}>
+              <input type="file" onChange={onUpload} disabled={uploading} style={{ display: "none" }}
+                accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.log" />
+              <span className="chip">{uploading ? "Envoi..." : "+ Ajouter un fichier"}</span>
+            </label>
+          )}
+        </div>
+        <p className="muted" style={{ marginTop: 0 }}>Formats autorises : PNG, JPEG, WEBP (re-encodes sans EXIF), PDF, TXT, LOG.</p>
+        {(ticket.pieces_jointes || []).length === 0 ? (
+          <p className="muted">Aucune piece jointe.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {ticket.pieces_jointes.map((pj) => (
+              <div key={pj.id} className="row" style={{ justifyContent: "space-between", alignItems: "center", padding: 8, border: "1px solid var(--line)", borderRadius: 8 }}>
+                <div className="row" style={{ alignItems: "center", gap: 10 }}>
+                  {thumbs[pj.id] && <img src={thumbs[pj.id]} alt={pj.display_name} style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6 }} />}
+                  <div>
+                    <div><strong>{pj.display_name}</strong></div>
+                    <div className="muted">{pj.mime_type} - {Math.max(1, Math.round(pj.size_bytes / 1024))} Kio</div>
+                  </div>
+                </div>
+                <div className="row">
+                  <button type="button" className="ghost btn-petit" onClick={() => downloadFile(`/tickets/${id}/pieces-jointes/${pj.id}`, pj.display_name).catch((e) => setErr(errorText(e)))}>
+                    Telecharger
+                  </button>
+                  {!estFinal && (
+                    <ConfirmButton confirmLabel="Supprimer" onConfirm={() => onDeletePj(pj.id)}>Supprimer</ConfirmButton>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card">

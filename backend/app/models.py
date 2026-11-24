@@ -444,6 +444,7 @@ class PurgeDocument(SQLModel, table=True):
     reference_quarantaine: Optional[str] = None
     moteur: str
     statut: str = Field(index=True)
+    type_doc: str = Field(default="pdf_scelle", index=True, max_length=24)  # pdf_scelle | piece_jointe
     empreinte: Optional[str] = None                   # SHA-256 du PDF (preuve de l'existence sans donnee personnelle)
     cree_le: NaiveDatetime = Field(default_factory=utcnow)
     echeance: date
@@ -612,4 +613,19 @@ class TicketComment(SQLModel, table=True):
     auteur_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
     interne: bool = False
     contenu: str = Field(max_length=4000)
+    cree_le: NaiveDatetime = Field(default_factory=utcnow)
+
+
+class Attachment(SQLModel, table=True):
+    """Piece jointe transversale (tickets en G3, reutilisable pour actifs en C5)."""
+    __tablename__ = "attachments"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    entity_type: str = Field(index=True, max_length=24)
+    entity_id: int = Field(index=True)
+    storage_ref: str = Field(max_length=255)
+    sha256: str = Field(max_length=64)
+    mime_type: str = Field(max_length=80)
+    size_bytes: int
+    display_name: str = Field(max_length=180)
+    uploaded_by_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
     cree_le: NaiveDatetime = Field(default_factory=utcnow)

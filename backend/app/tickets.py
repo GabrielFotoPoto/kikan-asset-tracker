@@ -135,13 +135,25 @@ def delais_cibles(session: Session) -> dict[str, int]:
 
 
 def charger_parametres(session: Session) -> dict:
+    from . import attachments as att_svc
     return {
         "cloture_auto_jours": cloture_auto_jours(session),
         "delais_cibles_heures": delais_cibles(session),
+        "pj_taille_max_mio": att_svc.taille_max_mio(session),
+        "pj_plafond_global_mio": att_svc.plafond_global_mio(session),
     }
 
 
-def sauver_parametres(session: Session, actor: str, cloture_jours: int, delais: dict[str, int]) -> dict:
+def sauver_parametres(
+    session: Session,
+    actor: str,
+    cloture_jours: int,
+    delais: dict[str, int],
+    *,
+    pj_taille_max_mio: int | None = None,
+    pj_plafond_global_mio: int | None = None,
+) -> dict:
+    from . import attachments as att_svc
     if not (0 <= cloture_jours <= CLOTURE_AUTO_MAX):
         raise HTTPException(422, f"Delai de cloture auto hors bornes (0 a {CLOTURE_AUTO_MAX} jours)")
     valides: dict[str, int] = {}
@@ -151,9 +163,18 @@ def sauver_parametres(session: Session, actor: str, cloture_jours: int, delais: 
             if not (1 <= h <= 720):
                 raise HTTPException(422, f"Delai cible '{crit}' hors bornes (1 a 720 h)")
             valides[crit] = h
+    if pj_taille_max_mio is not None and not (att_svc.TAILLE_MAX_MIN_MIO <= pj_taille_max_mio <= att_svc.TAILLE_MAX_MAX_MIO):
+        raise HTTPException(422, f"Taille max PJ hors bornes ({att_svc.TAILLE_MAX_MIN_MIO} a {att_svc.TAILLE_MAX_MAX_MIO} Mio)")
+    if pj_plafond_global_mio is not None and not (att_svc.PLAFOND_GLOBAL_MIN_MIO <= pj_plafond_global_mio <= att_svc.PLAFOND_GLOBAL_MAX_MIO):
+        raise HTTPException(422, f"Plafond global PJ hors bornes ({att_svc.PLAFOND_GLOBAL_MIN_MIO} a {att_svc.PLAFOND_GLOBAL_MAX_MIO} Mio)")
+
     appsettings.put(session, CLOTURE_AUTO_KEY, str(cloture_jours))
     for crit, h in valides.items():
         appsettings.put(session, f"tickets_delai_{crit}_h", str(h))
+    if pj_taille_max_mio is not None:
+        appsettings.put(session, att_svc.TAILLE_MAX_KEY, str(pj_taille_max_mio))
+    if pj_plafond_global_mio is not None:
+        appsettings.put(session, att_svc.PLAFOND_GLOBAL_KEY, str(pj_plafond_global_mio))
     session.commit()
     audit(actor, "tickets_parametres_maj")
     return charger_parametres(session)
@@ -606,13 +627,17 @@ def _debut_mois(dt: datetime | None) -> datetime | None:
 
 
 def anonymiser_ticket(session: Session, ticket: Ticket, now: datetime | None = None) -> bool:
-    """Anonymise un ticket et supprime ses commentaires (coupe tout lien direct ou indirect au salarie).
+    """Anonymise un ticket, supprime ses commentaires et planifie la quarantaine de ses pieces jointes.
 
     Idempotent : renvoie False si le ticket est deja anonymise.
     """
     if ticket.anonymise_le is not None:
         return False
+    from . import attachments as att_svc, purge as purge_svc
+
     now = now or utcnow()
+    echeance = date.today() + timedelta(days=purge_svc.delai_grace(session))
+    att_svc.planifier_purge_attachments(session, "ticket", ticket.id, echeance)
 
     for comment in session.exec(select(TicketComment).where(TicketComment.ticket_id == ticket.id)).all():
         session.delete(comment)
@@ -702,5 +727,7 @@ def purger_tickets_clos(
             count += 1
     session.commit()
     if count:
+        from . import purge as purge_svc
         audit(actor, "rgpd_purge_tickets", detail=f"{count} ticket(s) anonymise(s)")
+        purge_svc.deplacer_en_attente(session, actor)
     return count

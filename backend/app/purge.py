@@ -29,12 +29,14 @@ import calendar
 import logging
 from datetime import date, timedelta
 
+from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from . import appsettings, tickets as tickets_svc
 from .audit import audit
 from .filestore import (
-    DOCUMENT_ONLY, StorageError, delete_document, mettre_en_quarantaine, parse_reference, sortir_de_quarantaine,
+    DOCUMENT_ONLY, StorageError, delete_attachment, delete_document,
+    mettre_en_quarantaine, mettre_en_quarantaine_attachment, parse_reference, sortir_de_quarantaine,
 )
 from .models import (
     Assignment, AssignmentAsset, Besoin, EchangeRetour, EmployeeStatus, ExternalLink, PurgeDocument, RevueLigne, Signature, User, UserApplication,
@@ -134,7 +136,8 @@ def deplacer_en_attente(session: Session, actor: str) -> dict:
     deplaces = en_attente = 0
     for doc in session.exec(select(PurgeDocument).where(PurgeDocument.statut == "a_deplacer").order_by(PurgeDocument.id)).all():
         try:
-            doc.reference_quarantaine, digest = mettre_en_quarantaine(doc.reference)
+            mover = mettre_en_quarantaine_attachment if doc.type_doc == "piece_jointe" else mettre_en_quarantaine
+            doc.reference_quarantaine, digest = mover(doc.reference)
             doc.empreinte = doc.empreinte or digest
             doc.statut = "quarantaine"
             session.add(doc)
@@ -161,7 +164,8 @@ def supprimer_echus(session: Session, actor: str, ids: list[int] | None = None, 
         if doc.echeance > today:
             non_echus += 1
             continue
-        if delete_document(doc.reference_quarantaine):
+        deleter = delete_attachment if doc.type_doc == "piece_jointe" else delete_document
+        if deleter(doc.reference_quarantaine):
             audit(actor, "rgpd_document_supprime", target=doc.empreinte, detail=doc.moteur)
             session.delete(doc)
             supprimes += 1
@@ -173,9 +177,12 @@ def supprimer_echus(session: Session, actor: str, ids: list[int] | None = None, 
 
 
 def restaurer(session: Session, actor: str, ids: list[int]) -> dict:
-    """Remet des PDF de la quarantaine a leur emplacement d'origine (erreur de date de sortie, par exemple)."""
+    """Remet des PDF de la quarantaine a leur emplacement d'origine (reserve aux PDF scelles, refuse pour les PJ)."""
+    rows = session.exec(select(PurgeDocument).where(PurgeDocument.statut == "quarantaine", PurgeDocument.id.in_(ids or [0]))).all()
+    if any(doc.type_doc != "pdf_scelle" for doc in rows):
+        raise HTTPException(409, "Les pieces jointes en quarantaine ne peuvent pas etre restaurees")
     restaures = echecs = 0
-    for doc in session.exec(select(PurgeDocument).where(PurgeDocument.statut == "quarantaine", PurgeDocument.id.in_(ids or [0]))).all():
+    for doc in rows:
         try:
             sortir_de_quarantaine(doc.reference_quarantaine)
         except StorageError as exc:
