@@ -41,6 +41,9 @@ class RetentionSetting(BaseModel):
     mois: int = Field(ge=0, le=purge.RETENTION_MAX)
     delai_grace_jours: int | None = Field(default=None, ge=0, le=purge.GRACE_MAX)
     retention_tickets_clos_mois: int | None = Field(default=None, ge=0, le=tickets_svc.RETENTION_TICKETS_CLOS_MAX)
+    retention_violations_mois: int | None = Field(
+        default=None, ge=tickets_svc.RETENTION_VIOLATIONS_MIN, le=tickets_svc.RETENTION_VIOLATIONS_MAX,
+    )
 
 
 class PurgeRequest(BaseModel):
@@ -56,6 +59,7 @@ def _reglages(session: Session) -> dict:
         "mois": purge.retention_mois(session),
         "delai_grace_jours": purge.delai_grace(session),
         "retention_tickets_clos_mois": tickets_svc.retention_tickets_clos_mois(session),
+        "retention_violations_mois": tickets_svc.retention_violations_mois(session),
     }
 
 
@@ -73,6 +77,8 @@ def set_retention(data: RetentionSetting, session: Session = Depends(get_session
         appsettings.put(session, purge.GRACE_KEY, str(data.delai_grace_jours))
     if data.retention_tickets_clos_mois is not None:
         appsettings.put(session, tickets_svc.RETENTION_TICKETS_CLOS_KEY, str(data.retention_tickets_clos_mois))
+    if data.retention_violations_mois is not None:
+        appsettings.put(session, tickets_svc.RETENTION_VIOLATIONS_KEY, str(data.retention_violations_mois))
     session.commit()
     after = _reglages(session)
     if after != before:
@@ -80,7 +86,8 @@ def set_retention(data: RetentionSetting, session: Session = Depends(get_session
               detail=(
                   f"conservation {before['mois']} -> {after['mois']} mois, "
                   f"grace {before['delai_grace_jours']} -> {after['delai_grace_jours']} jours, "
-                  f"tickets clos {before['retention_tickets_clos_mois']} -> {after['retention_tickets_clos_mois']} mois"
+                  f"tickets clos {before['retention_tickets_clos_mois']} -> {after['retention_tickets_clos_mois']} mois, "
+                  f"violations {before['retention_violations_mois']} -> {after['retention_violations_mois']} mois"
               ))
     return after
 

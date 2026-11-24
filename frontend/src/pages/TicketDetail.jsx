@@ -45,6 +45,22 @@ const TRANSITIONS = {
   annule: [],
 };
 
+function utcToLocalInput(iso) {
+  if (!iso) return "";
+  const d = new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function heuresRestantes72h(iso) {
+  if (!iso) return null;
+  const d = new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  const ms = (d.getTime() + 72 * 3600 * 1000) - Date.now();
+  return Math.round(ms / (3600 * 1000));
+}
+
 function formatDuree(sec) {
   if (sec === null || sec === undefined) return "-";
   if (sec < 60) return `${sec} s`;
@@ -59,6 +75,17 @@ export default function TicketDetail() {
   const { id } = useParams();
   const { recharger: rechargerCompteurs } = useCompteurs();
   const [ticket, setTicket] = useState(null);
+  const [securite, setSecurite] = useState(null);
+  const [secForm, setSecForm] = useState({
+    sous_categorie: "",
+    violation_donnees_potentielle: false,
+    date_decouverte_violation: "",
+    notification_dpo_le: "",
+    notification_cnil_requise: "a_evaluer",
+    confine_le: "",
+    cause_racine: "",
+    actions_correctives: "",
+  });
   const [natures, setNatures] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -71,9 +98,28 @@ export default function TicketDetail() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [t, n] = await Promise.all([api.get(`/tickets/${id}`), api.get("/tickets/natures?inclure_inactives=true")]);
+      const [t, n, sec] = await Promise.all([
+        api.get(`/tickets/${id}`),
+        api.get("/tickets/natures?inclure_inactives=true"),
+        api.get(`/tickets/${id}/securite`),
+      ]);
       setTicket(t);
       setNatures((n || []).filter((x) => x.actif || x.code === t.nature_code));
+      if (sec && sec.dossier !== null) {
+        setSecurite(sec);
+        setSecForm({
+          sous_categorie: sec.sous_categorie || "",
+          violation_donnees_potentielle: Boolean(sec.violation_donnees_potentielle),
+          date_decouverte_violation: utcToLocalInput(sec.date_decouverte_violation),
+          notification_dpo_le: utcToLocalInput(sec.notification_dpo_le),
+          notification_cnil_requise: sec.notification_cnil_requise || "a_evaluer",
+          confine_le: utcToLocalInput(sec.confine_le),
+          cause_racine: sec.cause_racine || "",
+          actions_correctives: sec.actions_correctives || "",
+        });
+      } else {
+        setSecurite(null);
+      }
       const imgs = (t.pieces_jointes || []).filter((p) => p.mime_type.startsWith("image/"));
       const map = {};
       await Promise.all(imgs.map(async (p) => {
@@ -155,6 +201,35 @@ export default function TicketDetail() {
     }
   };
 
+  const changerNiveauSec = async (niveau) => {
+    setErr(null); setMsg(null);
+    try {
+      await api.post(`/tickets/${id}/securite/niveau`, { niveau_securite: niveau });
+      setMsg(`Niveau de securite passe a ${niveau}.`);
+      rechargerCompteurs();
+      await load();
+    } catch (e2) { setErr(errorText(e2)); }
+  };
+
+  const sauverSecurite = async (e) => {
+    e.preventDefault();
+    setErr(null); setMsg(null);
+    try {
+      await api.put(`/tickets/${id}/securite`, {
+        sous_categorie: secForm.sous_categorie || null,
+        violation_donnees_potentielle: secForm.violation_donnees_potentielle,
+        date_decouverte_violation: secForm.date_decouverte_violation ? new Date(secForm.date_decouverte_violation).toISOString() : null,
+        notification_dpo_le: secForm.notification_dpo_le ? new Date(secForm.notification_dpo_le).toISOString() : null,
+        notification_cnil_requise: secForm.violation_donnees_potentielle ? secForm.notification_cnil_requise : null,
+        confine_le: secForm.confine_le ? new Date(secForm.confine_le).toISOString() : null,
+        cause_racine: secForm.cause_racine || null,
+        actions_correctives: secForm.actions_correctives || null,
+      });
+      setMsg("Dossier securite enregistre.");
+      await load();
+    } catch (e2) { setErr(errorText(e2)); }
+  };
+
   if (loading) return <Loading />;
   if (!ticket) return <div><Feedback err={err || "Ticket introuvable."} /><Link to="/tickets">Retour aux tickets</Link></div>;
 
@@ -232,6 +307,99 @@ export default function TicketDetail() {
       <div className="card">
         <h3>Description</h3>
         <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{ticket.description || <span className="muted">Aucune description.</span>}</p>
+      </div>
+
+      <div className="card" style={ticket.niveau_securite !== "aucun" ? { borderColor: "var(--danger)" } : undefined}>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <h3 style={{ margin: 0 }}>Securite et dossier d'investigation (IT uniquement)</h3>
+          <span className={`badge ${ticket.niveau_securite === "signale" || ticket.niveau_securite === "incident" ? "bad" : ""}`}>
+            Niveau : {ticket.niveau_securite}
+          </span>
+        </div>
+        {!estFinal && (
+          <div className="row" style={{ marginBottom: 12 }}>
+            {ticket.niveau_securite === "aucun" && <button type="button" className="ghost" onClick={() => changerNiveauSec("signale")}>Signaler un evenement de securite</button>}
+            {ticket.niveau_securite === "signale" && (
+              <>
+                <button type="button" className="danger" onClick={() => changerNiveauSec("incident")}>Escalader en incident</button>
+                <button type="button" className="ghost" onClick={() => changerNiveauSec("sans_suite")}>Classer sans suite</button>
+              </>
+            )}
+            {ticket.niveau_securite === "incident" && (
+              <>
+                <button type="button" className="ghost" onClick={() => changerNiveauSec("sans_suite")}>Retrograder sans suite</button>
+                <button type="button" className="ghost" onClick={() => changerNiveauSec("signale")}>Retrograder en signale</button>
+              </>
+            )}
+            {ticket.niveau_securite === "sans_suite" && (
+              <>
+                <button type="button" className="ghost" onClick={() => changerNiveauSec("signale")}>Reprendre en signale</button>
+                <button type="button" className="danger" onClick={() => changerNiveauSec("incident")}>Escalader en incident</button>
+              </>
+            )}
+          </div>
+        )}
+        {securite && (
+          <form className="grid" onSubmit={sauverSecurite}>
+            <label>Sous-categorie
+              <select value={secForm.sous_categorie} onChange={(e) => setSecForm({ ...secForm, sous_categorie: e.target.value })}>
+                <option value="">- Non precisee -</option>
+                <option value="phishing">Phishing</option>
+                <option value="perte_vol_materiel">Perte / vol de materiel</option>
+                <option value="malware">Malware</option>
+                <option value="acces_non_autorise">Acces non autorise</option>
+                <option value="fuite_donnees">Fuite de donnees</option>
+                <option value="autre">Autre</option>
+              </select>
+            </label>
+            <label>Confinement termine le
+              <input type="datetime-local" value={secForm.confine_le} onChange={(e) => setSecForm({ ...secForm, confine_le: e.target.value })} />
+            </label>
+            <label className="check" style={{ gridColumn: "1 / -1" }}>
+              <input type="checkbox" checked={secForm.violation_donnees_potentielle}
+                onChange={(e) => setSecForm({ ...secForm, violation_donnees_potentielle: e.target.checked })} />
+              Violation potentielle de donnees personnelles (suivi delai 72 h - RGPD art. 33)
+            </label>
+            {secForm.violation_donnees_potentielle && (
+              <>
+                {securite?.date_decouverte_violation && (
+                  <div className="card warn" style={{ gridColumn: "1 / -1", marginBottom: 0 }}>
+                    <strong>Suivi RGPD art. 33 (72 h) :</strong>{" "}
+                    {(() => {
+                      const h = heuresRestantes72h(securite.date_decouverte_violation);
+                      return h !== null && h >= 0 ? `environ ${h} h restantes` : "delai indicatif de 72 h depasse";
+                    })()}
+                  </div>
+                )}
+                <label>Date de decouverte de la violation (obligatoire)
+                  <input type="datetime-local" value={secForm.date_decouverte_violation}
+                    onChange={(e) => setSecForm({ ...secForm, date_decouverte_violation: e.target.value })} required />
+                </label>
+                <label>Notification DPO le
+                  <input type="datetime-local" value={secForm.notification_dpo_le}
+                    onChange={(e) => setSecForm({ ...secForm, notification_dpo_le: e.target.value })} />
+                </label>
+                <label>Notification CNIL requise
+                  <select value={secForm.notification_cnil_requise} onChange={(e) => setSecForm({ ...secForm, notification_cnil_requise: e.target.value })}>
+                    <option value="a_evaluer">A evaluer (bloque la cloture)</option>
+                    <option value="oui">Oui</option>
+                    <option value="non">Non</option>
+                  </select>
+                </label>
+                <div />
+              </>
+            )}
+            <label style={{ gridColumn: "1 / -1" }}>Cause racine (rediger sans nommer aucune personne)
+              <textarea rows={2} value={secForm.cause_racine} onChange={(e) => setSecForm({ ...secForm, cause_racine: e.target.value })} maxLength={3000} />
+            </label>
+            <label style={{ gridColumn: "1 / -1" }}>Actions correctives (rediger sans nommer aucune personne)
+              <textarea rows={2} value={secForm.actions_correctives} onChange={(e) => setSecForm({ ...secForm, actions_correctives: e.target.value })} maxLength={3000} />
+            </label>
+            <div className="row" style={{ gridColumn: "1 / -1" }}>
+              <button type="submit">Enregistrer le dossier securite</button>
+            </div>
+          </form>
+        )}
       </div>
 
       <div className="card">

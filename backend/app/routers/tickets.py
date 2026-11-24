@@ -20,15 +20,18 @@
 Les roles rh et lecture recoivent 403 sur l'ensemble des routes /tickets*.
 Toute la logique metier est deleguee a app/tickets.py.
 """
+from datetime import datetime
+
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from .. import attachments as att_svc, filestore, tickets as svc
 from ..asset_catalog import fold
-from ..auth import demandeur_dep, require_roles
+from ..audit import audit
+from ..auth import audit_actor, demandeur_dep, require_roles
 from ..db import get_session
-from ..models import Account, Asset, Attachment, Entite, Role, Ticket, TicketComment, TicketNature, User, utcnow
+from ..models import Account, Asset, Attachment, Entite, Role, Ticket, TicketComment, TicketNature, TicketSecurityDetail, User, utcnow
 from .portail import actifs_detenus_salarie
 
 router = APIRouter(tags=["tickets"])
@@ -84,6 +87,22 @@ class TicketsParametresUpdate(BaseModel):
     delais_cibles_heures: dict[str, int] = Field(default_factory=dict)
     pj_taille_max_mio: int | None = Field(default=None, ge=att_svc.TAILLE_MAX_MIN_MIO, le=att_svc.TAILLE_MAX_MAX_MIO)
     pj_plafond_global_mio: int | None = Field(default=None, ge=att_svc.PLAFOND_GLOBAL_MIN_MIO, le=att_svc.PLAFOND_GLOBAL_MAX_MIO)
+
+
+class SecuriteNiveauUpdate(BaseModel):
+    niveau_securite: str
+    sous_categorie: str | None = None
+
+
+class SecuriteDetailUpdate(BaseModel):
+    sous_categorie: str | None = None
+    violation_donnees_potentielle: bool | None = None
+    date_decouverte_violation: datetime | None = None
+    notification_dpo_le: datetime | None = None
+    notification_cnil_requise: str | None = None
+    confine_le: datetime | None = None
+    cause_racine: str | None = Field(default=None, max_length=3000)
+    actions_correctives: str | None = Field(default=None, max_length=3000)
 
 
 def _hors_delai(ticket: Ticket, delais: dict[str, int], now) -> bool:
@@ -373,6 +392,13 @@ def create_ticket(
             demandeur_verifie=True,
             signaler_securite=data.signaler_securite,
         )
+        if ticket.niveau_securite == "signale":
+            dests = svc.destinataires_alerte_securite(session)
+            if dests:
+                background.add_task(
+                    svc.alerter_securite_en_fond, ticket.id, ticket.reference, ticket.criticite,
+                    "Evenement de securite signale", dests,
+                )
         natures_map = {n.code: n for n in session.exec(select(TicketNature)).all()}
         return _serialize_ticket_portail(ticket, natures_map=natures_map)
 
@@ -397,6 +423,13 @@ def create_ticket(
             background.add_task(
                 svc.envoyer_notification_ticket,
                 ticket.id, ticket.reference, ticket.criticite, "Ticket ouvert par l'informatique", user.email,
+            )
+    if ticket.niveau_securite == "signale":
+        dests = svc.destinataires_alerte_securite(session)
+        if dests:
+            background.add_task(
+                svc.alerter_securite_en_fond, ticket.id, ticket.reference, ticket.criticite,
+                "Evenement de securite signale", dests,
             )
     users_map, accounts_map, assets_map, entites_map, natures_map = _charger_maps(session, [ticket])
     return _serialize_ticket(
@@ -673,6 +706,90 @@ def delete_ticket_attachment(
     if not att or att.entity_type != "ticket" or att.entity_id != ticket.id:
         raise HTTPException(404, "Piece jointe introuvable")
     att_svc.supprimer_piece_jointe(session, admin, att, ticket.reference)
+
+
+def _serialize_securite(sec: TicketSecurityDetail, niveau_securite: str) -> dict:
+    return {
+        "ticket_id": sec.ticket_id,
+        "niveau_securite": niveau_securite,
+        "signale_le": sec.signale_le.isoformat() if sec.signale_le else None,
+        "signale_par": sec.signale_par,
+        "qualifie_le": sec.qualifie_le.isoformat() if sec.qualifie_le else None,
+        "qualification_sec": sec.qualification_sec,
+        "qualifie_par_account_id": sec.qualifie_par_account_id,
+        "sous_categorie": sec.sous_categorie,
+        "escalade_le": sec.escalade_le.isoformat() if sec.escalade_le else None,
+        "escalade_par_account_id": sec.escalade_par_account_id,
+        "violation_donnees_potentielle": sec.violation_donnees_potentielle,
+        "date_decouverte_violation": sec.date_decouverte_violation.isoformat() if sec.date_decouverte_violation else None,
+        "notification_dpo_le": sec.notification_dpo_le.isoformat() if sec.notification_dpo_le else None,
+        "notification_cnil_requise": sec.notification_cnil_requise,
+        "confine_le": sec.confine_le.isoformat() if sec.confine_le else None,
+        "cause_racine": sec.cause_racine,
+        "actions_correctives": sec.actions_correctives,
+    }
+
+
+@router.get("/tickets/{ticket_id}/securite", dependencies=[Depends(require_roles("informatique"))])
+def get_ticket_securite(
+    ticket_id: int,
+    session: Session = Depends(get_session),
+    admin: Account = Depends(require_roles("informatique")),
+):
+    ticket = session.get(Ticket, ticket_id)
+    if not ticket or ticket.anonymise_le is not None:
+        raise HTTPException(404, "Ticket introuvable")
+    sec = session.get(TicketSecurityDetail, ticket.id)
+    if not sec:
+        return {"ticket_id": ticket.id, "niveau_securite": ticket.niveau_securite, "dossier": None}
+    audit(audit_actor(admin), "ticket_securite_lecture", target=ticket.reference)
+    return _serialize_securite(sec, ticket.niveau_securite)
+
+
+@router.put("/tickets/{ticket_id}/securite", dependencies=[Depends(require_roles("informatique"))])
+def put_ticket_securite(
+    ticket_id: int,
+    data: SecuriteDetailUpdate,
+    session: Session = Depends(get_session),
+    admin: Account = Depends(require_roles("informatique")),
+):
+    sec = svc.modifier_dossier_securite(
+        session,
+        admin,
+        ticket_id,
+        fields_set=data.model_fields_set,
+        sous_categorie=data.sous_categorie,
+        violation_donnees_potentielle=data.violation_donnees_potentielle,
+        date_decouverte_violation=data.date_decouverte_violation,
+        notification_dpo_le=data.notification_dpo_le,
+        notification_cnil_requise=data.notification_cnil_requise,
+        confine_le=data.confine_le,
+        cause_racine=data.cause_racine,
+        actions_correctives=data.actions_correctives,
+    )
+    ticket = session.get(Ticket, ticket_id)
+    return _serialize_securite(sec, ticket.niveau_securite)
+
+
+@router.post("/tickets/{ticket_id}/securite/niveau", dependencies=[Depends(require_roles("informatique"))])
+def post_ticket_securite_niveau(
+    ticket_id: int,
+    data: SecuriteNiveauUpdate,
+    background: BackgroundTasks,
+    session: Session = Depends(get_session),
+    admin: Account = Depends(require_roles("informatique")),
+):
+    ticket, sec = svc.changer_niveau_securite(
+        session, admin, ticket_id, data.niveau_securite, sous_categorie=data.sous_categorie,
+    )
+    if ticket.niveau_securite in ("signale", "incident"):
+        dests = svc.destinataires_alerte_securite(session)
+        if dests:
+            evt = "Incident de securite confirme" if ticket.niveau_securite == "incident" else "Evenement de securite signale"
+            background.add_task(
+                svc.alerter_securite_en_fond, ticket.id, ticket.reference, ticket.criticite, evt, dests,
+            )
+    return _serialize_securite(sec, ticket.niveau_securite)
 
 
 @router.get("/parametres/tickets", dependencies=[Depends(require_roles("informatique"))])

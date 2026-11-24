@@ -31,7 +31,7 @@ export default function Rgpd() {
   const { user } = useAuth();
   const confirm = useConfirm();
   const writable = canWrite(user.role, "entites"); // informatique
-  const [reg, setReg] = useState({ mois: 12, delai_grace_jours: 30, retention_tickets_clos_mois: 24 });
+  const [reg, setReg] = useState({ mois: 12, delai_grace_jours: 30, retention_tickets_clos_mois: 24, retention_violations_mois: 60 });
   const [etat, setEtat] = useState(null);
   const [preview, setPreview] = useState(null);
   const [docs, setDocs] = useState([]);
@@ -54,6 +54,7 @@ export default function Rgpd() {
       mois: Number(reg.mois),
       delai_grace_jours: Number(reg.delai_grace_jours),
       retention_tickets_clos_mois: Number(reg.retention_tickets_clos_mois ?? 24),
+      retention_violations_mois: Number(reg.retention_violations_mois ?? 60),
     }),
     () => "Reglages enregistres.");
   const doPurgeTickets = async () => {
@@ -143,6 +144,8 @@ export default function Rgpd() {
             <input type="number" min="0" max="365" value={reg.delai_grace_jours} onChange={(e) => setReg({ ...reg, delai_grace_jours: e.target.value })} style={num} /> jours</label>
           <label style={row}>Conservation des tickets clos
             <input type="number" min="0" max="120" value={reg.retention_tickets_clos_mois ?? 24} onChange={(e) => setReg({ ...reg, retention_tickets_clos_mois: e.target.value })} style={num} /> mois</label>
+          <label style={row}>Dossiers violation de donnees (DPO)
+            <input type="number" min="12" max="120" value={reg.retention_violations_mois ?? 60} onChange={(e) => setReg({ ...reg, retention_violations_mois: e.target.value })} style={num} /> mois</label>
           <button onClick={save}>Enregistrer</button>
         </div>
         <p className="muted">Le delai de grace s'applique aux PDF purges a partir de maintenant. Le rappel par e-mail se regle dans Parametrage, E-mails.</p>

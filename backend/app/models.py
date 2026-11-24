@@ -618,6 +618,27 @@ class TicketComment(SQLModel, table=True):
     cree_le: NaiveDatetime = Field(default_factory=utcnow)
 
 
+class TicketSecurityDetail(SQLModel, table=True):
+    """Dossier d'investigation securite (1-1 avec tickets, reserve au role informatique)."""
+    __tablename__ = "ticket_security_details"
+    ticket_id: int = Field(primary_key=True, foreign_key="tickets.id")
+    signale_le: NaiveDatetime = Field(default_factory=utcnow)
+    signale_par: str = Field(max_length=16)  # demandeur | informatique
+    qualifie_le: Optional[NaiveDatetime] = None
+    qualification_sec: Optional[int] = None
+    qualifie_par_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
+    sous_categorie: Optional[str] = Field(default=None, max_length=40)
+    escalade_le: Optional[NaiveDatetime] = None
+    escalade_par_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
+    violation_donnees_potentielle: bool = False
+    date_decouverte_violation: Optional[NaiveDatetime] = None
+    notification_dpo_le: Optional[NaiveDatetime] = None
+    notification_cnil_requise: Optional[str] = Field(default=None, max_length=16)  # a_evaluer | oui | non
+    confine_le: Optional[NaiveDatetime] = None
+    cause_racine: Optional[str] = Field(default=None, max_length=3000)
+    actions_correctives: Optional[str] = Field(default=None, max_length=3000)
+
+
 class Attachment(SQLModel, table=True):
     """Piece jointe transversale (tickets en G3, reutilisable pour actifs en C5)."""
     __tablename__ = "attachments"
