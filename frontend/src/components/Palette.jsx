@@ -28,7 +28,7 @@ import { ACCUEIL, ACTIONS, SECTIONS, visible } from "../nav.js";
 const PaletteContext = createContext({ ouvrir() {} });
 export const usePalette = () => useContext(PaletteContext);
 
-const VIDE = { materiel: [], utilisateurs: [] };
+const VIDE = { materiel: [], utilisateurs: [], tickets: [] };
 const fold = (v) => (v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const correspond = (terme, texte) => fold(terme).split(/\s+/).filter(Boolean).every((t) => fold(texte).includes(t));
 
@@ -88,6 +88,12 @@ export function PaletteProvider({ children }) {
         cle: "u" + u.id, titre: `${u.prenom || ""} ${u.nom || ""}`.trim(),
         sous: [u.matricule && `Matricule ${u.matricule}`, u.statut].filter(Boolean).join(" - "),
         indice: "Ouvre Utilisateurs", vers: `/utilisateurs?q=${encodeURIComponent(u.matricule || u.nom || "")}` })) });
+    }
+    if ((serveur.tickets || []).length) {
+      g.push({ label: "Tickets", items: serveur.tickets.map((t) => ({
+        cle: "t" + t.id, titre: `${t.reference} - ${t.titre || ""}`.trim(),
+        sous: [t.statut, t.criticite].filter(Boolean).join(" - "),
+        indice: "Ouvre Ticket", vers: `/tickets/${t.id}` })) });
     }
     const pages = [{ ...ACCUEIL, section: "" },
       ...SECTIONS.flatMap((s) => s.items.map((i) => ({ ...i, section: s.label }))).filter((i) => visible(i, user.role)),

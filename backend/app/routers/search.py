@@ -28,7 +28,7 @@ from sqlmodel import Session, select
 from ..asset_catalog import fold
 from ..auth import get_current_account
 from ..db import get_session
-from ..models import Asset, User
+from ..models import Account, Asset, Role, Ticket, User
 from ..scope import Scope, scope_dep
 
 router = APIRouter(prefix="/search", tags=["search"], dependencies=[Depends(get_current_account)])
@@ -59,10 +59,16 @@ def search(
     limit: int = Query(default=5, ge=1, le=10),
     session: Session = Depends(get_session),
     scope: Scope = Depends(scope_dep),
+    account: Account = Depends(get_current_account),
 ):
+    est_it = account.role == Role.informatique
     termes = [t for t in fold(q).split(" ") if t]
     if sum(len(t) for t in termes) < MIN_CARACTERES:
-        return {"q": q, "materiel": [], "utilisateurs": [], "total_materiel": 0, "total_utilisateurs": 0}
+        res = {"q": q, "materiel": [], "utilisateurs": [], "total_materiel": 0, "total_utilisateurs": 0}
+        if est_it:
+            res["tickets"] = []
+            res["total_tickets"] = 0
+        return res
 
     actifs = _trouver(
         session.exec(scope.where(select(Asset), Asset.entite_id)).all(), termes,
@@ -72,7 +78,7 @@ def search(
         session.exec(scope.users(select(User))).all(), termes,
         ("nom", "prenom", "matricule"),
         lambda u: f"{u.nom or ''} {u.prenom or ''}")
-    return {
+    out = {
         "q": q,
         "materiel": [
             {"id": a.id, "type": a.type, "marque": a.marque, "modele": a.modele, "numero_serie": a.numero_serie,
@@ -86,3 +92,17 @@ def search(
         "total_materiel": len(actifs),
         "total_utilisateurs": len(salaries),
     }
+    if est_it:
+        tickets_rows = _trouver(
+            session.exec(select(Ticket).where(Ticket.anonymise_le == None)).all(),  # noqa: E711
+            termes,
+            ("reference", "titre"),
+            lambda t: f"{t.reference} {t.titre or ''}",
+        )
+        out["tickets"] = [
+            {"id": t.id, "reference": t.reference, "titre": t.titre, "statut": t.statut,
+             "criticite": t.criticite, "niveau_securite": t.niveau_securite}
+            for t in tickets_rows[:limit]
+        ]
+        out["total_tickets"] = len(tickets_rows)
+    return out

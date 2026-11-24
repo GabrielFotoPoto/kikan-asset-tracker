@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
-from .. import appsettings, purge
+from .. import appsettings, purge, tickets as tickets_svc
 from ..audit import audit
 from ..auth import require_roles
 from ..db import get_session
@@ -40,6 +40,7 @@ router = APIRouter(
 class RetentionSetting(BaseModel):
     mois: int = Field(ge=0, le=purge.RETENTION_MAX)
     delai_grace_jours: int | None = Field(default=None, ge=0, le=purge.GRACE_MAX)
+    retention_tickets_clos_mois: int | None = Field(default=None, ge=0, le=tickets_svc.RETENTION_TICKETS_CLOS_MAX)
 
 
 class PurgeRequest(BaseModel):
@@ -51,7 +52,11 @@ class IdsRequest(BaseModel):
 
 
 def _reglages(session: Session) -> dict:
-    return {"mois": purge.retention_mois(session), "delai_grace_jours": purge.delai_grace(session)}
+    return {
+        "mois": purge.retention_mois(session),
+        "delai_grace_jours": purge.delai_grace(session),
+        "retention_tickets_clos_mois": tickets_svc.retention_tickets_clos_mois(session),
+    }
 
 
 @router.get("/retention")
@@ -66,11 +71,17 @@ def set_retention(data: RetentionSetting, session: Session = Depends(get_session
     appsettings.put(session, purge.RETENTION_KEY, str(data.mois))
     if data.delai_grace_jours is not None:
         appsettings.put(session, purge.GRACE_KEY, str(data.delai_grace_jours))
+    if data.retention_tickets_clos_mois is not None:
+        appsettings.put(session, tickets_svc.RETENTION_TICKETS_CLOS_KEY, str(data.retention_tickets_clos_mois))
     session.commit()
     after = _reglages(session)
     if after != before:
         audit(admin.username, "rgpd_retention",
-              detail=f"conservation {before['mois']} -> {after['mois']} mois, grace {before['delai_grace_jours']} -> {after['delai_grace_jours']} jours")
+              detail=(
+                  f"conservation {before['mois']} -> {after['mois']} mois, "
+                  f"grace {before['delai_grace_jours']} -> {after['delai_grace_jours']} jours, "
+                  f"tickets clos {before['retention_tickets_clos_mois']} -> {after['retention_tickets_clos_mois']} mois"
+              ))
     return after
 
 
@@ -82,16 +93,26 @@ def etat(session: Session = Depends(get_session)):
 @router.get("/purge-preview")
 def purge_preview(session: Session = Depends(get_session)):
     retention = purge.retention_mois(session)
+    retention_tkt = tickets_svc.retention_tickets_clos_mois(session)
     candidats = purge.candidats(session)
+    tickets_clos = tickets_svc.candidats_tickets_clos(session)
     return {
         "retention_mois": retention,
         "delai_grace_jours": purge.delai_grace(session),
+        "retention_tickets_clos_mois": retention_tkt,
         "count": len(candidats),
         "candidats": [
             {"id": u.id, "matricule": u.matricule, "nom": u.nom, "prenom": u.prenom,
              "date_sortie": str(u.date_sortie),
              "suppression_prevue": str(purge.add_months(u.date_sortie, retention))}
             for u in candidats
+        ],
+        "tickets_clos_count": len(tickets_clos),
+        "tickets_clos": [
+            {"id": t.id, "reference": t.reference, "statut": t.statut,
+             "ferme_le": str(t.ferme_le.date()) if t.ferme_le else None,
+             "suppression_prevue": str(purge.add_months(t.ferme_le.date(), retention_tkt)) if t.ferme_le else None}
+            for t in tickets_clos
         ],
     }
 
@@ -104,6 +125,14 @@ def run_purge(data: PurgeRequest | None = None, session: Session = Depends(get_s
     Corps {"ids": []} : ne purge personne mais reessaie les deplacements restes en attente."""
     r = purge.purger(session, admin.username, (data.ids if data else None))
     return {"supprimes": [], **r}
+
+
+@router.post("/purge-tickets")
+def run_purge_tickets(data: IdsRequest | None = None, session: Session = Depends(get_session),
+                      admin: Account = Depends(require_roles("informatique"))):
+    """Anonymise les tickets clos dont la duree de conservation est depassee."""
+    n = tickets_svc.purger_tickets_clos(session, admin.username, (data.ids if data else None))
+    return {"anonymises": n}
 
 
 @router.get("/documents")

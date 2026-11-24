@@ -63,6 +63,7 @@ from .routers import (
     search,
     stats,
     storage_admin,
+    tickets as tickets_router,
     user_apps,
     users,
 )
@@ -198,3 +199,4 @@ app.include_router(backup_admin.router)
 app.include_router(integrations.router)
 app.include_router(glpi_admin.router)
 app.include_router(api_v1.router)
+app.include_router(tickets_router.router)

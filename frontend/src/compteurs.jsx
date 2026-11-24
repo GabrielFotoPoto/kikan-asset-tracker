@@ -38,7 +38,10 @@ export function CompteursProvider({ role, children }) {
     const mettre = (cle) => (valeur) => { if (vivant.current) setValeurs((o) => ({ ...o, [cle]: valeur })); };
     if (role !== "rh") api.get("/stats").then((s) => mettre("besoins")(s.besoins_a_traiter || 0)).catch(() => {});
     api.get("/revues/anomalies").then((r) => mettre("anomalies")(r.count || 0)).catch(() => {});
-    if (role === "informatique") api.get("/renouvellements?horizon_mois=0").then((r) => mettre("retard")(r.totaux.en_retard)).catch(() => {});
+    if (role === "informatique") {
+      api.get("/renouvellements?horizon_mois=0").then((r) => mettre("retard")(r.totaux.en_retard)).catch(() => {});
+      api.get("/tickets/compteurs").then((r) => mettre("tickets")(r.nouveaux || 0)).catch(() => {});
+    }
   }, [role]);
 
   useEffect(() => {
