@@ -4,7 +4,7 @@ La connexion Microsoft 365 est **facultative**. Tant qu'elle n'est pas activée,
 Cette procédure s'adresse à la personne qui administre Entra ID (anciennement Azure AD) et à l'administrateur de Kikan.
 
 Kikan utilise **OpenID Connect** (code d'autorisation avec PKCE), côté serveur, pour **un seul tenant**. Le rôle de
-chaque personne vient de **rôles d'application** Entra (`Kikan.IT`, `Kikan.RH`). La MFA est celle de votre tenant.
+chaque personne vient de **rôles d'application** Entra (`Kikan.IT`, `Kikan.RH`, et facultativement `Kikan.Demandeur` pour le portail salarié). La MFA est celle de votre tenant.
 
 ## 1. Prérequis
 
@@ -31,23 +31,29 @@ chaque personne vient de **rôles d'application** Entra (`Kikan.IT`, `Kikan.RH`)
 
 ## 4. Créer les rôles d'application
 
-Dans l'inscription : **Rôles d'application**, **Créer un rôle d'application** (deux fois) :
+Dans l'inscription : **Rôles d'application**, **Créer un rôle d'application** (deux ou trois fois selon que vous activez le portail salarié) :
 
 | Nom d'affichage | Types de membres autorisés | Valeur | Description |
 |---|---|---|---|
 | Kikan informatique | Utilisateurs/Groupes | `Kikan.IT` | Administration de Kikan (équipe informatique) |
 | Kikan RH | Utilisateurs/Groupes | `Kikan.RH` | Gestion des salariés (équipe RH) |
+| Kikan demandeur | Utilisateurs/Groupes | `Kikan.Demandeur` | Portail salarié (mes tickets et mon matériel, facultatif) |
 
-Les valeurs doivent correspondre aux noms de rôles configurés dans Kikan (par défaut `Kikan.IT` et `Kikan.RH`).
+Les valeurs doivent correspondre aux noms de rôles configurés dans Kikan (par défaut `Kikan.IT`, `Kikan.RH` et `Kikan.Demandeur`).
+En cas de cumul, `Kikan.IT` puis `Kikan.RH` restent toujours prioritaires sur `Kikan.Demandeur`.
 Le rôle **lecture seule** n'existe que pour les comptes locaux.
 
-## 5. Réserver l'accès aux deux équipes
+## 5. Réserver l'accès aux équipes (et au portail salarié)
 
 1. **Applications d'entreprise**, **Kikan**, **Propriétés** : **Affectation requise ?** sur **Oui**.
    Seules les personnes affectées peuvent alors obtenir un jeton pour Kikan (deuxième verrou, en plus de Kikan).
-2. **Utilisateurs et groupes**, **Ajouter** : affectez le groupe `Kikan-IT` au rôle *Kikan informatique* et le groupe
-   `Kikan-RH` au rôle *Kikan RH*. L'affectation par **groupe** demande en principe une licence Entra ID P1 ou supérieure
+2. **Utilisateurs et groupes**, **Ajouter** : affectez le groupe `Kikan-IT` au rôle *Kikan informatique*, le groupe
+   `Kikan-RH` au rôle *Kikan RH* et, pour le portail salarié, le groupe des salariés (ex. `Kikan-Demandeurs`) au rôle
+   *Kikan demandeur*. L'affectation par **groupe** demande en principe une licence Entra ID P1 ou supérieure
    (incluse dans plusieurs offres Microsoft 365) : à vérifier selon votre licence. Sans elle, affectez les personnes une par une.
+3. **Option membre du tenant (portail salarié)** : dans *Paramétrage, Authentification*, une case **désactivée par défaut**
+   permet d'autoriser tout membre du tenant (sans rôle d'application) dont l'adresse e-mail correspond à une fiche salarié active unique dans Kikan.
+4. **Exclusion des invités B2B** : les comptes invités externes (`acct=1`, `userType=Guest`, `#EXT#` dans l'UPN/e-mail) et les jetons applicatifs (`idtyp=app`) sont **toujours refusés** pour le portail salarié, même avec le rôle `Kikan.Demandeur` ou l'option membre du tenant.
 
 ## 6. Exiger la MFA
 
@@ -86,16 +92,17 @@ Puis `docker compose up -d` pour recharger. Dans Kikan (compte informatique), **
   « Lier à Microsoft 365 » (page Comptes) en indiquant le nom d'utilisateur Microsoft : la première connexion SSO de cette
   personne est rattachée à ce compte.
 - Un compte **désactivé dans Kikan** reste refusé même si Microsoft accepte la personne.
+- **Portail salarié (`Kikan.Demandeur`)** : à la première connexion uniquement, Kikan cherche une fiche salarié **active unique** portant cette adresse e-mail (0 ou plusieurs fiches -> refus uniforme). Si un compte local `demandeur` existe déjà pour ce salarié, il est converti sans doublon (ancien mot de passe local et jetons de réinitialisation invalidés). Dès la première connexion, l'identifiant stable Entra (`sso_oid`) fait foi même si l'e-mail change. Dans le journal d'audit, les connexions et refus d'un `demandeur` utilisent le pseudonyme `dem-<id>` sans jamais consigner l'e-mail ni l'UPN.
 
 ## 9. Dépannage
 
 | Message à la connexion | Cause probable |
 |---|---|
-| « n'a pas de rôle Kikan » | La personne n'est pas dans un groupe affecté à `Kikan.IT` ou `Kikan.RH` (ou les noms de rôles diffèrent). |
+| « n'a pas de rôle Kikan » | La personne n'est pas dans un groupe affecté à `Kikan.IT`, `Kikan.RH` ou `Kikan.Demandeur`, ou il s'agit d'un compte invité B2B. |
 | « authentification multifacteur requise » | Le jeton ne contient pas la MFA : accès conditionnel manquant, ou désactivez le réglage. |
 | « réponse de Microsoft... vérifiée » | Mauvais tenant ou identifiant client, secret expiré ou erroné, horloge du serveur décalée. |
 | « Microsoft est injoignable » | Pare-feu, proxy ou inspection TLS : voir ci-dessous. |
-| « compte désactivé... ou déjà utilisé » | Compte désactivé dans Kikan, ou identifiant local identique à celui de la personne : lier le compte. |
+| « Accès non provisionné dans Kikan » | Compte désactivé, aucune fiche salarié active correspondante, ou plusieurs fiches actives portant le même e-mail. |
 
 Le **journal d'audit** (informatique) contient chaque refus avec son motif (jamais de jeton ni de secret).
 
