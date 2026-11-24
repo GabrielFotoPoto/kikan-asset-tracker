@@ -182,13 +182,14 @@ def lister_pieces_jointes(session: Session, entity_type: str, entity_id: int) ->
 
 def ajouter_piece_jointe(
     session: Session,
-    actor_account: Account,
+    actor_account: Account | None,
     *,
     entity_type: str,
     entity_id: int,
     filename: str | None,
     data: bytes,
     target_audit: str,
+    actor_name: str | None = None,
 ) -> Attachment:
     existantes = lister_pieces_jointes(session, entity_type, entity_id)
     if len(existantes) >= MAX_FILES_PER_ENTITY:
@@ -219,13 +220,14 @@ def ajouter_piece_jointe(
         mime_type=mime,
         size_bytes=len(final_bytes),
         display_name=display_name,
-        uploaded_by_account_id=actor_account.id,
+        uploaded_by_account_id=actor_account.id if actor_account is not None else None,
         cree_le=now,
     )
     session.add(att)
     session.commit()
     session.refresh(att)
-    audit(audit_actor(actor_account), "pj_ajout", target=target_audit, detail=f"mime={mime} size={len(final_bytes)}")
+    who = actor_name or (audit_actor(actor_account) if actor_account is not None else "systeme")
+    audit(who, "pj_ajout", target=target_audit, detail=f"mime={mime} size={len(final_bytes)}")
     return att
 
 

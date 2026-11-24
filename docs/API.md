@@ -7,8 +7,9 @@ Kikan, **sans compte humain**. Elle s'authentifie par **jeton**, ne supprime jam
 
 - **Jetons** : créés par l'informatique dans *Paramétrage, onglet Intégrations*. Chaque jeton a un **nom**, un **système
   d'origine** (identifiant court, ex. `inventaire`), des **droits** (`assets_lecture`, `assets_ecriture`, `users_lecture`,
-  `users_ecriture`), un **périmètre** (toute l'organisation ou des entités et leurs sous-entités) et une **date d'expiration**
+  `users_ecriture`, `tickets_lecture`, `tickets_ecriture`, `tickets_interne`), un **périmètre** (toute l'organisation ou des entités et leurs sous-entités) et une **date d'expiration**
   (730 jours au plus). Il est affiché **une seule fois** ; Kikan n'en conserve que l'empreinte SHA-256. Il est révocable à tout moment.
+  `tickets_lecture` est un droit sensible (accès aux textes libres des tickets du périmètre) ; les tickets de sécurité (`signale` ou `incident`) ne renvoient toutefois jamais leur texte libre ni leur dossier `ticket_security_details`.
 - **Un jeton n'ouvre que `/api/v1`.** Les pages de l'application, les comptes, les documents signés et les paramètres lui sont
   fermés ; inversement, un jeton de session n'est pas accepté ici.
 - **Idempotence** : chaque élément porte un `id_externe` (son identifiant dans le système d'origine). Renvoyer le même élément
@@ -57,8 +58,23 @@ Authorization: Bearer kik_...
 | `GET /v1/users?limit=100&offset=0` | `users_lecture` | Salariés du périmètre |
 | `PUT /v1/users/{id_externe}` | `users_ecriture` | Crée ou lie un salarié, complète ses champs vides |
 | `POST /v1/users/_batch` | `users_ecriture` | Idem, jusqu'à 100 salariés |
+| `GET /v1/tickets/natures` | `tickets_lecture` | Catalogue des natures actives |
+| `GET /v1/tickets` | `tickets_lecture` | Tickets du périmètre (filtres `statut`, `nature`, `criticite`, `modifie_depuis`) |
+| `GET /v1/tickets/{reference}` | `tickets_lecture` | Détail d'un ticket et commentaires publics (+ internes si `tickets_interne`) |
+| `PUT /v1/tickets/{id_externe}` | `tickets_ecriture` | Crée ou met à jour un ticket de façon idempotente (`?dry_run=1` supporté) |
+| `POST /v1/tickets/{reference}/statut` | `tickets_ecriture` | Fait évoluer le statut (mêmes transitions que l'interface IT) |
+| `POST /v1/tickets/{reference}/commentaires` | `tickets_ecriture` (+ `tickets_interne`) | Ajoute un commentaire public ou une note interne (`interne: true`) |
+| `GET /v1/tickets/{reference}/pieces-jointes` | `tickets_lecture` | Liste les pièces jointes (vide pour les tickets `signale`/`incident`) |
+| `POST /v1/tickets/{reference}/pieces-jointes` | `tickets_ecriture` | Dépose une pièce jointe (mêmes contrôles et quotas que l'interface) |
 
 Ajoutez `?dry_run=1` à une écriture pour une **simulation** : le résultat annonce ce qui serait fait, rien n'est écrit.
+
+### Tickets (`/v1/tickets*`)
+
+- **Champs de `PUT /v1/tickets/{id_externe}`** : `nature_code`, `titre` (200 car. max), `description` (5 000 car. max), `criticite` (`faible`, `moyenne`, `haute`, `critique`), `canal` (`api` par défaut ou `email`), `signaler_securite` (booléen), `entite_code`, un identifiant salarié au plus (`demandeur_email`, `demandeur_matricule` ou `demandeur_id_externe`) et un identifiant matériel au plus (`asset_id_externe` ou `asset_identifiant`).
+- **Demandeur par e-mail** : exige une fiche salarié active **unique** dans le périmètre (0 ou plusieurs fiches -> `422`).
+- **Canal `email`** : marque automatiquement `demandeur_verifie = false` (expéditeur non vérifié ; voir [TICKETS-EMAIL.md](TICKETS-EMAIL.md)).
+- **Sécurité** : les tickets de niveau `signale` ou `incident` masquent systématiquement `titre`, `description`, `commentaires` et `pieces-jointes` (`texte_masque: true`). `ticket_security_details` n'est jamais exposé par `/v1`.
 
 ### Champs d'un matériel
 
