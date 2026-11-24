@@ -234,6 +234,9 @@ def digests(session: Session, cfg: MailConfig, now: datetime) -> list[Digest]:
 
 
 def build_report(session: Session, cfg: MailConfig, now: datetime) -> tuple[str, str, list]:
+    import statistics
+    from . import tickets as tickets_svc
+    from .models import Ticket
     from .routers import reports  # import tardif : evite une dependance circulaire au demarrage
 
     assets = session.exec(select(Asset)).all()
@@ -249,14 +252,25 @@ def build_report(session: Session, cfg: MailConfig, now: datetime) -> tuple[str,
     horizon = now.date() + timedelta(days=365)
     renouv = len([a for a in assets if a.statut != AssetStatus.non_restitue
                   and a.echeance_renouvellement and now.date() <= a.echeance_renouvellement <= horizon])
+    # Trois chiffres globaux tickets du mois ecoule (IT uniquement, sans KPI securite ni PII)
+    tkt_ouverts = len(session.exec(select(Ticket).where(Ticket.cree_le >= month_start)).all())
+    tkt_resolus_rows = session.exec(select(Ticket).where(Ticket.resolu_le >= month_start)).all()
+    tkt_mttr = [
+        sec / 3600.0
+        for t in tkt_resolus_rows
+        if (sec := tickets_svc.calculer_mttr_sec(t)) is not None
+    ]
+    tkt_mttr_med = "%.1f h" % statistics.median(tkt_mttr) if tkt_mttr else "-"
     mois = "%02d/%d" % (now.month, now.year)
     body = ("Bonjour,\n\nRapport mensuel Kikan (%s) :\n\n"
             "- Parc : %d materiel(s) (en stock : %d, affectes : %d, rendus : %d, non restitues : %d, reformes : %d)\n"
             "- Remises ce mois : %d\n- Restitutions ce mois : %d\n"
             "- Materiel non restitue apres la date de sortie : %d\n"
-            "- Renouvellements dans les 12 prochains mois : %d\n") % (
+            "- Renouvellements dans les 12 prochains mois : %d\n"
+            "- Tickets ce mois : %d ouvert(s), %d resolu(s), delai median de resolution : %s\n") % (
         mois, len(assets), by_status.get("stock", 0), by_status.get("affecte", 0), by_status.get("rendu", 0),
-        by_status.get("non_restitue", 0), by_status.get("reforme", 0), remises, restitutions, non_restitues, renouv)
+        by_status.get("non_restitue", 0), by_status.get("reforme", 0), remises, restitutions, non_restitues, renouv,
+        tkt_ouverts, len(tkt_resolus_rows), tkt_mttr_med)
     link = mailer.public_url()
     if link:
         body += "\nRapports detailles et exports : %s/rapports\n" % link

@@ -219,4 +219,5 @@ def etat(session: Session, today: date | None = None) -> dict:
 
     return {"candidats": len(candidats(session, today)), "a_deplacer": n("a_deplacer"), "quarantaine": n("quarantaine"),
             "quarantaine_echus": n("quarantaine", True), "ged": n("ged_a_supprimer"), "ged_echus": n("ged_a_supprimer", True),
-            "tickets_clos": len(tickets_svc.candidats_tickets_clos(session, today))}
+            "tickets_clos": len(tickets_svc.candidats_tickets_clos(session, today)),
+            "tickets_stats": len(tickets_svc.candidats_stats_tickets(session, today))}

@@ -72,6 +72,11 @@ RETENTION_TICKETS_CLOS_KEY = "retention_tickets_clos_mois"
 RETENTION_TICKETS_CLOS_DEFAUT = 24
 RETENTION_TICKETS_CLOS_MAX = 120
 
+RETENTION_STATS_TICKETS_KEY = "retention_stats_tickets_mois"
+RETENTION_STATS_TICKETS_DEFAUT = 60
+RETENTION_STATS_TICKETS_MIN = 12
+RETENTION_STATS_TICKETS_MAX = 120
+
 DELAIS_CIBLES_DEFAUT = {
     "critique": 4,
     "haute": 24,
@@ -152,6 +157,13 @@ def retention_violations_mois(session: Session) -> int:
     return _int_setting(
         session, RETENTION_VIOLATIONS_KEY, RETENTION_VIOLATIONS_DEFAUT,
         RETENTION_VIOLATIONS_MIN, RETENTION_VIOLATIONS_MAX,
+    )
+
+
+def retention_stats_tickets_mois(session: Session) -> int:
+    return _int_setting(
+        session, RETENTION_STATS_TICKETS_KEY, RETENTION_STATS_TICKETS_DEFAUT,
+        RETENTION_STATS_TICKETS_MIN, RETENTION_STATS_TICKETS_MAX,
     )
 
 
@@ -603,6 +615,8 @@ def changer_niveau_securite(
             signale_le=now,
             signale_par="informatique",
         )
+    if ancien == "incident" and nouveau_niveau in ("sans_suite", "signale"):
+        sec.nb_retrogradations = (sec.nb_retrogradations or 0) + 1
 
     if nouveau_niveau in ("incident", "sans_suite"):
         sec.qualifie_le = now
@@ -1004,4 +1018,73 @@ def purger_tickets_clos(
             audit(actor, "rgpd_purge_tickets", detail=f"{count} ticket(s) anonymise(s)")
             purge_svc.deplacer_en_attente(session, actor)
     purger_violations_echues(session, actor, today)
+    return count
+
+
+def candidats_stats_tickets(session: Session, today: date | None = None) -> list[tuple[Ticket, date]]:
+    """Tickets anonymises dont la conservation statistique est echue (et la conservation violation si applicable)."""
+    from .purge import add_months
+
+    today = today or date.today()
+    ret_stats = retention_stats_tickets_mois(session)
+    ret_viol = retention_violations_mois(session)
+    rows = session.exec(
+        select(Ticket).where(
+            Ticket.anonymise_le != None,  # noqa: E711
+        ).order_by(Ticket.cree_le, Ticket.id)
+    ).all()
+    if not rows:
+        return []
+    ids = [t.id for t in rows if t.id is not None]
+    secs = {
+        s.ticket_id: s
+        for s in session.exec(
+            select(TicketSecurityDetail).where(TicketSecurityDetail.ticket_id.in_(ids))
+        ).all()
+    }
+    eligibles: list[tuple[Ticket, date]] = []
+    for t in rows:
+        if not t.cree_le:
+            continue
+        echeance = add_months(t.cree_le.date(), ret_stats)
+        sec = secs.get(t.id)
+        if sec and sec.violation_donnees_potentielle:
+            ref_dt = sec.date_decouverte_violation or sec.signale_le or t.cree_le
+            echeance_viol = add_months(ref_dt.date(), ret_viol)
+            if echeance_viol > echeance:
+                echeance = echeance_viol
+        if echeance <= today:
+            eligibles.append((t, echeance))
+    return eligibles
+
+
+def purger_stats_tickets(
+    session: Session,
+    actor: str,
+    ids: list[int] | None = None,
+    today: date | None = None,
+) -> int:
+    """Supprime definitivement les tickets anonymises eligibles (et leur dossier securite associe)."""
+    selection = candidats_stats_tickets(session, today)
+    if ids is not None:
+        wanted = set(ids)
+        selection = [(t, e) for t, e in selection if t.id in wanted]
+    if not selection:
+        return 0
+    locked_ids = [t.id for t, _ in selection]
+    locked = session.exec(
+        select(Ticket).where(Ticket.id.in_(locked_ids)).order_by(Ticket.id).with_for_update()
+    ).all()
+    count = 0
+    for ticket in locked:
+        if ticket.anonymise_le is None:
+            continue
+        sec = session.get(TicketSecurityDetail, ticket.id)
+        if sec:
+            session.delete(sec)
+        session.delete(ticket)
+        count += 1
+    if count:
+        session.commit()
+        audit(actor, "rgpd_purge_stats_tickets", detail=f"{count} ticket(s) anonymise(s) supprime(s)")
     return count
