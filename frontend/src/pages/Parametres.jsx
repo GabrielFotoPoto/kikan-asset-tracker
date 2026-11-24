@@ -518,7 +518,7 @@ function Etat({ setErr }) {
 
 
 const SSO_MOTIFS = {
-  role: "aucun role Kikan (Kikan.IT ou Kikan.RH) dans le jeton",
+  role: "aucun role Kikan (Kikan.IT, Kikan.RH ou Kikan.Demandeur) dans le jeton",
   mfa: "la MFA n'apparait pas dans le jeton (reglage : exiger la MFA)",
   jeton: "le jeton n'a pas pu etre verifie",
   session: "la connexion a expire ou a ete interrompue",
@@ -593,9 +593,11 @@ function AuthSso({ setErr, setMsg }) {
           </label>
           <label>Role d'application : informatique<input value={form.role_it} maxLength={100} onChange={set("role_it")} /></label>
           <label>Role d'application : RH<input value={form.role_rh} maxLength={100} onChange={set("role_rh")} /></label>
+          <label>Role d'application : demandeur (portail salarie)<input value={form.role_demandeur || "Kikan.Demandeur"} maxLength={100} onChange={set("role_demandeur")} /></label>
           <label>Expiration du secret client (rappel)<input type="date" value={form.secret_expire} onChange={set("secret_expire")} /></label>
           <label className="check"><input type="checkbox" checked={form.creation_auto} onChange={set("creation_auto")} /><span>Creer automatiquement le compte a la premiere connexion</span></label>
           <label className="check"><input type="checkbox" checked={form.exiger_mfa} onChange={set("exiger_mfa")} /><span>Exiger que la MFA apparaisse dans le jeton Microsoft</span></label>
+          <label className="check"><input type="checkbox" checked={Boolean(form.demandeur_membres_tenant)} onChange={set("demandeur_membres_tenant")} /><span>Autoriser tout membre du tenant (hors invites) dont l'e-mail correspond a un salarie actif</span></label>
           <div style={{ alignSelf: "end" }}><button type="submit">Enregistrer</button></div>
         </form>
         <p className="muted">La duree de session s'applique a toutes les nouvelles connexions (locales et Microsoft 365). Comptes de secours : {data.comptes_secours}.</p>

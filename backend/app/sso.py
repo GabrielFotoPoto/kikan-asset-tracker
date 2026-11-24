@@ -308,13 +308,44 @@ def validate_id_token(id_token: str, nonce: str) -> dict:
 
 # --- Roles et MFA ---
 
-def role_from_claims(claims: dict, role_it: str, role_rh: str) -> Role | None:
+def is_guest(claims: dict) -> bool:
+    """Detecte un compte invite B2B (ou jeton applicatif) Entra ID : toujours exclu du portail salarie."""
+    acct = claims.get("acct")
+    if acct == 1 or str(acct) == "1":
+        return True
+    if str(claims.get("userType") or "").strip().lower() == "guest":
+        return True
+    if str(claims.get("idtyp") or "").strip().lower() == "app":
+        return True
+    for field in ("preferred_username", "upn", "email"):
+        val = str(claims.get(field) or "").lower()
+        if "#ext#" in val:
+            return True
+    return False
+
+
+def role_from_claims(
+    claims: dict,
+    role_it: str,
+    role_rh: str,
+    role_demandeur: str | None = None,
+    *,
+    demandeur_membres_tenant: bool = False,
+) -> Role | None:
+    if str(claims.get("idtyp") or "").strip().lower() == "app":
+        return None
     roles = claims.get("roles")
     roles = [r for r in roles if isinstance(r, str)] if isinstance(roles, list) else []
     if role_it in roles:
         return Role.informatique
     if role_rh in roles:
         return Role.rh
+    if is_guest(claims):
+        return None
+    if role_demandeur and role_demandeur in roles:
+        return Role.demandeur
+    if demandeur_membres_tenant:
+        return Role.demandeur
     return None
 
 
