@@ -22,9 +22,9 @@ import { api, errorText, setSession } from "../api.js";
 
 // Motifs de refus renvoyes par la connexion Microsoft 365 (?sso_erreur=...).
 const SSO_ERRORS = {
-  role: "Votre compte Microsoft 365 n'a pas de role Kikan : demandez a l'administrateur de vous ajouter au groupe Kikan-IT ou Kikan-RH.",
+  role: "Votre compte Microsoft 365 n'a pas de role Kikan (Kikan.IT, Kikan.RH ou Kikan.Demandeur) : contactez l'administrateur.",
   mfa: "L'authentification multifacteur Microsoft est requise pour acceder a Kikan.",
-  compte: "Votre compte est desactive dans Kikan, inconnu, ou deja utilise par un autre compte : contactez l'administrateur.",
+  compte: "Acces non provisionne dans Kikan : contactez l'administrateur.",
   jeton: "La reponse de Microsoft n'a pas pu etre verifiee. Reessayez ; si le probleme persiste, contactez l'administrateur.",
   session: "La connexion a expire ou a ete interrompue. Reessayez.",
   idp: "Microsoft a refuse ou annule la connexion.",

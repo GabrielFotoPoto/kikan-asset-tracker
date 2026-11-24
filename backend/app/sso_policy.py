@@ -30,6 +30,7 @@ from .models import Account, Role
 KEYS = {
     "actif": "sso_actif", "mode_local": "sso_mode_local", "creation_auto": "sso_creation_auto",
     "exiger_mfa": "sso_exiger_mfa", "role_it": "sso_role_it", "role_rh": "sso_role_rh",
+    "role_demandeur": "sso_role_demandeur", "demandeur_membres_tenant": "sso_demandeur_membres_tenant",
     "secret_expire": "sso_secret_expire", "ttl": "session_ttl_min", "test": "sso_test_ok",
 }
 MODES = ("autorise", "secours")
@@ -62,6 +63,8 @@ def read(session: Session) -> dict:
         "exiger_mfa": g("exiger_mfa", "1") == "1",
         "role_it": g("role_it", "Kikan.IT") or "Kikan.IT",
         "role_rh": g("role_rh", "Kikan.RH") or "Kikan.RH",
+        "role_demandeur": g("role_demandeur", "Kikan.Demandeur") or "Kikan.Demandeur",
+        "demandeur_membres_tenant": g("demandeur_membres_tenant", "0") == "1",
         "secret_expire": g("secret_expire", "") or "",
         "ttl": max(TTL_MIN, min(TTL_MAX, ttl)),
         "test": test,

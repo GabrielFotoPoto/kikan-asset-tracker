@@ -489,6 +489,122 @@ j("PUT", "/auth/sso/admin/reglages", {"mode_local": "secours", "ttl": 240}, ADM)
 t_local, _ = login(ADMIN, ADMIN_PW)
 show("retour a 4 heures", lifetime(t_local) == 14400, lifetime(t_local))
 
+print("== Lot G4b : Portail salarie SSO (Kikan.Demandeur) ==")
+s, st_g4b = j("GET", "/auth/sso/admin/etat", token=ADM)
+show("reglages G4b par defaut : Kikan.Demandeur et demandeur_membres_tenant=False",
+     s == 200 and st_g4b["reglages"].get("role_demandeur") == "Kikan.Demandeur"
+     and st_g4b["reglages"].get("demandeur_membres_tenant") is False, st_g4b.get("reglages"))
+
+# Creer entite + salaries actifs pour les tests G4b (prefixe ZZ pour nettoyage)
+_, ent_g4b = j("POST", "/entites", {"code": "ZZG4B", "nom": "ZZ G4b Entite"}, ADM)
+_, u_ok = j("POST", "/users", {
+    "matricule": "ZZG4B-01", "nom": "ZZG4B_NOM1", "prenom": "ZZ_Sal1",
+    "email": "zzg4b.salarie1@exemple.test", "entite_id": ent_g4b["id"],
+}, ADM)
+_, u_dup1 = j("POST", "/users", {
+    "matricule": "ZZG4B-02", "nom": "ZZG4B_DUP1", "prenom": "ZZ_Dup1",
+    "email": "zzg4b.doublon@exemple.test", "entite_id": ent_g4b["id"],
+}, ADM)
+_, u_dup2 = j("POST", "/users", {
+    "matricule": "ZZG4B-03", "nom": "ZZG4B_DUP2", "prenom": "ZZ_Dup2",
+    "email": "zzg4b.doublon@exemple.test", "entite_id": ent_g4b["id"],
+}, ADM)
+_, u_sorti = j("POST", "/users", {
+    "matricule": "ZZG4B-04", "nom": "ZZG4B_SORTI", "prenom": "ZZ_Sorti",
+    "email": "zzg4b.sorti@exemple.test", "entite_id": ent_g4b["id"],
+    "statut": "sorti", "date_sortie": "2026-01-01",
+}, ADM)
+assert u_sorti and u_sorti.get("statut") == "sorti", u_sorti
+_, u_local = j("POST", "/users", {
+    "matricule": "ZZG4B-05", "nom": "ZZG4B_LOCAL", "prenom": "ZZ_Local",
+    "email": "zzg4b.local@exemple.test", "entite_id": ent_g4b["id"],
+}, ADM)
+_, u_membre = j("POST", "/users", {
+    "matricule": "ZZG4B-06", "nom": "ZZG4B_MEMBRE", "prenom": "ZZ_Membre",
+    "email": "zzg4b.membre@exemple.test", "entite_id": ent_g4b["id"],
+}, ADM)
+
+# 1. Connexion nominale avec Kikan.Demandeur -> creation compte + acces portail uniquement
+DEM1 = {"oid": "00000000-0000-0000-0000-00000000d001", "upn": "zzg4b.salarie1@exemple.test",
+        "name": "ZZ Sal1", "roles": ["Kikan.Demandeur"]}
+tok_dem1, _ = sso_session(DEM1)
+a_dem1 = acct("zzg4b.salarie1@exemple.test")
+show("Kikan.Demandeur : compte cree et lie a user_id (portee_globale=False)",
+     tok_dem1 is not None and a_dem1 is not None and a_dem1["role"] == "demandeur"
+     and a_dem1["user_id"] == u_ok["id"] and a_dem1["portee_globale"] is False
+     and a_dem1["source_auth"] == "sso" and a_dem1["sso_lie"] is True, a_dem1)
+show("Kikan.Demandeur : acces /mon-espace/materiel (200) et refus /users (403)",
+     j("GET", "/mon-espace/materiel", token=tok_dem1)[0] == 200
+     and j("GET", "/users", token=tok_dem1)[0] == 403)
+
+# 2. Liaison stable par sso_oid apres changement d'e-mail sur la fiche et dans le jeton
+j("PUT", f"/users/{u_ok['id']}", {"email": "zzg4b.salarie1.nouveau@exemple.test"}, ADM)
+tok_dem1_ren, _ = sso_session({**DEM1, "upn": "zzg4b.salarie1.nouveau@exemple.test"})
+show("liaison stable par sso_oid apres changement d'e-mail", tok_dem1_ren is not None)
+
+# 3. Priorite Kikan.IT / Kikan.RH sur Kikan.Demandeur
+tok_prio_it, _ = sso_session({"oid": "00000000-0000-0000-0000-00000000d010",
+                              "upn": "zzg4b.prio.it@exemple.test", "roles": ["Kikan.Demandeur", "Kikan.IT"]})
+show("cumul Kikan.IT + Kikan.Demandeur : informatique prioritaire",
+     tok_prio_it is not None and acct("zzg4b.prio.it@exemple.test")["role"] == "informatique")
+tok_prio_rh, _ = sso_session({"oid": "00000000-0000-0000-0000-00000000d011",
+                              "upn": "zzg4b.prio.rh@exemple.test", "roles": ["Kikan.Demandeur", "Kikan.RH"]})
+show("cumul Kikan.RH + Kikan.Demandeur : RH prioritaire",
+     tok_prio_rh is not None and acct("zzg4b.prio.rh@exemple.test")["role"] == "rh")
+
+# 4. Exclusion des comptes invites B2B (meme avec role Kikan.Demandeur)
+refused("invite B2B (acct=1) refuse", {**DEM1, "oid": "00000000-0000-0000-0000-00000000d020", "over": {"acct": 1}}, "role")
+refused("invite B2B (userType=Guest) refuse", {**DEM1, "oid": "00000000-0000-0000-0000-00000000d021", "over": {"userType": "Guest"}}, "role")
+refused("invite B2B (#EXT# dans UPN) refuse", {**DEM1, "oid": "00000000-0000-0000-0000-00000000d022",
+        "upn": "zzg4b_ext#EXT#@exemple.test"}, "role")
+refused("jeton applicatif (idtyp=app) refuse", {**DEM1, "oid": "00000000-0000-0000-0000-00000000d023", "over": {"idtyp": "app"}}, "role")
+
+# 5. Refus uniforme : 0 fiche active, >=2 fiches actives, fiche sorti, MFA absente
+refused("demandeur sans fiche salarie -> refus uniforme compte",
+        {"oid": "00000000-0000-0000-0000-00000000d030", "upn": "zzg4b.inconnu@exemple.test", "roles": ["Kikan.Demandeur"]}, "compte")
+refused("demandeur avec 2 fiches actives meme e-mail -> refus uniforme compte",
+        {"oid": "00000000-0000-0000-0000-00000000d031", "upn": "zzg4b.doublon@exemple.test", "roles": ["Kikan.Demandeur"]}, "compte")
+refused("demandeur avec fiche sorti -> refus uniforme compte",
+        {"oid": "00000000-0000-0000-0000-00000000d032", "upn": "zzg4b.sorti@exemple.test", "roles": ["Kikan.Demandeur"]}, "compte")
+refused("demandeur sans MFA -> refus mfa",
+        {"oid": "00000000-0000-0000-0000-00000000d033", "upn": "zzg4b.salarie1@exemple.test",
+         "roles": ["Kikan.Demandeur"], "amr": ["pwd"]}, "mfa")
+
+# 6. Conversion sans doublon d'un compte local demandeur existant
+j("PUT", "/auth/sso/admin/reglages", {"mode_local": "autorise"}, ADM)
+s_loc, acc_loc = j("POST", f"/users/{u_local['id']}/compte-demandeur", {"mode": "mot_de_passe"}, ADM)
+assert s_loc == 201, acc_loc
+n_before_conv = len(j("GET", "/auth/accounts", token=ADM)[1])
+tok_conv, _ = sso_session({"oid": "00000000-0000-0000-0000-00000000d040",
+                           "upn": "zzg4b.local@exemple.test", "roles": ["Kikan.Demandeur"]})
+n_after_conv = len(j("GET", "/auth/accounts", token=ADM)[1])
+a_conv = next((a for a in j("GET", "/auth/accounts", token=ADM)[1] if a["id"] == acc_loc["account_id"]), None)
+show("conversion compte local demandeur -> SSO sans doublon",
+     tok_conv is not None and n_after_conv == n_before_conv
+     and a_conv and a_conv["source_auth"] == "sso" and a_conv["sso_lie"] is True, a_conv)
+
+# 7. Option demandeur_membres_tenant (desactivee par defaut, puis activee)
+MEM = {"oid": "00000000-0000-0000-0000-00000000d050", "upn": "zzg4b.membre@exemple.test", "roles": []}
+refused("membre tenant sans role refuse par defaut", MEM, "role")
+j("PUT", "/auth/sso/admin/reglages", {"mode_local": "secours", "demandeur_membres_tenant": True}, ADM)
+tok_mem, _ = sso_session(MEM)
+show("option demandeur_membres_tenant activee : membre actif autorise en demandeur",
+     tok_mem is not None and j("GET", "/mon-espace/materiel", token=tok_mem)[0] == 200)
+refused("option demandeur_membres_tenant activee : invite B2B toujours refuse",
+        {"oid": "00000000-0000-0000-0000-00000000d051", "upn": "zzg4b.membre@exemple.test", "roles": [], "over": {"acct": 1}}, "role")
+j("PUT", "/auth/sso/admin/reglages", {"mode_local": "secours", "demandeur_membres_tenant": False}, ADM)
+
+# 8. Journal d'audit : pseudonyme dem-<id> et zero e-mail salarie demandeur
+s_aud, aud_g4b = j("GET", "/audit?limit=500", token=ADM)
+aud_blob = json.dumps(aud_g4b)
+DEM_EMAILS = (
+    "zzg4b.salarie1@exemple.test", "zzg4b.salarie1.nouveau@exemple.test",
+    "zzg4b.doublon@exemple.test", "zzg4b.sorti@exemple.test",
+    "zzg4b.local@exemple.test", "zzg4b.membre@exemple.test", "zzg4b.inconnu@exemple.test",
+)
+show("AuditLog G4b : pseudonyme dem-<id> present et zero e-mail salarie",
+     f"dem-{a_dem1['id']}" in aud_blob and all(em not in aud_blob for em in DEM_EMAILS))
+
 print("== Desactivation ==")
 s, r = j("POST", "/auth/sso/admin/desactiver", None, ADM)
 show("desactivation du SSO", s == 200 and r["actif"] is False)

@@ -31,9 +31,9 @@ from sqlmodel import Session, select
 
 from .. import appsettings, sso, sso_policy
 from ..audit import audit
-from ..auth import client_ip, create_access_token, hash_password, login_limiter, require_roles, set_session_cookie
+from ..auth import audit_actor, client_ip, create_access_token, hash_password, login_limiter, require_roles, set_session_cookie
 from ..db import get_session
-from ..models import Account, AccountScope, Role
+from ..models import Account, AccountScope, EmployeeStatus, PasswordResetToken, Role, User
 from .auth import USERNAME_RE, TokenResponse
 
 router = APIRouter(prefix="/auth/sso", tags=["sso"])
@@ -105,6 +105,8 @@ def _resolve_account(session: Session, claims: dict, role: Role, cfg: dict) -> A
         created = True
     if not account.actif:
         raise sso.SsoError("compte", "compte desactive dans Kikan")
+    if account.role == Role.demandeur:
+        raise sso.SsoError("compte", "compte demandeur non convertible automatiquement vers IT ou RH")
     changed_role = (not created) and account.role != role
     if changed_role:
         if role == Role.informatique:
@@ -126,6 +128,129 @@ def _resolve_account(session: Session, claims: dict, role: Role, cfg: dict) -> A
         audit(account.username, "sso_compte_cree", target=account.username, detail=f"role : {role.value}")
     elif changed_role:
         audit(account.username, "sso_role_modifie", target=account.username, detail=f"role : {role.value}")
+    return account
+
+
+def _purger_jetons_reset(session: Session, account_id: int) -> None:
+    for tok in session.exec(select(PasswordResetToken).where(PasswordResetToken.account_id == account_id)).all():
+        session.delete(tok)
+
+
+def _resolve_demandeur_account(session: Session, claims: dict) -> Account:
+    """Resout ou provisionne un compte demandeur SSO (lot G4b).
+
+    Liaison stable par sso_oid en priorite ; e-mail uniquement a la premiere connexion
+    sur une fiche salarie active unique (independant de creation_auto IT/RH) ;
+    conversion sans doublon d'un compte local existant avec invalidation de l'ancien mot de passe ;
+    refus uniforme et journalisation pseudonyme dem-<id> sans aucune PII.
+    """
+    oid = str(claims["oid"])
+    upn = sso.upn_of(claims)
+    email_claim = str(claims.get("email") or (upn if "@" in upn else "") or "").strip().lower()
+    now = datetime.utcnow()
+
+    # 1. Compte deja lie par identifiant stable Entra (sso_oid)
+    account = session.exec(select(Account).where(Account.sso_oid == oid)).first()
+    if account is not None:
+        if not account.actif or account.role != Role.demandeur or account.user_id is None:
+            raise sso.SsoError("compte", "demandeur non provisionne")
+        user = session.get(User, account.user_id)
+        if not user or user.statut != EmployeeStatus.actif:
+            raise sso.SsoError("compte", "demandeur non provisionne")
+        account.sso_upn = upn or account.sso_upn
+        account.nom_affiche = f"{user.prenom} {user.nom}".strip()[:120] or account.nom_affiche
+        account.email = user.email or account.email
+        account.derniere_connexion = now
+        session.add(account)
+        session.commit()
+        session.refresh(account)
+        return account
+
+    # 2. Liaison pre-preparee par un administrateur sur un compte demandeur local
+    if upn:
+        pre = session.exec(
+            select(Account).where(
+                func.lower(Account.sso_upn) == upn,
+                Account.sso_oid.is_(None),
+                Account.role == Role.demandeur,
+            )
+        ).first()
+        if pre is not None:
+            user = session.get(User, pre.user_id) if pre.user_id else None
+            if not pre.actif or not user or user.statut != EmployeeStatus.actif:
+                raise sso.SsoError("compte", "demandeur non provisionne")
+            pre.sso_oid = oid
+            pre.source_auth = "sso"
+            pre.hashed_password = hash_password(secrets.token_urlsafe(48))
+            pre.secours = False
+            pre.portee_globale = False
+            pre.must_change_password = False
+            pre.token_epoch += 1
+            pre.derniere_connexion = now
+            _purger_jetons_reset(session, pre.id)
+            session.add(pre)
+            session.commit()
+            session.refresh(pre)
+            audit(audit_actor(pre), "sso_compte_lie", target=audit_actor(pre), detail="role : demandeur")
+            return pre
+
+    # 3. Premiere connexion : correspondance par e-mail sur une fiche salarie active unique
+    if not email_claim:
+        raise sso.SsoError("compte", "demandeur non provisionne")
+    matches = session.exec(
+        select(User).where(
+            func.lower(User.email) == email_claim,
+            User.statut == EmployeeStatus.actif,
+        )
+    ).all()
+    if len(matches) != 1:
+        raise sso.SsoError("compte", "demandeur non provisionne")
+    user = matches[0]
+
+    # Conversion sans doublon si un compte local demandeur existe deja pour ce salarie
+    existing = session.exec(select(Account).where(Account.user_id == user.id)).first()
+    if existing is not None:
+        if not existing.actif or existing.role != Role.demandeur or (existing.sso_oid and existing.sso_oid != oid):
+            raise sso.SsoError("compte", "demandeur non provisionne")
+        existing.sso_oid = oid
+        existing.sso_upn = upn or email_claim
+        existing.source_auth = "sso"
+        existing.hashed_password = hash_password(secrets.token_urlsafe(48))
+        existing.secours = False
+        existing.portee_globale = False
+        existing.must_change_password = False
+        existing.token_epoch += 1
+        existing.derniere_connexion = now
+        _purger_jetons_reset(session, existing.id)
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+        audit(audit_actor(existing), "sso_compte_lie", target=audit_actor(existing), detail="role : demandeur")
+        return existing
+
+    # Creation d'un nouveau compte demandeur SSO
+    candidate = email_claim if USERNAME_RE.match(email_claim) else ""
+    if not candidate or session.exec(select(Account).where(func.lower(Account.username) == candidate)).first():
+        candidate = "dem-" + oid.replace("-", "")[:12].lower()
+    account = Account(
+        username=candidate,
+        role=Role.demandeur,
+        actif=True,
+        hashed_password=hash_password(secrets.token_urlsafe(48)),
+        source_auth="sso",
+        sso_oid=oid,
+        sso_upn=upn or email_claim,
+        secours=False,
+        portee_globale=False,
+        user_id=user.id,
+        nom_affiche=f"{user.prenom} {user.nom}".strip()[:120] or None,
+        email=user.email,
+        derniere_connexion=now,
+    )
+    session.add(account)
+    session.commit()
+    session.refresh(account)
+    audit(audit_actor(account), "sso_compte_cree", target=audit_actor(account), detail="role : demandeur")
     return account
 
 
@@ -157,22 +282,32 @@ def callback(request: Request, code: str | None = None, state: str | None = None
         tokens = sso.exchange_code(code, flow["verifier"])
         claims = sso.validate_id_token(tokens["id_token"], flow["nonce"])
         upn = sso.upn_of(claims) or str(claims.get("oid"))
-        role = sso.role_from_claims(claims, cfg["role_it"], cfg["role_rh"])
+        role = sso.role_from_claims(
+            claims, cfg["role_it"], cfg["role_rh"], cfg["role_demandeur"],
+            demandeur_membres_tenant=cfg["demandeur_membres_tenant"],
+        )
         if role is None:
-            raise sso.SsoError("role", f"{upn} : aucun role Kikan")
+            raise sso.SsoError("role", "aucun role Kikan")
         if cfg["exiger_mfa"] and not sso.mfa_done(claims):
-            raise sso.SsoError("mfa", f"{upn} : MFA absente du jeton")
+            mfa_detail = "MFA absente du jeton" if role == Role.demandeur else f"{upn} : MFA absente du jeton"
+            raise sso.SsoError("mfa", mfa_detail)
         if test:
             appsettings.put(session, sso_policy.KEYS["test"], json.dumps(
                 {"par": flow["test_by"], "upn": upn, "role": role.value, "ts": time.time(), "mfa": sso.mfa_done(claims)}))
             session.commit()
             audit(flow["test_by"] or "anonyme", "sso_test_ok", ip=ip, detail=f"{upn} role {role.value}")
             return _front("/parametres?sso_test=ok")
-        account = _resolve_account(session, claims, role, cfg)
+        if role == Role.demandeur:
+            account = _resolve_demandeur_account(session, claims)
+        else:
+            account = _resolve_account(session, claims, role, cfg)
     except sso.SsoError as exc:
         return refuse(exc.code, exc.detail, (flow["test_by"] or "anonyme") if test else "anonyme")
     login_limiter.success(ip, "sso")
-    audit(account.username, "sso_login_ok", ip=ip, status=200, detail=upn)
+    if account.role == Role.demandeur:
+        audit(audit_actor(account), "sso_login_ok", ip=ip, status=200, detail="demandeur")
+    else:
+        audit(account.username, "sso_login_ok", ip=ip, status=200, detail=upn)
     return _front("/sso?ticket=" + quote(sso.new_ticket(account.username)))
 
 
@@ -206,6 +341,8 @@ class Reglages(BaseModel):
     exiger_mfa: bool = True
     role_it: str = Field(default="Kikan.IT", min_length=1, max_length=100)
     role_rh: str = Field(default="Kikan.RH", min_length=1, max_length=100)
+    role_demandeur: str = Field(default="Kikan.Demandeur", min_length=1, max_length=100)
+    demandeur_membres_tenant: bool = False
     secret_expire: str = ""
     ttl: int = Field(default=240, ge=sso_policy.TTL_MIN, le=sso_policy.TTL_MAX)
 
@@ -214,7 +351,14 @@ def _state(session: Session, admin: Account) -> dict:
     cfg = sso_policy.read(session)
     return {
         "config": sso.config_summary(),
-        "reglages": {k: cfg[k] for k in ("mode_local", "creation_auto", "exiger_mfa", "role_it", "role_rh", "secret_expire", "ttl")},
+        "reglages": {
+            k: cfg[k]
+            for k in (
+                "mode_local", "creation_auto", "exiger_mfa",
+                "role_it", "role_rh", "role_demandeur", "demandeur_membres_tenant",
+                "secret_expire", "ttl",
+            )
+        },
         "actif": cfg["actif"],
         "test": cfg["test"],
         "comptes_secours": sso_policy.breakglass_count(session),
@@ -238,12 +382,20 @@ def admin_settings(data: Reglages, session: Session = Depends(get_session),
             date.fromisoformat(data.secret_expire)
         except ValueError:
             raise HTTPException(422, "Date d'expiration invalide (AAAA-MM-JJ)")
-    if not re.fullmatch(r"[A-Za-z0-9._ -]{1,100}", data.role_it + "") or not re.fullmatch(r"[A-Za-z0-9._ -]{1,100}", data.role_rh + ""):
-        raise HTTPException(422, "Nom de role invalide")
+    for rname in (data.role_it, data.role_rh, data.role_demandeur):
+        if not re.fullmatch(r"[A-Za-z0-9._ -]{1,100}", rname + ""):
+            raise HTTPException(422, "Nom de role invalide")
     cfg = sso_policy.read(session)
     if cfg["actif"] and data.mode_local == "secours" and sso_policy.breakglass_count(session) < 1:
         raise HTTPException(409, "Mode secours impossible : aucun compte local de secours actif")
-    before = {k: cfg[k] for k in ("mode_local", "creation_auto", "exiger_mfa", "role_it", "role_rh", "secret_expire", "ttl")}
+    before = {
+        k: cfg[k]
+        for k in (
+            "mode_local", "creation_auto", "exiger_mfa",
+            "role_it", "role_rh", "role_demandeur", "demandeur_membres_tenant",
+            "secret_expire", "ttl",
+        )
+    }
     new = data.model_dump()
     for key in before:
         value = new[key]

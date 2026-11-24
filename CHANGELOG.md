@@ -6,6 +6,14 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Ajouté
+- **Lot G4b (#181) - Extension SSO Entra ID pour les salariés (`Kikan.Demandeur`)** :
+  - **Rôle `Kikan.Demandeur` et option membre du tenant** (`backend/app/sso.py`, `backend/app/sso_policy.py`, `backend/app/routers/sso.py`) : nouveau rôle d'application configurable `role_demandeur` (`Kikan.Demandeur` par défaut) et option `demandeur_membres_tenant` désactivée par défaut ; priorité conservée à `Kikan.IT` et `Kikan.RH` en cas de cumul ; exigence MFA appliquée comme pour les autres rôles.
+  - **Exclusion des invités B2B** (`is_guest`) : rejet systématique des comptes invités (`acct=1`, `userType=guest`, `idtyp=app`, `#EXT#` dans UPN/e-mail) pour le portail salarié.
+  - **Liaison stable par `sso_oid` et zéro doublon** : recherche par `sso_oid` en priorité (résiste aux changements d'e-mail), correspondance e-mail uniquement à la première connexion sur une fiche salarié active unique (`0` ou `>= 2` fiches -> refus uniforme), conversion sans doublon d'un compte local `demandeur` existant (`accounts.user_id`), déblocage de `POST /auth/accounts/{id}/lier-sso` pour `demandeur`.
+  - **Journalisation RGPD sans PII** : acteur et cible pseudonymes `dem-<id>` dans `AuditLog` (`sso_login_ok`, `sso_compte_cree`, `sso_compte_lie`, `compte_lie_sso`) et absence d'e-mail/UPN salarié dans les refus SSO.
+  - **Interface** : réglages `role_demandeur` et `demandeur_membres_tenant` dans `Parametres.jsx` et messages uniformes dans `Login.jsx`.
+  - **Vérifié** : extension de la suite `tests/sso_check.py` (pile isolée `kiktest` avec `tests/sso-test.override.yml`), non-régression `portail_demandeur_check`, tests et build frontend (`node:24-alpine`).
+  - **Non vérifié** : test de bout en bout contre un vrai tenant Microsoft Entra ID.
 - **Lot G6 (#180) - Statistiques et KPI tickets** :
   - **Migration `0029_ticket_stats_retrogradations`** : compteur `nb_retrogradations` sur `ticket_security_details` pour le pilotage sécurité filtrable et conservé après anonymisation.
   - **Endpoint `GET /stats/tickets`** (`backend/app/routers/stats.py`) : réservé exclusivement au rôle `informatique` (`403` pour `rh`, `lecture`, `demandeur`), filtres `entite_id` (sous-entités incluses), `du`/`au`, `nature`, `criticite`, 4 blocs d'indicateurs (activité/backlog, réactivité MTTA/MTTR net/réouvertures, fiabilité du parc matériel rapportée au parc, pilotage sécurité), exports CSV (`;` + BOM UTF-8, anti-injection de formules) et Excel (`.xlsx`), strictement sans donnée nominative (aucune PII).

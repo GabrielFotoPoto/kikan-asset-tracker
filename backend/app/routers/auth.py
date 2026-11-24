@@ -577,8 +577,6 @@ def link_sso(account_id: int, data: LierSso, session: Session = Depends(get_sess
     target = session.get(Account, account_id)
     if not target:
         raise HTTPException(404, "Compte introuvable")
-    if target.role == Role.demandeur:
-        raise HTTPException(409, "La liaison SSO des comptes demandeurs releve du lot G4b")
     if target.sso_oid:
         raise HTTPException(409, "Ce compte est deja lie a un compte Microsoft 365")
     if session.exec(select(Account).where(func.lower(Account.sso_upn) == data.upn, Account.id != target.id)).first():
@@ -587,7 +585,8 @@ def link_sso(account_id: int, data: LierSso, session: Session = Depends(get_sess
     session.add(target)
     session.commit()
     session.refresh(target)
-    audit(admin.username, "compte_lie_sso", target=audit_actor(target), detail=f"upn : {data.upn}")
+    detail = "liaison demandeur" if target.role == Role.demandeur else f"upn : {data.upn}"
+    audit(admin.username, "compte_lie_sso", target=audit_actor(target), detail=detail)
     return AccountOut.from_account(target)
 
 
