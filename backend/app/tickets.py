@@ -28,7 +28,7 @@ import os
 import re
 import threading
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -38,7 +38,9 @@ from . import appsettings, mailer
 from .audit import audit
 from .auth import audit_actor
 from .db import engine
-from .models import Account, Asset, Assignment, Role, Ticket, TicketComment, TicketCompteur, TicketNature, User, utcnow
+from .models import (
+    Account, Asset, Assignment, Role, Ticket, TicketComment, TicketCompteur, TicketNature, TicketSecurityDetail, User, utcnow,
+)
 
 log = logging.getLogger("kikan.tickets")
 
@@ -47,6 +49,20 @@ STATUTS_FINAUX = ("ferme", "annule")
 CRITICITES = ("faible", "moyenne", "haute", "critique")
 CANAUX = ("portail", "it", "api", "email")
 NIVEAUX_SECURITE = ("aucun", "signale", "incident", "sans_suite")
+SOUS_CATEGORIES_SECURITE = ("phishing", "perte_vol_materiel", "malware", "acces_non_autorise", "fuite_donnees", "autre")
+CNIL_STATUTS = ("a_evaluer", "oui", "non")
+
+TRANSITIONS_SECURITE: dict[str, set[str]] = {
+    "aucun": {"signale"},
+    "signale": {"incident", "sans_suite"},
+    "incident": {"sans_suite", "signale"},
+    "sans_suite": {"signale", "incident"},
+}
+
+RETENTION_VIOLATIONS_KEY = "retention_violations_mois"
+RETENTION_VIOLATIONS_DEFAUT = 60
+RETENTION_VIOLATIONS_MIN = 12
+RETENTION_VIOLATIONS_MAX = 120
 
 CLOTURE_AUTO_KEY = "tickets_cloture_auto_jours"
 CLOTURE_AUTO_DEFAUT = 7
@@ -130,6 +146,13 @@ def cloture_auto_jours(session: Session) -> int:
 
 def retention_tickets_clos_mois(session: Session) -> int:
     return _int_setting(session, RETENTION_TICKETS_CLOS_KEY, RETENTION_TICKETS_CLOS_DEFAUT, 0, RETENTION_TICKETS_CLOS_MAX)
+
+
+def retention_violations_mois(session: Session) -> int:
+    return _int_setting(
+        session, RETENTION_VIOLATIONS_KEY, RETENTION_VIOLATIONS_DEFAUT,
+        RETENTION_VIOLATIONS_MIN, RETENTION_VIOLATIONS_MAX,
+    )
 
 
 def delais_cibles(session: Session) -> dict[str, int]:
@@ -342,6 +365,13 @@ def creer_ticket(
     )
     _copier_materiel(ticket, asset)
     session.add(ticket)
+    session.flush()
+    if niveau == "signale":
+        session.add(TicketSecurityDetail(
+            ticket_id=ticket.id,
+            signale_le=now,
+            signale_par="demandeur" if actor_account.role == Role.demandeur else "informatique",
+        ))
     session.commit()
     session.refresh(ticket)
     audit(audit_actor(actor_account), "ticket_creation", target=ticket.reference, detail=f"nature={ticket.nature_code} criticite={ticket.criticite}")
@@ -376,6 +406,10 @@ def modifier_ticket(
         ticket.nature_code = nature.code
         if nature.signale_securite and ticket.niveau_securite == "aucun":
             ticket.niveau_securite = "signale"
+            if not session.get(TicketSecurityDetail, ticket.id):
+                session.add(TicketSecurityDetail(
+                    ticket_id=ticket.id, signale_le=utcnow(), signale_par="informatique",
+                ))
 
     if criticite is not None:
         if criticite not in CRITICITES:
@@ -437,8 +471,12 @@ def changer_statut(
     if nouveau_statut not in table.get(ancien, set()):
         raise HTTPException(409, f"Transition interdite : {ancien} -> {nouveau_statut}")
 
-    if nouveau_statut == "ferme" and ticket.niveau_securite == "signale":
-        raise HTTPException(409, "Cloture refusee : le signalement de securite doit etre qualifie avant cloture")
+    if nouveau_statut in ("ferme", "annule") and ticket.niveau_securite == "signale":
+        raise HTTPException(409, "Cloture ou annulation refusee : le signalement de securite doit etre qualifie avant")
+    if nouveau_statut in ("ferme", "annule") and ticket.niveau_securite == "incident":
+        sec = session.get(TicketSecurityDetail, ticket.id)
+        if sec and sec.violation_donnees_potentielle and sec.notification_cnil_requise in (None, "a_evaluer"):
+            raise HTTPException(409, "Cloture refusee : evaluez d'abord l'obligation de notification CNIL (oui ou non)")
 
     now = utcnow()
     if ancien == "nouveau" and nouveau_statut == "en_cours":
@@ -521,6 +559,159 @@ def ajouter_commentaire(
     session.refresh(ticket)
     audit(audit_actor(actor_account), "ticket_commentaire", target=ticket.reference, detail="interne" if interne else "public")
     return ticket, comment
+
+
+# --- Dossier d'investigation securite (lot G2, IT uniquement) ---
+
+def changer_niveau_securite(
+    session: Session,
+    actor_account: Account,
+    ticket_id: int,
+    nouveau_niveau: str,
+    *,
+    sous_categorie: str | None = None,
+) -> tuple[Ticket, TicketSecurityDetail]:
+    if nouveau_niveau not in NIVEAUX_SECURITE:
+        raise HTTPException(422, "Niveau de securite invalide")
+    if sous_categorie is not None and sous_categorie not in SOUS_CATEGORIES_SECURITE:
+        raise HTTPException(422, "Sous-categorie securite invalide")
+
+    ticket = session.exec(select(Ticket).where(Ticket.id == ticket_id).with_for_update()).first()
+    if not ticket or ticket.anonymise_le is not None:
+        raise HTTPException(404, "Ticket introuvable")
+    if ticket.statut in STATUTS_FINAUX:
+        raise HTTPException(409, "Impossible de modifier la securite d'un ticket ferme ou annule")
+
+    ancien = ticket.niveau_securite
+    if nouveau_niveau == "aucun":
+        raise HTTPException(409, "Un signalement de securite ne peut pas revenir a 'aucun' : classez-le 'sans_suite'")
+    if nouveau_niveau not in TRANSITIONS_SECURITE.get(ancien, set()):
+        raise HTTPException(409, f"Transition securite interdite : {ancien} -> {nouveau_niveau}")
+
+    sec = session.get(TicketSecurityDetail, ticket.id)
+    now = utcnow()
+    if ancien == "incident" and nouveau_niveau in ("sans_suite", "signale"):
+        if sec and sec.violation_donnees_potentielle:
+            raise HTTPException(
+                409,
+                "Retrogradation refusee tant que la violation potentielle de donnees est cochee : decochez-la d'abord",
+            )
+
+    if not sec:
+        sec = TicketSecurityDetail(
+            ticket_id=ticket.id,
+            signale_le=now,
+            signale_par="informatique",
+        )
+
+    if nouveau_niveau in ("incident", "sans_suite"):
+        sec.qualifie_le = now
+        sec.qualifie_par_account_id = actor_account.id
+        if sec.qualification_sec is None and sec.signale_le:
+            sec.qualification_sec = max(0, int((now - sec.signale_le).total_seconds()))
+    if nouveau_niveau == "incident":
+        sec.escalade_le = now
+        sec.escalade_par_account_id = actor_account.id
+    if sous_categorie is not None:
+        sec.sous_categorie = sous_categorie
+
+    ticket.niveau_securite = nouveau_niveau
+    ticket.maj_le = now
+    if ancien == "aucun":
+        ticket.maj_publique_le = now
+    session.add(sec)
+    session.add(ticket)
+    session.commit()
+    session.refresh(ticket)
+    session.refresh(sec)
+    audit(audit_actor(actor_account), "ticket_securite_niveau", target=ticket.reference, detail=f"{ancien}->{nouveau_niveau}")
+    return ticket, sec
+
+
+def _to_utc_naive(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
+def modifier_dossier_securite(
+    session: Session,
+    actor_account: Account,
+    ticket_id: int,
+    *,
+    fields_set: set[str],
+    sous_categorie: str | None = None,
+    violation_donnees_potentielle: bool | None = None,
+    date_decouverte_violation: datetime | None = None,
+    notification_dpo_le: datetime | None = None,
+    notification_cnil_requise: str | None = None,
+    confine_le: datetime | None = None,
+    cause_racine: str | None = None,
+    actions_correctives: str | None = None,
+) -> TicketSecurityDetail:
+    ticket = session.exec(select(Ticket).where(Ticket.id == ticket_id).with_for_update()).first()
+    if not ticket or ticket.anonymise_le is not None:
+        raise HTTPException(404, "Ticket introuvable")
+    if ticket.statut in STATUTS_FINAUX:
+        raise HTTPException(409, "Impossible de modifier le dossier securite d'un ticket ferme ou annule")
+    sec = session.get(TicketSecurityDetail, ticket.id)
+    if not sec:
+        raise HTTPException(404, "Aucun dossier de securite sur ce ticket")
+
+    if "sous_categorie" in fields_set:
+        if sous_categorie is not None and sous_categorie not in SOUS_CATEGORIES_SECURITE:
+            raise HTTPException(422, "Sous-categorie securite invalide")
+        sec.sous_categorie = sous_categorie
+
+    if "notification_cnil_requise" in fields_set:
+        if notification_cnil_requise is not None and notification_cnil_requise not in CNIL_STATUTS:
+            raise HTTPException(422, "Statut notification CNIL invalide (a_evaluer, oui ou non)")
+        sec.notification_cnil_requise = notification_cnil_requise
+
+    if "date_decouverte_violation" in fields_set:
+        sec.date_decouverte_violation = _to_utc_naive(date_decouverte_violation)
+    if "notification_dpo_le" in fields_set:
+        sec.notification_dpo_le = _to_utc_naive(notification_dpo_le)
+    if "confine_le" in fields_set:
+        sec.confine_le = _to_utc_naive(confine_le)
+
+    if "violation_donnees_potentielle" in fields_set and violation_donnees_potentielle is not None:
+        if violation_donnees_potentielle and ticket.niveau_securite != "incident":
+            raise HTTPException(409, "Une violation potentielle de donnees ne peut etre declaree que sur un incident confirme")
+        sec.violation_donnees_potentielle = violation_donnees_potentielle
+        if violation_donnees_potentielle and sec.notification_cnil_requise is None:
+            sec.notification_cnil_requise = "a_evaluer"
+
+    if sec.violation_donnees_potentielle and sec.date_decouverte_violation is None:
+        raise HTTPException(422, "date_decouverte_violation est obligatoire quand une violation potentielle est cochee")
+
+    if "cause_racine" in fields_set:
+        sec.cause_racine = nettoyer_texte(cause_racine, 3000, requis=False, champ="cause_racine")
+    if "actions_correctives" in fields_set:
+        sec.actions_correctives = nettoyer_texte(actions_correctives, 3000, requis=False, champ="actions_correctives")
+
+    ticket.maj_le = utcnow()
+    session.add(sec)
+    session.add(ticket)
+    session.commit()
+    session.refresh(sec)
+    audit(audit_actor(actor_account), "ticket_securite_maj", target=ticket.reference, detail=f"violation={sec.violation_donnees_potentielle}")
+    return sec
+
+
+def destinataires_alerte_securite(session: Session) -> list[str]:
+    """Adresses e-mail des administrateurs informatiques actifs (hors donnees sensibles)."""
+    rows = session.exec(
+        select(Account).where(Account.role == Role.informatique, Account.actif == True)  # noqa: E712
+    ).all()
+    return sorted({a.email.strip() for a in rows if a.email and "@" in a.email})
+
+
+def alerter_securite_en_fond(ticket_id: int, reference: str, criticite: str, evenement: str, destinataires: list[str]) -> None:
+    for dest in destinataires:
+        envoyer_notification_ticket(ticket_id, reference, criticite, evenement, dest, est_it=True)
 
 
 def calculer_mtta_sec(ticket: Ticket) -> int | None:
@@ -670,6 +861,23 @@ def anonymiser_ticket(session: Session, ticket: Ticket, now: datetime | None = N
     for comment in session.exec(select(TicketComment).where(TicketComment.ticket_id == ticket.id)).all():
         session.delete(comment)
 
+    sec = session.get(TicketSecurityDetail, ticket.id)
+    if sec:
+        if sec.qualification_sec is None and sec.qualifie_le and sec.signale_le:
+            sec.qualification_sec = max(0, int((sec.qualifie_le - sec.signale_le).total_seconds()))
+        sec.qualifie_par_account_id = None
+        sec.escalade_par_account_id = None
+        if not sec.violation_donnees_potentielle:
+            sec.cause_racine = None
+            sec.actions_correctives = None
+            sec.signale_le = _debut_mois(sec.signale_le)
+            sec.qualifie_le = _debut_mois(sec.qualifie_le)
+            sec.escalade_le = _debut_mois(sec.escalade_le)
+            sec.confine_le = _debut_mois(sec.confine_le)
+            sec.date_decouverte_violation = _debut_mois(sec.date_decouverte_violation)
+            sec.notification_dpo_le = _debut_mois(sec.notification_dpo_le)
+        session.add(sec)
+
     if ticket.statut not in STATUTS_FINAUX:
         if ticket.en_attente_depuis is not None:
             ticket.duree_attente_sec += max(0, int((now - ticket.en_attente_depuis).total_seconds()))
@@ -733,29 +941,67 @@ def candidats_tickets_clos(session: Session, today: date | None = None) -> list[
     return [t for t in rows if t.ferme_le and add_months(t.ferme_le.date(), retention) <= today]
 
 
+def purger_violations_echues(session: Session, actor: str, today: date | None = None) -> int:
+    """Efface cause_racine/actions_correctives et ramene les dates au mois sur les dossiers violation echus."""
+    from .purge import add_months
+
+    today = today or date.today()
+    retention = retention_violations_mois(session)
+    rows = session.exec(
+        select(TicketSecurityDetail)
+        .join(Ticket, Ticket.id == TicketSecurityDetail.ticket_id)
+        .where(
+            Ticket.anonymise_le != None,  # noqa: E711
+            TicketSecurityDetail.violation_donnees_potentielle == True,  # noqa: E712
+        )
+        .order_by(TicketSecurityDetail.ticket_id)
+        .with_for_update()
+    ).all()
+    count = 0
+    for sec in rows:
+        if sec.cause_racine is None and sec.actions_correctives is None and (sec.signale_le is None or sec.signale_le.day == 1):
+            continue
+        ref_dt = sec.date_decouverte_violation or sec.signale_le
+        if ref_dt and add_months(ref_dt.date(), retention) <= today:
+            sec.cause_racine = None
+            sec.actions_correctives = None
+            sec.signale_le = _debut_mois(sec.signale_le)
+            sec.qualifie_le = _debut_mois(sec.qualifie_le)
+            sec.escalade_le = _debut_mois(sec.escalade_le)
+            sec.confine_le = _debut_mois(sec.confine_le)
+            sec.date_decouverte_violation = _debut_mois(sec.date_decouverte_violation)
+            sec.notification_dpo_le = _debut_mois(sec.notification_dpo_le)
+            session.add(sec)
+            count += 1
+    if count:
+        session.commit()
+        audit(actor, "rgpd_purge_violations", detail=f"{count} dossier(s) violation purges")
+    return count
+
+
 def purger_tickets_clos(
     session: Session,
     actor: str,
     ids: list[int] | None = None,
     today: date | None = None,
 ) -> int:
-    """Anonymise les tickets clos eligibles (ids=None : tous les eligibles ; ids=[] : aucun)."""
+    """Anonymise les tickets clos eligibles (ids=None : tous les eligibles ; ids=[] : aucun) et purge les violations echues."""
     selection = candidats_tickets_clos(session, today)
     if ids is not None:
         wanted = set(ids)
         selection = [t for t in selection if t.id in wanted]
-    if not selection:
-        return 0
-    now = utcnow()
-    locked_ids = [t.id for t in selection]
-    locked = session.exec(select(Ticket).where(Ticket.id.in_(locked_ids)).order_by(Ticket.id).with_for_update()).all()
     count = 0
-    for ticket in locked:
-        if anonymiser_ticket(session, ticket, now):
-            count += 1
-    session.commit()
-    if count:
-        from . import purge as purge_svc
-        audit(actor, "rgpd_purge_tickets", detail=f"{count} ticket(s) anonymise(s)")
-        purge_svc.deplacer_en_attente(session, actor)
+    if selection:
+        now = utcnow()
+        locked_ids = [t.id for t in selection]
+        locked = session.exec(select(Ticket).where(Ticket.id.in_(locked_ids)).order_by(Ticket.id).with_for_update()).all()
+        for ticket in locked:
+            if anonymiser_ticket(session, ticket, now):
+                count += 1
+        session.commit()
+        if count:
+            from . import purge as purge_svc
+            audit(actor, "rgpd_purge_tickets", detail=f"{count} ticket(s) anonymise(s)")
+            purge_svc.deplacer_en_attente(session, actor)
+    purger_violations_echues(session, actor, today)
     return count

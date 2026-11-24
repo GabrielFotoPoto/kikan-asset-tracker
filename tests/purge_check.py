@@ -118,18 +118,18 @@ def audit_rows():
 
 print("== Reglages (jamais codes en dur) ==")
 s, r = j("GET", "/rgpd/retention")
-show("valeurs par defaut : 12 mois, 30 jours de grace, 24 mois tickets clos",
-     s == 200 and r == {"mois": 12, "delai_grace_jours": 30, "retention_tickets_clos_mois": 24}, r)
+show("valeurs par defaut : 12 mois, 30 jours de grace, 24 mois tickets clos, 60 mois violations",
+     s == 200 and r == {"mois": 12, "delai_grace_jours": 30, "retention_tickets_clos_mois": 24, "retention_violations_mois": 60}, r)
 for body, name in (({"mois": -1}, "duree negative"), ({"mois": 241}, "duree trop longue"),
                    ({"mois": 12, "delai_grace_jours": 366}, "delai de grace trop long"), ({"mois": 12, "delai_grace_jours": -1}, "delai negatif")):
     s, _ = j("PUT", "/rgpd/retention", body)
     show(f"{name} refusee (422)", s == 422, f"HTTP {s}")
 s, r = j("PUT", "/rgpd/retention", {"mois": 18, "delai_grace_jours": 7})
 show("duree et delai de grace modifiables",
-     s == 200 and r == {"mois": 18, "delai_grace_jours": 7, "retention_tickets_clos_mois": 24}, r)
+     s == 200 and r == {"mois": 18, "delai_grace_jours": 7, "retention_tickets_clos_mois": 24, "retention_violations_mois": 60}, r)
 s, r = j("PUT", "/rgpd/retention", {"mois": 36})
 show("le delai de grace est conserve si on ne l'envoie pas",
-     r == {"mois": 36, "delai_grace_jours": 7, "retention_tickets_clos_mois": 24}, r)
+     r == {"mois": 36, "delai_grace_jours": 7, "retention_tickets_clos_mois": 24, "retention_violations_mois": 60}, r)
 show("les changements de reglage sont journalises", any(x.get("action") == "rgpd_retention" for x in audit_rows()))
 
 print("== Previsualisation et purge selective ==")

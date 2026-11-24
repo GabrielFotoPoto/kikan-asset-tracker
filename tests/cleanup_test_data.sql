@@ -57,7 +57,7 @@ DELETE FROM purge_documents;
 DELETE FROM import_lots;
 DELETE FROM revue_lignes;
 DELETE FROM revues_acces;
-DELETE FROM settings WHERE key IN ('retention_apres_sortie_mois', 'purge_delai_grace_jours', 'retention_tickets_clos_mois');
+DELETE FROM settings WHERE key IN ('retention_apres_sortie_mois', 'purge_delai_grace_jours', 'retention_tickets_clos_mois', 'retention_violations_mois');
 DELETE FROM settings WHERE key LIKE 'tickets\_%' OR key LIKE 'pj\_%';
 DELETE FROM settings WHERE key = 'remise_inclure_acces';
 DELETE FROM settings WHERE key = 'app_icone';

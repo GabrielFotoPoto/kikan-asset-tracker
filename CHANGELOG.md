@@ -6,6 +6,13 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Ajouté
+- **Lot G2 (#176) - Événements et escalade en incident de sécurité** :
+  - **Migration `0028_tickets_securite`** : table isolée `ticket_security_details` (1-1 avec `tickets`, réservée au rôle `informatique`).
+  - **Cycle sécurité (`backend/app/tickets.py`, `/tickets/{id}/securite*`)** : dossier créé dès le signalement (`signale`), transitions `aucun -> signale -> incident / sans_suite`, rétrogradation tracée (refusée tant qu'une violation de données est cochée), aucun retour à `aucun`, alerte e-mail immédiate sans texte libre, suivi 72 h DPO/CNIL (RGPD art. 33) bloquant la clôture tant que `notification_cnil_requise == a_evaluer`, étanchéité complète (`403` pour `demandeur`, `rh` et `lecture`).
+  - **Purge RGPD intégrée dès G2** : réglage `retention_violations_mois` (60 mois par défaut, 12..120) ; effacement de `cause_racine`/`actions_correctives` et dates au mois lors de l'anonymisation d'un incident sans violation, conservation documentaire pour les dossiers avec violation de données (tout en coupant les liens comptes/salarié).
+  - **Interface IT** : panneau *Sécurité et dossier d'investigation* dans `TicketDetail.jsx` et durée `retention_violations_mois` dans `Rgpd.jsx`.
+  - **Vérifié** : suite `tests/tickets_securite_check.py`, non-régression sur `kiktest` (`portail_demandeur_check`, `tickets_check`, `purge_check`, `index_check`), tests et build frontend (`node:24-alpine`).
+  - **Non vérifié** : parcours manuel dans un navigateur réel, validation DPO de la durée par défaut (60 mois).
 - **Lot G4a (#178) - Portail salarié (rôle `demandeur`) et comptes locaux** :
   - **Migration `0027_role_demandeur_et_user_id`** : ajout de la valeur `demandeur` au type énuméré PostgreSQL `role` (hors transaction) et colonne unique `accounts.user_id` (`FK users.id ON DELETE SET NULL`).
   - **Isolation stricte et refus par défaut** : dépendance unique `demandeur_dep` (filtre SQL `WHERE tickets.user_id = :id`, `user_id` non nul et salarié actif vérifiés à chaque requête, `404` hors périmètre), liste blanche stricte `ALLOWED_FOR_DEMANDEUR` dans `get_current_account` (`403` journalisé pour tout le reste de l'API), portée par entité toujours vide dans `compute_scope`, claim JWT `act` + helper `audit_actor(account)` enregistrant `dem-<id>` dans `AuditLog` (jamais d'identifiant ni d'e-mail salarié).
