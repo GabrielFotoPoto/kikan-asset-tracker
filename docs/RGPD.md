@@ -61,6 +61,10 @@ Un **modèle de registre des activités de traitement** (article 30 du RGPD), pr
 - Pendant le délai de grace, le nom du fichier en quarantaine contient encore le nom du salarié (il est identique à celui d'origine).
 - Les chartes d'usage et les autres documents de l'organisation ne sont pas concernés.
 
+## Évolution prévue (v0.9 - Tickets, non encore implémentée)
+
+La spécification de la gestion native de tickets ([TICKETS.md](TICKETS.md), §12) prévoit d'intégrer les tickets et leurs pièces jointes à cette page *RGPD* : suppression des commentaires, mise en quarantaine (`A_PURGER/`) des pièces jointes et anonymisation des textes libres (`titre`, `description`, `user_id`) tout en conservant les métriques anonymes (MTTA, MTTR, fiabilité par modèle, compteurs sécurité). À l'échéance de conservation après sortie, plus aucune donnée personnelle du salarié ne subsiste : liens vers le compte, le matériel et la remise coupés, compte du portail supprimé, textes libres effacés. Une durée dédiée aux tickets clos (24 mois par défaut, réglable) complétera la conservation après sortie, et les lignes anonymisées seront elles-mêmes supprimées après une durée de conservation des statistiques (5 ans par défaut, réglable de 1 à 10 ans). À l'anonymisation, la référence du ticket est remplacée et les dates sont ramenées au mois. Exception : le dossier d'un incident avec violation de données (article 33.5) suit une durée propre (60 mois par défaut, à valider avec le DPO).
+
 ## Tests
 
 `tests/purge_check.py` (réglages, quarantaine, suppression, restauration, GED, rappels) et `tests/verrous_check.py` (double clic) ; voir

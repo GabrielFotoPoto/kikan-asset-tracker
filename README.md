@@ -656,6 +656,7 @@ PR, vérification, revues sécurité et RGPD) est dans le projet GitHub
   purge RGPD (E10, **fait**), MFA locale (E1), certificat de scellement reconnu et clé dans un coffre (E2), journal d'audit chaîné (E3),
   tests unitaires et d'interface (E6 ; les suites d'intégration dans une pile séparée sont **faites**), accessibilité (E8 ; le thème sombre est **fait**).
 - **Parcours guidés** (SPEC §6.3bis) : parcours de départ guidé (lot 1, **fait**), matériel non restitué et clôture de départ sans matériel (lot 1bis, **fait**).
+- **v0.9 - gestion de tickets native et portail salarié** (milestone `v0.9 - Tickets`, cadrage détaillé dans [docs/TICKETS.md](docs/TICKETS.md)) : socle tickets natif IT (G1, `#175`), événements et escalade en incident de sécurité (G2, `#176`), gestion transversale des pièces jointes (G3, `#177`), portail salarié `demandeur` et comptes locaux (G4a, `#178`), extension SSO Entra ID pour les salariés (G4b, `#181`), statistiques et KPI (G6, `#180`), API d'intégration tickets (G7, `#182`), connecteur Active Directory local LDAPS (G5, `#179`, dernier lot). Chaque lot livre sa propre purge RGPD.
 
 ## Développement et intégration continue
 

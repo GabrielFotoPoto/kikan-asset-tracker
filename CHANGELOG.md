@@ -6,6 +6,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Modifié
+- **Cadrage de la gestion de tickets native (v0.9)** : spécification détaillée dans [docs/TICKETS.md](docs/TICKETS.md) (rôle `demandeur` et portail salarié, isolation et refus par défaut, niveau de sécurité à un seul champ, pièces jointes, pilotage par l'API `/v1`, tickets par e-mail en brique externe, statistiques réservées à l'informatique, anonymisation et durées de conservation RGPD), cinq diagrammes BPMN 2.0 dans `docs/processus/`, lots G1 à G7 (`#175` à `#182`) ajoutés au SPEC (§13, §14) et au README, évolution prévue mentionnée dans [docs/RGPD.md](docs/RGPD.md). Le cadrage a été relu contre le code existant, sans exécution. **Documentation seule : aucun code, aucune migration, aucun changement de comportement.**
 - **Feuille de route du README alignée sur le SPEC** : ajout des lots déjà livrés qui n'y figuraient pas (C6, D5, D6, D7, E9, E10, parcours de départ lots 1 et 1bis), doublon E5 retiré, E3 décrit comme « journal d'audit chaîné », lien vers le projet GitHub [Kikan - feuille de route](https://github.com/users/GabrielFotoPoto/projects/1) qui suit chaque lot (statut, version, PR, vérification, revues sécurité et RGPD). Documentation seule, aucun changement de comportement.
 - **Dépendances mises à jour** (chacune testée par la CI avant fusion) : `fastapi` 0.163.1, `pydantic-settings` 2.16.3, `pypdf` 7.1.0, `sqlmodel` 0.0.50 (#173) et image de construction `node:24-alpine` du frontend (nouvelle empreinte, #172). Aucun changement de comportement attendu.
 
