@@ -41,8 +41,8 @@ DELETE FROM integration_runs;
 UPDATE assignments SET policy_id = NULL WHERE policy_id IN (SELECT id FROM policies WHERE titre LIKE 'ZZ%');
 DELETE FROM policies WHERE titre LIKE 'ZZ%' OR entite_id IN (SELECT id FROM entite WHERE code LIKE 'ZZ%');
 DELETE FROM entite WHERE code LIKE 'ZZ%';
-DELETE FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE 'zz%' OR username LIKE '%@exemple.test' OR sso_upn LIKE '%@exemple.test';
-DELETE FROM settings WHERE key LIKE 'sso\_%' OR key = 'session_ttl_min';
+DELETE FROM accounts WHERE username LIKE 'sec\_%' OR username LIKE 'zz%' OR username LIKE 'ldap-%' OR username LIKE '%@exemple.test' OR sso_upn LIKE '%@exemple.test';
+DELETE FROM settings WHERE key LIKE 'sso\_%' OR key LIKE 'ldap\_%' OR key = 'session_ttl_min';
 -- Les types d'actifs et services s'enrichissent seuls (liste souple) : on retire ceux qui ne servent plus.
 -- (Instance de developpement uniquement : cela retire aussi un type ou service cree a la main et inutilise.)
 DELETE FROM besoin_categories WHERE nom LIKE 'ZZ%';

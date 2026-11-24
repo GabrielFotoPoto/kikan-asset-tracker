@@ -1,7 +1,7 @@
 # Spécification fonctionnelle et technique - Gestion de tickets native (v0.9)
 
-> **Statut** : lots `G1`, `G2`, `G3`, `G4a`, `G4b`, `G6` et `G7` livrés et fusionnés sur `main` (migrations `0025` à `0029`, suites automatisées vertes). Seul le lot conditionnel `G5` (`#179`, AD local LDAP/LDAPS) reste à implémenter.
-> **Milestone GitHub** : `v0.9 - Tickets` (7/8 issues fermées dans le projet *Kikan - feuille de route*).
+> **Statut** : tous les lots de la v0.9 (`G1`, `G2`, `G3`, `G4a`, `G4b`, `G5`, `G6`, `G7`) sont livrés (migrations `0025` à `0030`, suites automatisées vertes).
+> **Milestone GitHub** : `v0.9 - Tickets` (8/8 issues dans le projet *Kikan - feuille de route*).
 > **Date** : 2026-11-24.
 
 ---
@@ -596,7 +596,7 @@ Conformément aux pratiques de Kikan (pile isolée `kiktest`, aucune touche à l
 | **G4b** | `#181` - Extension SSO Entra ID pour les salariés | **Livré** (PR `#189`) | Rôle `Kikan.Demandeur`, option membre du tenant, liaison par `sso_oid`, invités exclus, règles de combinaison du §3.4 | G4a |
 | **G6** | `#180` - Statistiques et KPI tickets | **Livré** (PR `#188`) | Onglet KPI natif dans *Statistiques* réservé à `informatique` (aucun outil externe embarqué), exports CSV et Excel sans PII, chiffres tickets dans le rapport mensuel, durée de conservation des statistiques (suppression des lignes anonymisées). Reportés après la v0.9 : export PDF, taux de respect des cibles, sortie `/v1` pour outils externes | G1, G2 |
 | **G7** | `#182` - API d'intégration tickets | **Livré** (PR `#190`) | Routes `/v1/tickets*`, droits `tickets_lecture` / `tickets_ecriture` / `tickets_interne`, idempotence, désignation du salarié par adresse e-mail, champs `canal` et `demandeur_verifie`, `docs/API.md`, `docs/TICKETS-EMAIL.md`, tests de parité (§8bis) | G1, G3 |
-| **G5** | `#179` - Connecteur Active Directory local (LDAP / LDAPS) | **À venir** | Auth LDAPS/StartTLS, connexion en variables d'environnement, rôle `demandeur` seul (groupe AD autorisé facultatif), `docs/AD-LDAP.md`, tests annuaire simulé | G4a |
+| **G5** | `#179` - Connecteur Active Directory local (LDAP / LDAPS) | **Livré** | Auth LDAPS/StartTLS, connexion en variables d'environnement, rôle `demandeur` seul (groupe AD autorisé facultatif), `docs/AD-LDAP.md`, tests annuaire simulé | G4a |
 
 **Règles du découpage**
 - **Chaque lot livre sa propre purge RGPD.** Aucun lot ne met en service une donnée personnelle sans le moyen de l'effacer : il n'y a plus de lot « purge complète » en fin de parcours.

@@ -48,6 +48,7 @@ from .routers import (
     integrations,
     glpi_admin,
     api_v1,
+    ldap_admin,
     lifecycle,
     mail_admin,
     parametres,
@@ -202,3 +203,4 @@ app.include_router(glpi_admin.router)
 app.include_router(api_v1.router)
 app.include_router(tickets_router.router)
 app.include_router(portail.router)
+app.include_router(ldap_admin.router)

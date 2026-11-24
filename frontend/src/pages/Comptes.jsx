@@ -205,11 +205,11 @@ export default function Comptes() {
                     ) : scopeLabel(a, entites)}
                   </td>
                   <td>
-                    {a.source_auth === "sso" ? <span className="badge">Microsoft 365</span> : a.sso_lie ? <span className="badge">local + Microsoft 365</span> : <span className="badge">local</span>}
+                    {a.source_auth === "sso" ? <span className="badge">Microsoft 365</span> : a.source_auth === "ldap" ? <span className="badge">AD / LDAP</span> : a.sso_lie ? <span className="badge">local + Microsoft 365</span> : <span className="badge">local</span>}
                     {a.sso_upn && <div className="muted">{a.sso_upn}{a.sso_lie ? "" : " (liaison en attente)"}</div>}
                   </td>
                   <td>
-                    {a.source_auth === "sso" ? "-" : (
+                    {a.source_auth === "sso" || a.source_auth === "ldap" ? "-" : (
                       <input type="checkbox" checked={a.secours} title="Compte de secours : connexion par mot de passe autorisee quand le SSO est actif"
                              onChange={(e) => update(a, { secours: e.target.checked }, `Compte ${a.username} : secours ${e.target.checked ? "active" : "retire"}.`)} />
                     )}
@@ -229,15 +229,15 @@ export default function Comptes() {
                       ) : (
                         <>
                           <button className="ghost" onClick={() => setEditing({ id: a.id, nom_affiche: a.nom_affiche || "", email: a.email || "", role: a.role, portee: { globale: a.role !== "informatique" && a.portee_globale, ids: a.entites || [] } })}>Modifier</button>
-                          {a.source_auth !== "sso" && <ConfirmButton confirmLabel="Confirmer la reinitialisation" onConfirm={() => reset(a)}>Reinitialiser le mot de passe</ConfirmButton>}
-                          {a.source_auth !== "sso" && !a.sso_lie && (linking && linking.id === a.id ? (
+                          {a.source_auth === "local" && <ConfirmButton confirmLabel="Confirmer la reinitialisation" onConfirm={() => reset(a)}>Reinitialiser le mot de passe</ConfirmButton>}
+                          {a.source_auth === "local" && !a.sso_lie && (linking && linking.id === a.id ? (
                             <span className="row">
                               <input value={linking.upn} placeholder="prenom.nom@domaine" onChange={(e) => setLinking({ ...linking, upn: e.target.value })} />
                               <button onClick={async () => { await link(a, linking.upn); setLinking(null); }}>Lier</button>
                               <button className="ghost" onClick={() => setLinking(null)}>Annuler</button>
                             </span>
                           ) : <button className="ghost" onClick={() => setLinking({ id: a.id, upn: a.sso_upn || "" })}>Lier a Microsoft 365</button>)}
-                          {a.source_auth !== "sso" && (a.sso_lie || a.sso_upn) && (
+                          {a.source_auth === "local" && (a.sso_lie || a.sso_upn) && (
                             <ConfirmButton confirmLabel="Confirmer" onConfirm={() => unlink(a)}>Delier de Microsoft 365</ConfirmButton>
                           )}
                           {a.actif
