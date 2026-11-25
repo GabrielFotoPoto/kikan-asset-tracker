@@ -32,7 +32,7 @@ entités et de leurs sous-entités. Ce qui est hors de leur périmètre n'appara
 - Saisissez votre **identifiant** et votre **mot de passe** (12 caractères minimum pour un compte local). Selon la configuration de votre organisation :
   - **Microsoft 365 (SSO Entra ID)** : un bouton de connexion dédié apparaît (utilisable pour l'informatique, les RH et le portail salarié).
   - **Active Directory local (LDAP / LDAPS)** : pour le portail salarié (`demandeur`), saisissez directement votre identifiant et mot de passe d'entreprise dans le formulaire de connexion.
-  - **Compte local** : pour un salarié sans annuaire, l'informatique crée son compte portail (depuis *Utilisateurs*) avec un **lien d'activation valable 72 heures** (réglable) ou un mot de passe provisoire à changer dès la première connexion.
+  - **Compte local** : pour un salarié sans annuaire, l'informatique crée son compte portail (depuis *Utilisateurs*) avec un **mot de passe provisoire** affiché une seule fois, à changer dès la première connexion (l'API `POST /users/{id}/compte-demandeur` propose aussi un mode `lien` par e-mail valable 72 heures par défaut).
 - **Mot de passe oublié ?** (si le lien est proposé, comptes locaux) : saisissez votre identifiant ; un lien valable 30 minutes, à usage unique, est envoyé à l'adresse e-mail de votre compte.
   Sinon, demandez à l'informatique de réinitialiser votre mot de passe (page *Comptes*).
 - **Changer son mot de passe** : menu **Mon compte** (comptes locaux uniquement). Vos autres sessions ouvertes sont alors fermées.
