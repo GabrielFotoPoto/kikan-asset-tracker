@@ -11,7 +11,8 @@ Le connecteur Active Directory local est **facultatif** et strictement **reserve
 - **Chiffrement obligatoire en production** : seul `ldaps` (port 636) ou `starttls` (port 389) est accepte. Le certificat serveur est toujours verifie (`ssl.CERT_REQUIRED`).
 - **Bind en deux temps** : compte de service en lecture seule -> recherche du DN exact (avec echappement strict RFC 4515) -> bind simple avec le DN utilisateur et le mot de passe saisi -> fermeture immediate. Les mots de passe vides sont systematiquement refuses.
 - **Aiguillage strict dans `/auth/login`** : un compte Kikan `local` (y compris les comptes `informatique`, `rh` et secours) est verifie uniquement en local par `bcrypt` ; son mot de passe n'est **jamais** envoye a l'annuaire AD.
-- **Liaison stable par `external_uid`** : a la premiere connexion uniquement, Kikan rattache l'utilisateur a sa fiche salarie active unique par adresse e-mail (conversion sans doublon si un compte local `demandeur` existait deja). Aux connexions suivantes, seul `objectGUID` (`accounts.external_uid`) fait foi.
+- **Liaison stable par `external_uid`** : a la premiere connexion uniquement, Kikan rattache l'utilisateur a sa fiche salarie active unique selon l'attribut de correspondance configure (`mail` ou `userPrincipalName` rapproches de `users.email`, ou `sAMAccountName` rapproche de `users.matricule`), avec conversion sans doublon si un compte local `demandeur` existait deja. Aux connexions suivantes, seul `objectGUID` (`accounts.external_uid`) fait foi.
+  - **Attention (`sAMAccountName`)** : ne choisissez `sAMAccountName` que si votre organisation garantit l'egalite stricte et l'unicite `sAMAccountName = matricule` dans Kikan. Si un identifiant AD (par exemple `1234`) coincide avec le matricule d'un autre salarie, le compte AD serait lie a la mauvaise fiche (acces aux tickets et au materiel de cette personne). En cas de doute, utilisez `mail` ou `userPrincipalName`.
 
 ## 2. Configuration dans `.env`
 
@@ -47,6 +48,5 @@ Kikan limite les tentatives de connexion a **5 echecs** par couple (adresse IP, 
 
 | Symptôme | Cause probable |
 |---|---|
-| `401 Identifiants invalides` | Mot de passe incorrect, utilisateur hors `KIKAN_LDAP_BASE_DN`, ou absent du groupe AD autorise. |
-| `403 Acces non provisionne dans Kikan` | Authentification AD reussie, mais aucune fiche salarie active correspondante, plusieurs fiches actives avec le meme e-mail, ou salarie passe `sorti`. |
+| `401 Identifiants invalides` | Mot de passe incorrect, utilisateur hors `KIKAN_LDAP_BASE_DN`, absent du groupe AD autorise, compte LDAP desactive, aucune fiche salarie active correspondante, plusieurs fiches actives avec le meme attribut, ou salarie passe `sorti` (refus uniforme pour ne jamais confirmer un mot de passe AD valide). |
 | `502 Annuaire LDAP injoignable` au test | Pare-feu, port `636`/`389`, certificat CA manquant dans `./ca`, ou identifiants du compte de service invalides. |

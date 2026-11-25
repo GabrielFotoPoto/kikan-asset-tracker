@@ -119,6 +119,23 @@ seed_conn.strategy.add_entry("CN=Inconnu Kikan,DC=exemple,DC=test", {
     "mail": "zzg5.inconnu@exemple.test",
     "memberOf": [GRP_ALLOWED],
 })
+seed_conn.strategy.add_entry("CN=Local Vers LDAP,DC=exemple,DC=test", {
+    "objectClass": ["user"],
+    "userPassword": "AdPasswordLocal2026!",
+    "objectGUID": b"\x61\x62\x63\x64\x65\x66\x67\x68\x69\x6a\x6b\x6c\x6d\x6e\x6f\x70",
+    "mail": "zzg5.autre.mail@exemple.test",
+    "sAMAccountName": "ZZG5-03",
+    "displayName": "ZZ Local Converti",
+    "memberOf": [GRP_ALLOWED],
+})
+seed_conn.strategy.add_entry("CN=Doublon Mail,DC=exemple,DC=test", {
+    "objectClass": ["user"],
+    "userPassword": "AdPasswordDup2026!",
+    "objectGUID": b"\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90",
+    "mail": "zzg5.dup@exemple.test",
+    "sAMAccountName": "zzg5.dup",
+    "memberOf": [GRP_ALLOWED],
+})
 seed_conn.strategy.add_entry("CN=Local Convert,DC=exemple,DC=test", {
     "objectClass": ["user"],
     "userPassword": "AdPasswordConv2026!",
@@ -194,17 +211,29 @@ try:
     show("mot de passe vide refuse (401) sans aucun appel LDAP",
          s_empty == 401 and ldap_calls["count"] == calls_before, (s_empty, ldap_calls["count"] - calls_before))
 
-    # Tentative d'injection LDAP RFC 4515
-    s_inj, _ = login("*)(|(objectClass=*))", "AdPasswordAlice2026!")
-    show("injection LDAP neutralisee (401)", s_inj == 401, s_inj)
+    # Tentative d'injection LDAP RFC 4515 : prouver que sans echappement le filtre matche Alice,
+    # alors qu'avec l'echappement de ldap_auth.authenticate() il est neutralise (401).
+    inj_payload = "zzg5.alice@exemple.test)(objectClass=*"
+    seed_conn.bind()
+    seed_conn.search(BASE_DN, f"(&(objectClass=user)(mail={inj_payload}))", attributes=["mail"])
+    raw_matched = len(list(seed_conn.entries or [])) == 1
+    s_inj, _ = login(inj_payload, "AdPasswordAlice2026!")
+    show("injection LDAP : filtre brut matche mais authenticate() echappe et neutralise (401)",
+         raw_matched and s_inj == 401, (raw_matched, s_inj))
 
     # Utilisateur hors groupe AD autorise refuse
     s_grp, _ = login("zzg5.bob@exemple.test", "AdPasswordBob2026!")
     show("utilisateur hors groupe AD autorise refuse (401)", s_grp == 401, s_grp)
 
-    # Utilisateur valide dans AD mais sans fiche salarie Kikan -> 403 uniforme
-    s_inc, _ = login("zzg5.inconnu@exemple.test", "AdPasswordInc2026!")
-    show("utilisateur AD sans fiche salarie -> 403 uniforme", s_inc == 403, s_inc)
+    # Utilisateur valide dans AD mais sans fiche salarie Kikan -> 401 uniforme (ne confirme jamais le MDP AD)
+    s_inc, d_inc = login("zzg5.inconnu@exemple.test", "AdPasswordInc2026!")
+    show("utilisateur AD sans fiche salarie -> 401 uniforme", s_inc == 401 and "provisionne" not in str(d_inc).lower(), (s_inc, d_inc))
+
+    # Plusieurs fiches salarie avec le meme e-mail -> refus 401 uniforme
+    j("POST", "/users", {"matricule": "ZZG5-D1", "nom": "ZZG5_D1", "prenom": "ZZ_D1", "email": "zzg5.dup@exemple.test", "entite_id": ent["id"]}, tok_it)
+    j("POST", "/users", {"matricule": "ZZG5-D2", "nom": "ZZG5_D2", "prenom": "ZZ_D2", "email": "zzg5.dup@exemple.test", "entite_id": ent["id"]}, tok_it)
+    s_dup, _ = login("zzg5.dup@exemple.test", "AdPasswordDup2026!")
+    show("plusieurs fiches salarie meme e-mail -> refus 401 uniforme", s_dup == 401, s_dup)
 
     # Connexion nominale Alice (membre Domain Admins -> role demandeur UNIQUEMENT)
     s_ok, r_ok = login("zzg5.alice@exemple.test", "AdPasswordAlice2026!")
@@ -228,14 +257,22 @@ try:
          s_loc_ok == 200 and s_loc_bad == 401 and ldap_calls["count"] == calls_before_local,
          (s_loc_ok, s_loc_bad, ldap_calls["count"] - calls_before_local))
 
-    # Conversion sans doublon d'un compte local demandeur existant -> LDAP
+    # Conversion sans doublon d'un compte local demandeur existant -> LDAP via attribut configure (sAMAccountName -> matricule)
     s_p, acc_loc = j("POST", f"/users/{u_local['id']}/compte-demandeur", {"mode": "mot_de_passe"}, tok_it)
     assert s_p == 201, acc_loc
-    # Simuler connexion AD sur un compte existant (ici l'utilisateur se connecte via son compte local -> reste local)
     calls_before_dem_loc = ldap_calls["count"]
     s_dl, _ = login(acc_loc["username"], acc_loc["mot_de_passe_provisoire"])
     show("compte demandeur local reste verifie localement (pas d'envoi AD)",
          s_dl == 200 and ldap_calls["count"] == calls_before_dem_loc, (s_dl, ldap_calls["count"] - calls_before_dem_loc))
+    # Bascule attribut sur sAMAccountName : liaison par matricule (ZZG5-03) convertit le compte local sans doublon
+    j("PUT", "/admin/ldap", {"actif": True, "attribut": "sAMAccountName", "groupe_dn": GRP_ALLOWED}, tok_it)
+    s_conv, r_conv = login("ZZG5-03", "AdPasswordLocal2026!")
+    _, accs_after = j("GET", "/auth/accounts", token=tok_it)
+    loc_accs = [a for a in accs_after if a["user_id"] == u_local["id"]]
+    show("premiere liaison par attribut configure (sAMAccountName -> matricule) convertit le compte local sans doublon",
+         s_conv == 200 and len(loc_accs) == 1 and loc_accs[0]["source_auth"] == "ldap" and loc_accs[0]["id"] == acc_loc["account_id"],
+         (s_conv, loc_accs))
+    j("PUT", "/admin/ldap", {"actif": True, "attribut": "mail", "groupe_dn": GRP_ALLOWED}, tok_it)
 
     # AuditLog : pseudonyme dem-<id> et zero e-mail salarie LDAP
     _, accounts = j("GET", "/auth/accounts", token=tok_it)
@@ -249,7 +286,21 @@ try:
     show("compte LDAP : lier-sso refuse (409)",
          j("POST", f"/auth/accounts/{a_alice['id']}/lier-sso", {"upn": "zzg5.alice@exemple.test"}, tok_it)[0] == 409)
 
-    # Salarie passe sorti -> connexion LDAP refusee (403 uniforme)
+    # Compte LDAP desactive -> connexion refusee (401 uniforme)
+    j("PUT", f"/auth/accounts/{a_alice['id']}", {"actif": False}, tok_it)
+    s_inact, _ = login("zzg5.alice@exemple.test", "AdPasswordAlice2026!")
+    show("compte LDAP desactive -> connexion refusee (401)", s_inact == 401, s_inact)
+    j("PUT", f"/auth/accounts/{a_alice['id']}", {"actif": True}, tok_it)
+
+    # Hote AD refuse par netguard : login anonyme renvoie 401 sans jamais exposer le nom d'hote
+    prev_hosts = os.environ.get("KIKAN_LDAP_HOSTS", "")
+    os.environ["KIKAN_LDAP_HOSTS"] = "127.0.0.1"
+    s_ng, d_ng = login("zzg5.inconnu2@exemple.test", "AdPasswordInc2026!")
+    os.environ["KIKAN_LDAP_HOSTS"] = prev_hosts
+    show("hote AD refuse par netguard : 401 anonyme sans exposer l'hote",
+         s_ng == 401 and "127.0.0.1" not in str(d_ng), (s_ng, d_ng))
+
+    # Salarie passe sorti -> connexion LDAP refusee (401 uniforme)
     from sqlmodel import Session
     from app.db import engine
     from app.models import EmployeeStatus, User
@@ -259,7 +310,7 @@ try:
         db.add(db_u)
         db.commit()
     s_l_sort, _ = login("zzg5.alice@exemple.test", "AdPasswordAlice2026!")
-    show("salarie sorti -> connexion LDAP refusee (403)", s_l_sort == 403, s_l_sort)
+    show("salarie sorti -> connexion LDAP refusee (401)", s_l_sort == 401, s_l_sort)
 
     _, aud = j("GET", "/audit?limit=300", token=tok_it)
     aud_blob = json.dumps(aud)
