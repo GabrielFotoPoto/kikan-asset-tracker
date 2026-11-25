@@ -5,6 +5,14 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.9.0-rc.1] - 2026-11-25
+
+**Pré-version 0.9.0-rc.1 : à essayer avant la 0.9.0.** Elle contient six **migrations** (`0025` à `0030` : tables de tickets, pièces jointes transversales, rôle `demandeur` et `accounts.user_id`, dossier sécurité, compteur de rétrogradations et `accounts.external_uid` ; aucune perte de données) : **faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.9.0-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` ; les quatre images ensemble. Pour activer le stockage dédié aux pièces jointes (`KIKAN_ATTACHMENTS_*`) ou le connecteur Active Directory (`KIKAN_LDAP_*`), reporter les nouvelles variables depuis `.env.example` et `docker-compose.yml`. Pour revenir en arrière, restaurer la sauvegarde.
+
+**Vérifié** : intégration continue de `main` verte sur `604c8ff` (`CI`, `CodeQL`, `Dependency Graph` - 49 suites de tests automatisés dont la sauvegarde de bout en bout, tests et build frontend sous Node 24, `pip-audit` vierge sur les dépendances ajoutées).
+
+**Non vérifié en conditions réelles** : parcours manuel complet dans un navigateur sur préproduction, migration depuis `0.8.1` sur des données de préproduction, connexion à un vrai tenant Microsoft Entra ID (G4b), connexion à un contrôleur de domaine Active Directory réel (G5), stockage distant dédié aux pièces jointes (G3), exécution du workflow n8n sur une vraie boîte mail (G7), validation DPO des durées de conservation par défaut (`retention_tickets_clos_mois`, `retention_tickets_securite_mois`, `retention_stats_tickets_mois`).
+
 ### Ajouté
 - **Lot G5 (#179) - Connecteur Active Directory local (LDAP / LDAPS)** :
   - **Migration `0030_account_external_uid`** : colonne unique indexée `accounts.external_uid` pour l'identifiant stable Active Directory (`objectGUID`).
@@ -66,6 +74,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
   - **Non vérifié** : parcours complet dans un navigateur réel, exécution de la suite `run_all.sh` intégrale sous Linux/CI, validation DPO de la durée par défaut (24 mois).
 
 ### Modifié
+- **Documentation v0.9 et captures d'écran fictives (#191)** : mise à jour de `README.md`, `SPEC.md`, `docs/TICKETS.md`, `docs/SSO.md` et `.env.example` pour l'ensemble des lots v0.9, et ajout de 5 captures d'écran générées sur des données strictement fictives (`@exemple.test`) dans `docs/captures/` (`tickets-liste.png`, `tickets-detail-securite.png`, `tickets-statistiques.png`, `tickets-portail-demandeur.png`, `tickets-portail-materiel.png`).
 - **Cadrage de la gestion de tickets native (v0.9)** : spécification détaillée dans [docs/TICKETS.md](docs/TICKETS.md) (rôle `demandeur` et portail salarié, isolation et refus par défaut, niveau de sécurité à un seul champ, pièces jointes, pilotage par l'API `/v1`, tickets par e-mail en brique externe, statistiques réservées à l'informatique, anonymisation et durées de conservation RGPD), cinq diagrammes BPMN 2.0 dans `docs/processus/`, lots G1 à G7 (`#175` à `#182`) ajoutés au SPEC (§13, §14) et au README, évolution prévue mentionnée dans [docs/RGPD.md](docs/RGPD.md). Le cadrage a été relu contre le code existant, sans exécution. **Documentation seule : aucun code, aucune migration, aucun changement de comportement.**
 - **Feuille de route du README alignée sur le SPEC** : ajout des lots déjà livrés qui n'y figuraient pas (C6, D5, D6, D7, E9, E10, parcours de départ lots 1 et 1bis), doublon E5 retiré, E3 décrit comme « journal d'audit chaîné », lien vers le projet GitHub [Kikan - feuille de route](https://github.com/users/GabrielFotoPoto/projects/1) qui suit chaque lot (statut, version, PR, vérification, revues sécurité et RGPD). Documentation seule, aucun changement de comportement.
 - **Dépendances mises à jour** (chacune testée par la CI avant fusion) : `fastapi` 0.163.1, `pydantic-settings` 2.16.3, `pypdf` 7.1.0, `sqlmodel` 0.0.50 (#173) et image de construction `node:24-alpine` du frontend (nouvelle empreinte, #172). Aucun changement de comportement attendu.
