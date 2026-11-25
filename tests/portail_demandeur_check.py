@@ -176,6 +176,11 @@ def main():
     st_int_forb, _ = call("POST", f"/tickets/{ta['id']}/commentaires", {"contenu": "hack", "interne": True}, tok_a)
     show("Demandeur A ne peut pas poster de note interne (403)", st_int_forb == 403, f"got {st_int_forb}")
 
+    st_ms_self, _ = call("GET", f"/tickets/materiel-salarie/{ua['id']}", token=tok_a)
+    st_ms_other, _ = call("GET", f"/tickets/materiel-salarie/{ub['id']}", token=tok_a)
+    show("Demandeur A refuse sur GET /tickets/materiel-salarie/{id} (soi et autre -> 403)",
+         st_ms_self == 403 and st_ms_other == 403, f"{st_ms_self},{st_ms_other}")
+
     # Reprise auto en_attente -> en_cours sur reponse publique du demandeur
     call("POST", f"/tickets/{tb['id']}/statut", {"statut": "en_cours"}, tok_it)
     call("POST", f"/tickets/{tb['id']}/statut", {"statut": "en_attente"}, tok_it)
