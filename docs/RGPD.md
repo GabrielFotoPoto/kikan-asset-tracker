@@ -74,7 +74,7 @@ Les tickets, leurs pièces jointes et leurs statistiques anonymes sont intégré
    - **Exception violation de données (art. 33.5)** : sur un dossier sans violation potentielle, `cause_racine` et `actions_correctives` sont effacés dès l'anonymisation ; sur un incident avec violation potentielle, ils sont conservés jusqu'à l'échéance de *Conservation des violations de données* (60 mois par défaut).
 3. **Purge des statistiques de tickets (`POST /rgpd/purge-stats-tickets`)** : supprime définitivement les lignes de tickets anonymisées (et leur dossier sécurité) une fois échue la *Conservation des statistiques de tickets* (60 mois par défaut, prolongée jusqu'à l'échéance violation le cas échéant).
 
-Chaque opération est tracée dans le journal d'audit (`rgpd_purge`, `rgpd_purge_tickets`, `rgpd_purge_violations`, `rgpd_purge_stats_tickets`) par compteurs uniquement, sans donnée personnelle. En complément des rappels RGPD hebdomadaires, tout incident avec violation potentielle sans notification DPO déclenche un rappel automatique toutes les 12 h pour le suivi du délai de 72 h (article 33).
+Chaque opération est tracée dans le journal d'audit (`rgpd_purge`, `rgpd_purge_tickets`, `rgpd_purge_violations`, `rgpd_purge_stats_tickets`) par compteurs uniquement, sans donnée personnelle. En complément des rappels RGPD hebdomadaires, un rappel pour le suivi du délai de 72 h DPO / CNIL (article 33) est envoyé au plus une fois par jour au cycle quotidien des rappels (si l'envoi d'e-mails est configuré), aux comptes informatique destinataires des rappels, pour chaque incident non clos avec violation potentielle sans date de notification DPO ; pas de second envoi dans les 12 h.
 
 ## Tests
 
