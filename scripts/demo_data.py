@@ -412,8 +412,8 @@ def charger():
     need("piece jointe demo", call("POST", f"/tickets/{t3['id']}/pieces-jointes", token=token, raw=pj_body,
                                    headers={"Content-Type": f"multipart/form-data; boundary={pj_boundary}"}))
 
-    mk_ticket(2, "message_suspect", "haute", "Courriel suspect demandant une revalidation du mot de passe",
-              "Message recu d'une adresse externe imitant le support informatique. Aucun lien clique.", signaler_securite=True)
+    t4 = mk_ticket(2, "message_suspect", "haute", "Courriel suspect demandant une revalidation du mot de passe",
+                   "Message recu d'une adresse externe imitant le support informatique. Aucun lien clique.", signaler_securite=True)
 
     t5 = mk_ticket(3, "incident_logiciel", "moyenne", "Erreur d'export PDF dans l'ERP Gestion",
                    "Le bouton d'export mensuel renvoie une erreur de delai depasse.")
@@ -440,7 +440,54 @@ def charger():
     set_statut(t8["id"], "resolu")
     set_statut(t8["id"], "ferme")
 
-    log("Tickets : 8 tickets de demonstration (dont 1 incident securite avec piece jointe et 1 signalement a qualifier) + 1 compte portail demandeur")
+    # Etale les horodatages des tickets de demonstration sur ~2 mois pour des MTTA/MTTR,
+    # anciennetes de stock et evolutions mensuelles realistes dans Statistiques > Tickets.
+    from datetime import datetime, timezone
+    from sqlmodel import Session, select
+    from app.db import engine
+    from app.models import Ticket, TicketComment, TicketSecurityDetail
+    now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+    calendrier = {
+        t8["id"]: (timedelta(days=52), timedelta(hours=2), timedelta(hours=18), timedelta(hours=26), None),
+        t7["id"]: (timedelta(days=34), timedelta(hours=1), timedelta(hours=9), timedelta(hours=24), None),
+        t6["id"]: (timedelta(days=19), timedelta(hours=3), timedelta(hours=14), None, None),
+        t5["id"]: (timedelta(days=11), timedelta(hours=4), None, None, None),
+        t2["id"]: (timedelta(days=4), timedelta(hours=2), None, None, timedelta(hours=5)),
+        t1["id"]: (timedelta(days=3), timedelta(hours=1, minutes=30), None, None, None),
+        t3["id"]: (timedelta(hours=8), timedelta(minutes=30), None, None, None),
+        t4["id"]: (timedelta(hours=3), None, None, None, None),
+    }
+    with Session(engine) as s:
+        for tid, (age, d_rep, d_res, d_fer, d_att) in calendrier.items():
+            tk = s.get(Ticket, tid)
+            if not tk:
+                continue
+            cree = now_dt - age
+            tk.cree_le = cree
+            tk.premiere_reponse_le = (cree + d_rep) if d_rep else None
+            tk.resolu_le = (cree + d_res) if d_res else None
+            tk.ferme_le = (cree + d_fer) if d_fer else None
+            tk.en_attente_depuis = (cree + d_att) if d_att else None
+            dernier = tk.ferme_le or tk.resolu_le or tk.en_attente_depuis or tk.premiere_reponse_le or cree
+            tk.maj_le = dernier
+            tk.maj_publique_le = dernier
+            s.add(tk)
+            comms = s.exec(select(TicketComment).where(TicketComment.ticket_id == tid).order_by(TicketComment.id)).all()
+            for idx_c, cm in enumerate(comms):
+                cm.cree_le = (cree + (d_rep or timedelta(minutes=30)) + timedelta(minutes=15 * idx_c))
+                s.add(cm)
+            sec = s.get(TicketSecurityDetail, tid)
+            if sec:
+                sec.signale_le = cree
+                if sec.qualifie_le:
+                    sec.qualifie_le = cree + timedelta(minutes=20)
+                    sec.qualification_sec = 1200
+                if sec.escalade_le:
+                    sec.escalade_le = cree + timedelta(minutes=20)
+                s.add(sec)
+        s.commit()
+
+    log("Tickets : 8 tickets de demonstration etales sur 2 mois (dont 1 incident securite avec piece jointe et 1 signalement a qualifier) + 1 compte portail demandeur")
 
     log("")
     log("Jeu de demonstration charge : 52 salaries, 6 entites, 6 applications, 77 materiels, 8 tickets, des remises et restitutions signees (PDF scelles).")

@@ -12,6 +12,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
   - **Route `GET /tickets/materiel-salarie/{user_id}`** : réservée au rôle `informatique` (`403` pour `rh`, `lecture`, `demandeur` ; `404` si salarié inexistant), renvoie uniquement les actifs actuellement affectés au salarié sans donnée personnelle superflue.
   - **Interface IT (`frontend/src/pages/Tickets.jsx`)** : lorsqu'un salarié est sélectionné, le menu *Matériel concerné* propose uniquement ses actifs affectés par défaut, avec une case explicite *Autre matériel (hors affectation)* pour rouvrir tout le parc et réinitialisation automatique du matériel au changement de salarié.
 
+### Corrigé
+- **Formatage des dates et libellés de statuts (`frontend/src/format.js`, PR `#202`)** : affichage des horodatages en `JJ/MM/AAAA HH:MM` (portail *Mes tickets*, *Mon matériel*, échanges des tickets) et des dates en `JJ/MM/AAAA` (*Tableau de bord*), avec libellés lisibles pour les statuts de tickets (`Nouveau`, `En cours`, `En attente`, `Résolu`, `Fermé`, `Annulé`), la criticité, la sécurité, le canal et les statuts salarié (`En départ`, `Sorti`).
+
 ## [0.9.1-rc.1] - 2026-11-25
 
 **Pré-version corrective 0.9.1-rc.1 : à essayer avant la 0.9.1.** **Aucune nouvelle migration de base de données** par rapport à la `0.9.0` (alignement des modèles SQLAlchemy/SQLModel avec les migrations `0025` à `0030` existantes et intégration d'`alembic check` à la CI). **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.9.1-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` ; les quatre images ensemble.
