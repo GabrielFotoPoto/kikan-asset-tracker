@@ -555,6 +555,7 @@ def ajouter_commentaire(
     interne: bool = False,
     demandeur_user_id: int | None = None,
     actor_name: str | None = None,
+    compter_premiere_reponse: bool = False,
 ) -> tuple[Ticket, TicketComment]:
     if demandeur_user_id is not None and interne:
         raise HTTPException(403, "Notes internes reservees a l'informatique")
@@ -579,7 +580,8 @@ def ajouter_commentaire(
     ticket.maj_le = now
     if not interne:
         ticket.maj_publique_le = now
-        if ticket.premiere_reponse_le is None and (actor_account is None or actor_account.role == Role.informatique):
+        est_it = (actor_account is not None and actor_account.role == Role.informatique) or compter_premiere_reponse
+        if ticket.premiere_reponse_le is None and est_it:
             ticket.premiere_reponse_le = now
         # Reprise automatique lorsqu'un demandeur repond a un ticket en_attente
         if demandeur_user_id is not None and ticket.statut == "en_attente":
@@ -890,11 +892,12 @@ def anonymiser_ticket(session: Session, ticket: Ticket, now: datetime | None = N
     """
     if ticket.anonymise_le is not None:
         return False
-    from . import attachments as att_svc, purge as purge_svc
+    from . import attachments as att_svc, integration as integ_svc, purge as purge_svc
 
     now = now or utcnow()
     echeance = date.today() + timedelta(days=purge_svc.delai_grace(session))
     att_svc.planifier_purge_attachments(session, "ticket", ticket.id, echeance)
+    integ_svc.retirer_liens(session, "ticket", ticket.id)
 
     for comment in session.exec(select(TicketComment).where(TicketComment.ticket_id == ticket.id)).all():
         session.delete(comment)
@@ -997,7 +1000,12 @@ def purger_violations_echues(session: Session, actor: str, today: date | None = 
     ).all()
     count = 0
     for sec in rows:
-        if sec.cause_racine is None and sec.actions_correctives is None and (sec.signale_le is None or sec.signale_le.day == 1):
+        dates_sec = (
+            sec.signale_le, sec.qualifie_le, sec.escalade_le,
+            sec.confine_le, sec.date_decouverte_violation, sec.notification_dpo_le,
+        )
+        deja_arrondies = all(dt is None or dt == _debut_mois(dt) for dt in dates_sec)
+        if sec.cause_racine is None and sec.actions_correctives is None and deja_arrondies:
             continue
         ref_dt = sec.date_decouverte_violation or sec.signale_le
         if ref_dt and add_months(ref_dt.date(), retention) <= today:

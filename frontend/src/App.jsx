@@ -136,6 +136,7 @@ export default function App() {
               <button className="ghost" style={{ marginTop: 10, color: "#fff", borderColor: "rgba(255,255,255,0.4)" }} onClick={logout}>
                 Deconnexion
               </button>
+              <NavLink className="about-link" to="/a-propos">A propos</NavLink>
             </div>
           </aside>
           <main className="main">

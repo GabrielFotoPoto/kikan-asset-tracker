@@ -21,6 +21,7 @@ Authentification par jeton d'API uniquement (pas de session). Idempotent (cle : 
 100 elements au plus, simulation avec ?dry_run=1. Voir docs/API.md.
 """
 from datetime import date, datetime
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
@@ -193,6 +194,7 @@ class TicketCommentIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     contenu: str = Field(min_length=1, max_length=4000)
     interne: bool = False
+    auteur_type: Literal["demandeur", "it"] = "demandeur"
 
 
 def _ticket_by_ref(session: Session, auth: ApiAuth, reference: str) -> Ticket:
@@ -264,15 +266,17 @@ def _resolve_v1_demandeur(session: Session, auth: ApiAuth, data: TicketPut) -> U
     if data.demandeur_matricule:
         mat = data.demandeur_matricule.strip().lower()
         user = session.exec(
-            auth.scope.users(select(User).where(func.lower(User.matricule) == mat))
+            auth.scope.users(
+                select(User).where(func.lower(User.matricule) == mat, User.statut == EmployeeStatus.actif)
+            )
         ).first()
         if not user:
-            raise HTTPException(422, "Salarie introuvable dans le perimetre")
+            raise HTTPException(422, "Salarie actif introuvable dans le perimetre")
         return user
     link = integration.get_link(session, auth.systeme, "user", data.demandeur_id_externe.strip())
     user = session.get(User, link.kikan_id) if link else None
-    if not user or not auth.scope.allows(user.entite_id):
-        raise HTTPException(422, "Salarie introuvable dans le perimetre")
+    if not user or user.statut != EmployeeStatus.actif or not auth.scope.allows(user.entite_id):
+        raise HTTPException(422, "Salarie actif introuvable dans le perimetre")
     return user
 
 
@@ -387,6 +391,7 @@ def put_ticket_v1(
                 "reference": ticket.reference, "id_externe": ext_id,
                 "canal": ticket.canal, "demandeur_verifie": ticket.demandeur_verifie,
             }
+        niveau_avant = ticket.niveau_securite
         with session.begin_nested():
             tickets_svc.modifier_ticket(
                 session, None, ticket.id,
@@ -397,7 +402,15 @@ def put_ticket_v1(
             session.rollback()
         else:
             session.commit()
+            session.refresh(ticket)
             audit(auth.actor, "ticket_maj", target=ticket.reference, detail=f"id_externe={ext_id}")
+            if niveau_avant == "aucun" and ticket.niveau_securite == "signale":
+                dests = tickets_svc.destinataires_alerte_securite(session)
+                if dests:
+                    background.add_task(
+                        tickets_svc.alerter_securite_en_fond,
+                        ticket.id, ticket.reference, ticket.criticite, "Signalement securite (API)", dests,
+                    )
         return {
             "simulation": dry_run, "resultat": "modifie", "id": None if dry_run else ticket.id,
             "reference": ticket.reference, "id_externe": ext_id,
@@ -449,6 +462,11 @@ def put_ticket_v1(
     session.commit()
     session.refresh(ticket)
     audit(auth.actor, "ticket_creation", target=ticket.reference, detail=f"canal={ticket.canal} nature={ticket.nature_code}")
+    if user and user.email:
+        background.add_task(
+            tickets_svc.envoyer_notification_ticket,
+            ticket.id, ticket.reference, ticket.criticite, "Ticket cree", user.email,
+        )
     if ticket.niveau_securite == "signale":
         dests = tickets_svc.destinataires_alerte_securite(session)
         if dests:
@@ -466,12 +484,22 @@ def put_ticket_v1(
 def change_ticket_statut_v1(
     reference: str,
     data: TicketStatutIn,
+    background: BackgroundTasks,
     auth: ApiAuth = Depends(api_auth),
     session: Session = Depends(get_session),
 ):
     auth.need("tickets_ecriture")
     ticket = _ticket_by_ref(session, auth, reference)
     updated = tickets_svc.changer_statut(session, None, ticket.id, data.statut, actor_name=auth.actor)
+    if updated.statut == "resolu" and updated.user_id:
+        user = session.get(User, updated.user_id)
+        if user and user.email:
+            cloture_j = tickets_svc.cloture_auto_jours(session)
+            background.add_task(
+                tickets_svc.envoyer_notification_ticket,
+                updated.id, updated.reference, updated.criticite, "Ticket resolu", user.email,
+                cloture_jours=cloture_j if updated.niveau_securite not in ("signale", "incident") else None,
+            )
     ents = {e.id: e.code for e in session.exec(select(Entite)).all()}
     link = integration.link_of(session, auth.systeme, "ticket", updated.id)
     return _ticket_v1_dict(updated, ents=ents, id_externe=link.externe_id if link else None)
@@ -481,6 +509,7 @@ def change_ticket_statut_v1(
 def add_ticket_comment_v1(
     reference: str,
     data: TicketCommentIn,
+    background: BackgroundTasks,
     auth: ApiAuth = Depends(api_auth),
     session: Session = Depends(get_session),
 ):
@@ -488,9 +517,27 @@ def add_ticket_comment_v1(
     if data.interne:
         auth.need("tickets_interne")
     ticket = _ticket_by_ref(session, auth, reference)
-    _, comment = tickets_svc.ajouter_commentaire(
-        session, None, ticket.id, contenu=data.contenu, interne=data.interne, actor_name=auth.actor,
+    est_reponse_it = (not data.interne) and (data.auteur_type == "it")
+    updated, comment = tickets_svc.ajouter_commentaire(
+        session, None, ticket.id, contenu=data.contenu, interne=data.interne,
+        actor_name=auth.actor, compter_premiere_reponse=est_reponse_it,
     )
+    if not comment.interne:
+        if data.auteur_type == "it" and updated.user_id:
+            user = session.get(User, updated.user_id)
+            if user and user.email:
+                background.add_task(
+                    tickets_svc.envoyer_notification_ticket,
+                    updated.id, updated.reference, updated.criticite, "Nouvelle reponse de l'informatique", user.email,
+                )
+        elif data.auteur_type == "demandeur" and updated.assigne_a_account_id:
+            from ..models import Account as _Acc
+            ass = session.get(_Acc, updated.assigne_a_account_id)
+            if ass and ass.email:
+                background.add_task(
+                    tickets_svc.envoyer_notification_ticket,
+                    updated.id, updated.reference, updated.criticite, "Nouvelle reponse du salarie", ass.email, est_it=True,
+                )
     return {"id": comment.id, "interne": comment.interne, "cree_le": comment.cree_le}
 
 

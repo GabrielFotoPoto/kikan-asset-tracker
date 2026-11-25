@@ -267,5 +267,32 @@ show("GET pieces jointes renvoie la PJ deposee", s_lpj == 200 and len(lpj) == 1,
 s_svg, _ = multipart_upload(f"/v1/tickets/{ref1}/pieces-jointes", "xss.svg", b"<svg></svg>", "image/svg+xml", tok_rw_a)
 show("POST piece jointe SVG interdite -> 415/422", s_svg in (415, 422), s_svg)
 
+print("== 8. MTTA non fausse par /v1 et suppression ExternalLink a l'anonymisation ==")
+s_cm, cm = j("PUT", "/v1/tickets/EXT-API-MTTA", {
+    "nature_code": "panne_materiel", "titre": "ZZ MTTA /v1",
+    "description": "Test premiere reponse API", "criticite": "moyenne",
+    "demandeur_matricule": "ZZG7-A1", "canal": "email",
+}, tok_rw_a)
+ref_mtta = cm["reference"]
+j("POST", f"/v1/tickets/{ref_mtta}/commentaires", {"contenu": "Relais reponse salarie via API", "interne": False}, tok_rw_a)
+s_det_mtta, det_mtta = j("GET", f"/tickets/{cm['id']}", token=tok_it)
+show("Commentaire public via /v1 ne renseigne pas premiere_reponse_le (MTTA non fausse)",
+     s_det_mtta == 200 and det_mtta["premiere_reponse_le"] is None, det_mtta.get("premiere_reponse_le"))
+
+# Anonymisation directe du ticket -> ExternalLink supprime immediatement
+j("POST", f"/v1/tickets/{ref_mtta}/statut", {"statut": "en_cours"}, tok_rw_a)
+j("POST", f"/v1/tickets/{ref_mtta}/statut", {"statut": "resolu"}, tok_rw_a)
+j("POST", f"/v1/tickets/{ref_mtta}/statut", {"statut": "ferme"}, tok_rw_a)
+from app.db import engine as _eng
+from app.models import ExternalLink as _ExtLink, Ticket as _Tkt
+from app import tickets as _tickets_svc
+from sqlmodel import Session as _Sess, select as _sel
+with _Sess(_eng) as _s:
+    _t = _s.get(_Tkt, cm["id"])
+    _tickets_svc.anonymiser_ticket(_s, _t)
+    _s.commit()
+    _links_left = _s.exec(_sel(_ExtLink).where(_ExtLink.objet == "ticket", _ExtLink.kikan_id == cm["id"])).all()
+show("Anonymisation d'un ticket supprime immediatement ses ExternalLink", len(_links_left) == 0, len(_links_left))
+
 print(f"\nResultat : {ok_count} OK, {fail_count} FAIL")
 sys.exit(1 if fail_count else 0)

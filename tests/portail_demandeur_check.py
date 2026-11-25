@@ -207,6 +207,13 @@ def main():
             leaks.append((method, path, st_r))
     show(f"Inventaire complet routes hors liste blanche ({tested_routes} routes) -> toutes 403", len(leaks) == 0, str(leaks[:5]))
 
+    # Page A propos accessible en lecture au demandeur, mais /apropos/mise-a-jour reste 403
+    st_ap, ap_data = call("GET", "/apropos", token=tok_a)
+    st_ap_maj, _ = call("GET", "/apropos/mise-a-jour", token=tok_a)
+    show("GET /apropos accessible au demandeur (200) et /apropos/mise-a-jour refuse (403)",
+         st_ap == 200 and isinstance(ap_data, dict) and "version" in ap_data and st_ap_maj == 403,
+         f"{st_ap},{st_ap_maj}")
+
     # Methodes IT interdites sur chemins partages + creation demandeur via /auth/accounts refusee
     for label, method, path, body in (
         ("POST /tickets/natures", "POST", "/tickets/natures", {"code": "zz_hack", "libelle": "Hack"}),

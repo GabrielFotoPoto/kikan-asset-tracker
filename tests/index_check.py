@@ -62,6 +62,11 @@ with Session(engine) as s:
     version = s.execute(text("SELECT version_num FROM alembic_version")).scalar()
     show("la base est au moins a la revision 0024", version is not None and version >= "0024", version)
 
+import subprocess
+alembic_res = subprocess.run(["alembic", "check"], capture_output=True, text=True)
+show("alembic check : modeles et migrations en concordance exacte",
+     alembic_res.returncode == 0, (alembic_res.stdout + alembic_res.stderr).strip()[:160])
+
 print("")
 print("ECHECS: %d" % fails)
 sys.exit(1 if fails else 0)

@@ -189,6 +189,27 @@ def main():
     show("Purge RGPD : dossier violation echu (> retention_violations_mois) efface",
          s1_after.cause_racine is None and s1_after.actions_correctives is None and s1_after.signale_le.day == 1)
 
+    # 7. Rappel 72 h DPO dans reminders.collect / digests (violation potentielle sans notification_dpo_le)
+    _, t3 = call("POST", "/tickets", {"nature_code": "autre", "titre": "ZZG2 Rappel DPO 72h"}, tok_it)
+    call("POST", f"/tickets/{t3['id']}/securite/niveau", {"niveau_securite": "signale"}, tok_it)
+    call("POST", f"/tickets/{t3['id']}/securite/niveau", {"niveau_securite": "incident"}, tok_it)
+    call("PUT", f"/tickets/{t3['id']}/securite", {
+        "violation_donnees_potentielle": True,
+        "date_decouverte_violation": "2026-06-01T08:00:00",
+    }, tok_it)
+    from app import mailer as _mailer, reminders as _reminders
+    with Session(engine) as s:
+        items_dpo = _reminders.collect(s, _mailer.load_config(s), datetime.now(timezone.utc).date())
+        dpo_lines = [it["ligne"] for it in items_dpo.get("securite_dpo", []) if t3["reference"] in it["ligne"]]
+    show("Rappel 72 h DPO detecte un incident avec violation sans notification_dpo_le (sans texte libre)",
+         len(dpo_lines) == 1 and "ZZG2 Rappel DPO 72h" not in dpo_lines[0], str(dpo_lines))
+    # Une fois notification_dpo_le renseignee, le rappel disparait
+    call("PUT", f"/tickets/{t3['id']}/securite", {"notification_dpo_le": "2026-06-01T10:00:00"}, tok_it)
+    with Session(engine) as s:
+        items_dpo_after = _reminders.collect(s, _mailer.load_config(s), datetime.now(timezone.utc).date())
+        dpo_after = [it["ligne"] for it in items_dpo_after.get("securite_dpo", []) if t3["reference"] in it["ligne"]]
+    show("Rappel 72 h DPO disparait une fois notification_dpo_le renseignee", len(dpo_after) == 0, str(dpo_after))
+
     sys.exit(1 if fails else 0)
 
 

@@ -317,6 +317,10 @@ def is_guest(claims: dict) -> bool:
         return True
     if str(claims.get("idtyp") or "").strip().lower() == "app":
         return True
+    idp = str(claims.get("idp") or "").strip().rstrip("/").lower()
+    iss = str(claims.get("iss") or "").strip().rstrip("/").lower()
+    if idp and iss and idp != iss:
+        return True
     for field in ("preferred_username", "upn", "email"):
         val = str(claims.get(field) or "").lower()
         if "#ext#" in val:
