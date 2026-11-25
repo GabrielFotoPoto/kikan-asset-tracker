@@ -5,6 +5,13 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Ajouté
+- **Cohérence salarié / matériel sur les tickets IT et `/v1`** :
+  - **Service `backend/app/detentions.py`** : extraction de `actifs_detenus_salarie` hors de `routers/portail.py` et ajout de `detenteur_actuel_actif` (partagés entre portail et tickets).
+  - **Contrôle serveur (`backend/app/tickets.py`, `/tickets`, `/tickets/{id}`, `/v1/tickets/{id_externe}`)** : si un salarié et un matériel sont fournis et que le matériel est actuellement affecté à un autre salarié, refus `409` sauf drapeau explicite `materiel_hors_affectation: true` (tracé dans `AuditLog` sous `ticket_materiel_hors_affectation` avec identifiants techniques uniquement). Matériel du salarié ou non affecté accepté ; portail `demandeur` inchangé.
+  - **Route `GET /tickets/materiel-salarie/{user_id}`** : réservée au rôle `informatique` (`403` pour `rh`, `lecture`, `demandeur` ; `404` si salarié inexistant), renvoie uniquement les actifs actuellement affectés au salarié sans donnée personnelle superflue.
+  - **Interface IT (`frontend/src/pages/Tickets.jsx`)** : lorsqu'un salarié est sélectionné, le menu *Matériel concerné* propose uniquement ses actifs affectés par défaut, avec une case explicite *Autre matériel (hors affectation)* pour rouvrir tout le parc et réinitialisation automatique du matériel au changement de salarié.
+
 ## [0.9.1-rc.1] - 2026-11-25
 
 **Pré-version corrective 0.9.1-rc.1 : à essayer avant la 0.9.1.** **Aucune nouvelle migration de base de données** par rapport à la `0.9.0` (alignement des modèles SQLAlchemy/SQLModel avec les migrations `0025` à `0030` existantes et intégration d'`alembic check` à la CI). **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.9.1-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` ; les quatre images ensemble.

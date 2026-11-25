@@ -294,5 +294,57 @@ with _Sess(_eng) as _s:
     _links_left = _s.exec(_sel(_ExtLink).where(_ExtLink.objet == "ticket", _ExtLink.kikan_id == cm["id"])).all()
 show("Anonymisation d'un ticket supprime immediatement ses ExternalLink", len(_links_left) == 0, len(_links_left))
 
+print("== 9. Coherence salarie / materiel sur PUT /v1/tickets/{id_externe} ==")
+_, u_v1_b = j("POST", "/users", {
+    "matricule": "ZZG7-A2", "nom": "ZZG7_A2", "prenom": "ZZ_A2",
+    "email": "zzg7.a2@exemple.test", "entite_id": ent_a["id"],
+}, tok_it)
+_, a_v1_1 = j("POST", "/assets", {
+    "identifiant_interne": "ZZG7-PC-1", "type": "PC portable", "marque": "Dell", "modele": "Lat5440",
+    "numero_serie": "ZZG7-SN-1", "entite_id": ent_a["id"],
+}, tok_it)
+_, a_v1_2 = j("POST", "/assets", {
+    "identifiant_interne": "ZZG7-PC-2", "type": "PC portable", "marque": "HP", "modele": "Elite840",
+    "numero_serie": "ZZG7-SN-2", "entite_id": ent_a["id"],
+}, tok_it)
+j("POST", "/assignments", {"user_id": u_a["id"], "asset_ids": [a_v1_1["id"]], "sans_charte": True}, tok_it)
+j("POST", "/assignments", {"user_id": u_v1_b["id"], "asset_ids": [a_v1_2["id"]], "sans_charte": True}, tok_it)
+
+s_v1_own, d_v1_own = j("PUT", "/v1/tickets/EXT-MAT-OWN", {
+    "nature_code": "panne_materiel", "titre": "ZZ V1 Materiel du salarie",
+    "demandeur_matricule": "ZZG7-A1", "asset_identifiant": "ZZG7-PC-1",
+}, tok_rw_a)
+show("PUT /v1 : materiel du salarie accepte (200)", s_v1_own == 200 and d_v1_own["resultat"] == "cree", d_v1_own)
+
+s_v1_409, _ = j("PUT", "/v1/tickets/EXT-MAT-OTHER", {
+    "nature_code": "panne_materiel", "titre": "ZZ V1 Materiel autre salarie",
+    "demandeur_matricule": "ZZG7-A1", "asset_identifiant": "ZZG7-PC-2",
+}, tok_rw_a)
+show("PUT /v1 : materiel d'un autre salarie refuse sans flag (409)", s_v1_409 == 409, s_v1_409)
+
+s_v1_hors, d_v1_hors = j("PUT", "/v1/tickets/EXT-MAT-OTHER", {
+    "nature_code": "panne_materiel", "titre": "ZZ V1 Materiel autre salarie confirme",
+    "demandeur_matricule": "ZZG7-A1", "asset_identifiant": "ZZG7-PC-2",
+    "materiel_hors_affectation": True,
+}, tok_rw_a)
+from app.models import AuditLog as _AudLog
+with _Sess(_eng) as _s:
+    _aud_v1 = _s.exec(_sel(_AudLog).where(_AudLog.action == "ticket_materiel_hors_affectation", _AudLog.target == d_v1_hors.get("reference"))).first()
+show("PUT /v1 : materiel_hors_affectation=True accepte (200) et trace en audit",
+     s_v1_hors == 200 and d_v1_hors["resultat"] == "cree" and _aud_v1 is not None, (s_v1_hors, _aud_v1.detail if _aud_v1 else None))
+
+# Mise a jour sur ticket existant /v1 vers materiel d'un autre salarie
+s_v1_upd_409, _ = j("PUT", "/v1/tickets/EXT-MAT-OWN", {
+    "nature_code": "panne_materiel", "titre": "ZZ V1 Materiel du salarie",
+    "demandeur_matricule": "ZZG7-A1", "asset_identifiant": "ZZG7-PC-2",
+}, tok_rw_a)
+s_v1_upd_ok, d_v1_upd_ok = j("PUT", "/v1/tickets/EXT-MAT-OWN", {
+    "nature_code": "panne_materiel", "titre": "ZZ V1 Materiel du salarie",
+    "demandeur_matricule": "ZZG7-A1", "asset_identifiant": "ZZG7-PC-2",
+    "materiel_hors_affectation": True,
+}, tok_rw_a)
+show("PUT /v1 (maj) : autre salarie refuse (409) puis accepte avec materiel_hors_affectation=True (200)",
+     s_v1_upd_409 == 409 and s_v1_upd_ok == 200 and d_v1_upd_ok["resultat"] == "modifie", (s_v1_upd_409, d_v1_upd_ok))
+
 print(f"\nResultat : {ok_count} OK, {fail_count} FAIL")
 sys.exit(1 if fail_count else 0)

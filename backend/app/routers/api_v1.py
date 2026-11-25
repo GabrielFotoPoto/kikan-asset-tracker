@@ -182,6 +182,7 @@ class TicketPut(BaseModel):
     demandeur_id_externe: str | None = Field(default=None, max_length=100)
     asset_id_externe: str | None = Field(default=None, max_length=100)
     asset_identifiant: str | None = Field(default=None, max_length=100)
+    materiel_hors_affectation: bool = False
     entite_code: str | None = Field(default=None, max_length=100)
 
 
@@ -384,7 +385,10 @@ def put_ticket_v1(
                 "reference": ticket.reference, "id_externe": ext_id,
                 "canal": ticket.canal, "demandeur_verifie": ticket.demandeur_verifie,
             }
-        changed = (data.nature_code != ticket.nature_code) or (data.criticite != ticket.criticite)
+        asset_upd = _resolve_v1_asset(session, auth, data)
+        asset_fourni = bool(data.asset_id_externe or data.asset_identifiant)
+        asset_changed = asset_fourni and ((asset_upd.id if asset_upd else None) != ticket.asset_id)
+        changed = (data.nature_code != ticket.nature_code) or (data.criticite != ticket.criticite) or asset_changed
         if not changed:
             return {
                 "simulation": dry_run, "resultat": "inchange", "id": None if dry_run else ticket.id,
@@ -392,10 +396,18 @@ def put_ticket_v1(
                 "canal": ticket.canal, "demandeur_verifie": ticket.demandeur_verifie,
             }
         niveau_avant = ticket.niveau_securite
+        hors_aff_upd = False
+        if asset_changed and asset_upd is not None and ticket.user_id is not None:
+            from ..detentions import detenteur_actuel_actif
+            det = detenteur_actuel_actif(session, asset_upd.id)
+            hors_aff_upd = bool(det is not None and det != ticket.user_id and data.materiel_hors_affectation)
         with session.begin_nested():
             tickets_svc.modifier_ticket(
                 session, None, ticket.id,
                 nature_code=data.nature_code, criticite=data.criticite,
+                asset_id=asset_upd.id if asset_upd else None,
+                asset_fourni=asset_changed,
+                materiel_hors_affectation=data.materiel_hors_affectation,
                 actor_name=auth.actor, commit=False,
             )
         if dry_run:
@@ -404,6 +416,8 @@ def put_ticket_v1(
             session.commit()
             session.refresh(ticket)
             audit(auth.actor, "ticket_maj", target=ticket.reference, detail=f"id_externe={ext_id}")
+            if hors_aff_upd and ticket.asset_id is not None and ticket.user_id is not None:
+                tickets_svc.auditer_materiel_hors_affectation(auth.actor, ticket.reference, ticket.asset_id, ticket.user_id)
             if niveau_avant == "aucun" and ticket.niveau_securite == "signale":
                 dests = tickets_svc.destinataires_alerte_securite(session)
                 if dests:
@@ -435,6 +449,11 @@ def put_ticket_v1(
         raise HTTPException(404, "Entite hors perimetre du jeton")
 
     demandeur_verifie = data.canal == "api"
+    hors_aff_crea = False
+    if user is not None and asset is not None and data.materiel_hors_affectation:
+        from ..detentions import detenteur_actuel_actif
+        det = detenteur_actuel_actif(session, asset.id)
+        hors_aff_crea = bool(det is not None and det != user.id)
     with session.begin_nested():
         ticket = tickets_svc.creer_ticket(
             session, None,
@@ -447,6 +466,7 @@ def put_ticket_v1(
             canal=data.canal,
             demandeur_verifie=demandeur_verifie,
             signaler_securite=data.signaler_securite,
+            materiel_hors_affectation=data.materiel_hors_affectation,
             entite_id_override=ent_override,
             actor_name=auth.actor,
             commit=False,
@@ -462,6 +482,8 @@ def put_ticket_v1(
     session.commit()
     session.refresh(ticket)
     audit(auth.actor, "ticket_creation", target=ticket.reference, detail=f"canal={ticket.canal} nature={ticket.nature_code}")
+    if hors_aff_crea and asset is not None and user is not None:
+        tickets_svc.auditer_materiel_hors_affectation(auth.actor, ticket.reference, asset.id, user.id)
     if user and user.email:
         background.add_task(
             tickets_svc.envoyer_notification_ticket,

@@ -367,6 +367,88 @@ def main():
     t_a.start(); t_b.start(); t_a.join(); t_b.join()
     show("Concurrence : double clic transition -> un 200 et un 409", sorted(race_codes) == [200, 409], str(race_codes))
 
+    # 13. Coherence salarie / materiel (GET /tickets/materiel-salarie, POST /tickets, PUT /tickets/{id}, audit)
+    _, u_m1 = call("POST", "/users", {
+        "matricule": "ZZTKM1", "nom": "ZZTK_Mat1", "prenom": "Claire",
+        "email": "zztk.claire@exemple.test", "entite_id": ent_id,
+    }, tok_it)
+    _, u_m2 = call("POST", "/users", {
+        "matricule": "ZZTKM2", "nom": "ZZTK_Mat2", "prenom": "Denis",
+        "email": "zztk.denis@exemple.test", "entite_id": ent_id,
+    }, tok_it)
+    _, a_m1 = call("POST", "/assets", {
+        "identifiant_interne": "ZZTK-PC-M1", "type": "PC portable", "marque": "Dell", "modele": "Lat5440",
+        "numero_serie": "ZZTK-SN-M1", "entite_id": ent_id,
+    }, tok_it)
+    _, a_m2 = call("POST", "/assets", {
+        "identifiant_interne": "ZZTK-PC-M2", "type": "PC portable", "marque": "HP", "modele": "Elite840",
+        "numero_serie": "ZZTK-SN-M2", "entite_id": ent_id,
+    }, tok_it)
+    _, a_stk = call("POST", "/assets", {
+        "identifiant_interne": "ZZTK-PC-STK", "type": "PC portable", "marque": "Lenovo", "modele": "L14",
+        "numero_serie": "ZZTK-SN-STK", "entite_id": ent_id,
+    }, tok_it)
+    st_rem1, _ = call("POST", "/assignments", {"user_id": u_m1["id"], "asset_ids": [a_m1["id"]], "sans_charte": True}, tok_it)
+    st_rem2, _ = call("POST", "/assignments", {"user_id": u_m2["id"], "asset_ids": [a_m2["id"]], "sans_charte": True}, tok_it)
+    assert st_rem1 in (200, 201) and st_rem2 in (200, 201)
+
+    st_ms, ms_list = call("GET", f"/tickets/materiel-salarie/{u_m1['id']}", token=tok_it)
+    show("GET /tickets/materiel-salarie/{id} renvoie uniquement les actifs affectes (sans PII)",
+         st_ms == 200 and [x["id"] for x in ms_list] == [a_m1["id"]] and "email" not in str(ms_list), str(ms_list))
+    st_ms_404, _ = call("GET", "/tickets/materiel-salarie/999999", token=tok_it)
+    show("GET /tickets/materiel-salarie sur salarie inexistant -> 404", st_ms_404 == 404, f"got {st_ms_404}")
+    st_ms_rh, _ = call("GET", f"/tickets/materiel-salarie/{u_m1['id']}", token=tok_rh)
+    st_ms_ro, _ = call("GET", f"/tickets/materiel-salarie/{u_m1['id']}", token=tok_lec)
+    show("GET /tickets/materiel-salarie refuse a rh et lecture (403)", st_ms_rh == 403 and st_ms_ro == 403, f"{st_ms_rh},{st_ms_ro}")
+
+    st_ok_own, t_own = call("POST", "/tickets", {
+        "nature_code": "panne_materiel", "titre": "ZZTK Materiel du salarie",
+        "user_id": u_m1["id"], "asset_id": a_m1["id"],
+    }, tok_it)
+    show("POST /tickets : materiel du salarie accepte (201)", st_ok_own == 201, f"got {st_ok_own}")
+
+    st_ok_stk, _ = call("POST", "/tickets", {
+        "nature_code": "panne_materiel", "titre": "ZZTK Materiel en stock",
+        "user_id": u_m1["id"], "asset_id": a_stk["id"],
+    }, tok_it)
+    show("POST /tickets : materiel non affecte accepte (201)", st_ok_stk == 201, f"got {st_ok_stk}")
+
+    st_ok_free, _ = call("POST", "/tickets", {
+        "nature_code": "panne_materiel", "titre": "ZZTK Interne IT sans salarie",
+        "asset_id": a_m2["id"],
+    }, tok_it)
+    show("POST /tickets : ticket sans salarie libre (201)", st_ok_free == 201, f"got {st_ok_free}")
+
+    st_409, _ = call("POST", "/tickets", {
+        "nature_code": "panne_materiel", "titre": "ZZTK Materiel autre salarie refuse",
+        "user_id": u_m1["id"], "asset_id": a_m2["id"],
+    }, tok_it)
+    show("POST /tickets : materiel d'un autre salarie refuse sans case (409)", st_409 == 409, f"got {st_409}")
+
+    st_201_h, t_hors = call("POST", "/tickets", {
+        "nature_code": "panne_materiel", "titre": "ZZTK Materiel autre salarie confirme",
+        "user_id": u_m1["id"], "asset_id": a_m2["id"], "materiel_hors_affectation": True,
+    }, tok_it)
+    from app.models import AuditLog
+    with Session(engine) as s:
+        aud_h = s.exec(
+            select(AuditLog).where(
+                AuditLog.action == "ticket_materiel_hors_affectation",
+                AuditLog.target == t_hors["reference"],
+            )
+        ).first()
+    show("POST /tickets : materiel_hors_affectation=True accepte (201) et trace en audit sans PII",
+         st_201_h == 201 and aud_h is not None
+         and f"asset_id={a_m2['id']}" in (aud_h.detail or "")
+         and "zztk.claire" not in (aud_h.detail or "").lower()
+         and "ZZTK_Mat1" not in (aud_h.detail or ""),
+         f"st={st_201_h} detail={aud_h.detail if aud_h else None}")
+
+    st_put_409, _ = call("PUT", f"/tickets/{t_own['id']}", {"asset_id": a_m2["id"]}, tok_it)
+    st_put_200, _ = call("PUT", f"/tickets/{t_own['id']}", {"asset_id": a_m2["id"], "materiel_hors_affectation": True}, tok_it)
+    show("PUT /tickets/{id} : autre salarie refuse (409) puis accepte avec materiel_hors_affectation=True (200)",
+         st_put_409 == 409 and st_put_200 == 200, f"{st_put_409},{st_put_200}")
+
     sys.exit(1 if fails else 0)
 
 
