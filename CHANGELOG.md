@@ -5,6 +5,14 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.9.1-rc.1] - 2026-11-25
+
+**Pré-version corrective 0.9.1-rc.1 : à essayer avant la 0.9.1.** **Aucune nouvelle migration de base de données** par rapport à la `0.9.0` (alignement des modèles SQLAlchemy/SQLModel avec les migrations `0025` à `0030` existantes et intégration d'`alembic check` à la CI). **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.9.1-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` ; les quatre images ensemble.
+
+**Vérifié** : intégration continue de `main` verte sur `c0c545a` (PR `#195` et `#196`, 11/11 contrôles dont la pile complète de tests avec `alembic check` et la sauvegarde/restauration de bout en bout).
+
+**Non vérifié en conditions réelles** : parcours manuel du portail salarié (dont la page « À propos »), connexion à un contrôleur de domaine Active Directory réel (si LDAP est activé), connexion à un vrai tenant Microsoft Entra ID (en particulier la détection `idp != iss`), envoi réel du rappel 72 h DPO et des notifications `/v1/tickets*` sur un serveur SMTP de préproduction.
+
 ### Corrigé
 - **Sécurité et cadrage Active Directory / LDAP (G5) (`backend/app/ldap_auth.py`, `backend/app/routers/auth.py`, `docs/AD-LDAP.md`)** : refus uniforme `401 Identifiants invalides` (au lieu de `403`), plancher de latence adaptatif sur les échecs `401` quand LDAP est actif (calé sur la latence AD observée, borné par le timeout), `get_info=NONE` dans `ldap3`, non-exposition du nom d'hôte AD aux requêtes anonymes, première liaison effectuée sur l'attribut configuré (`mail`, `userPrincipalName` ou `sAMAccountName` -> `matricule`, avec avertissement explicite dans `docs/AD-LDAP.md`), tests LDAP étendus (`tests/ldap_check.py`).
 - **Portail salarié - page « À propos »** : ajout de `GET /apropos` (lecture sans donnée métier ni PII) dans `ALLOWED_FOR_DEMANDEUR` (`backend/app/auth.py`, `GET /apropos/mise-a-jour` reste `403`) et lien *À propos* dans la barre latérale du portail (`frontend/src/App.jsx`).
