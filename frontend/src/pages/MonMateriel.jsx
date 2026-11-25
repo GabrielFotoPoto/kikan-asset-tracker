@@ -22,6 +22,7 @@ import { Link } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { Feedback } from "../components/Notifications.jsx";
 import { Empty, Loading } from "../components/State.jsx";
+import { formaterDateHeure } from "../format.js";
 
 export default function MonMateriel() {
   const [items, setItems] = useState([]);
@@ -53,7 +54,7 @@ export default function MonMateriel() {
                     <td>{a.type}</td>
                     <td><strong>{a.marque} {a.modele}</strong></td>
                     <td>{a.identifiant_interne || a.numero_serie || "-"}</td>
-                    <td>{a.date_remise || "-"}</td>
+                    <td>{formaterDateHeure(a.date_remise)}</td>
                     <td><Link to={`/mes-tickets?nouveau=1&asset=${a.id}`}>Signaler un probleme</Link></td>
                   </tr>
                 ))}
