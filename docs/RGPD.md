@@ -9,13 +9,16 @@ l'informatique** (page *RGPD*), jamais automatiquement ; un **rappel par e-mail*
 
 *Capture réalisée avec des données de démonstration.*
 
-| Réglage | Par défaut | Rôle |
-|---|---|---|
-| Conservation après sortie | 12 mois | un salarié sorti est purgeable à partir de *date de sortie + cette durée* (0 à 240 mois) |
-| Délai de grace | 30 jours | temps pendant lequel un PDF rangé en quarantaine reste récupérable (0 à 365 jours) |
+| Réglage | Par défaut | Plage | Rôle |
+|---|---|---|---|
+| Conservation après sortie | 12 mois | 0 à 240 mois | un salarié sorti est purgeable à partir de *date de sortie + cette durée* |
+| Délai de grâce | 30 jours | 0 à 365 jours | temps pendant lequel un PDF ou une pièce jointe rangé en quarantaine reste avant suppression définitive |
+| Conservation des tickets clos | 24 mois | 0 à 120 mois | un ticket fermé ou annulé est anonymisable à partir de *date de fermeture + cette durée* |
+| Conservation des violations de données | 60 mois | 12 à 120 mois | durée propre aux dossiers d'incident avec violation potentielle (art. 33.5, à valider avec le DPO) |
+| Conservation des statistiques de tickets | 60 mois | 12 à 120 mois | suppression définitive des tickets anonymisés (ne peut pas être inférieure à la conservation des tickets clos) |
 
-Rien n'est codé en dur : ces deux valeurs se modifient à tout moment, et chaque changement est journalisé. Le délai de grace s'applique aux
-PDF purgés **à partir de la modification**. Le rappel par e-mail se règle dans *Paramétrage, E-mails* (actif par défaut, relance toutes les
+Rien n'est codé en dur : ces cinq valeurs se modifient à tout moment, et chaque changement est journalisé. Le délai de grâce s'applique aux
+documents purgés **à partir de la modification**. Le rappel par e-mail se règle dans *Paramétrage, E-mails* (actif par défaut, relance toutes les
 semaines).
 
 ## Déroulement
@@ -61,11 +64,19 @@ Un **modèle de registre des activités de traitement** (article 30 du RGPD), pr
 - Pendant le délai de grace, le nom du fichier en quarantaine contient encore le nom du salarié (il est identique à celui d'origine).
 - Les chartes d'usage et les autres documents de l'organisation ne sont pas concernés.
 
-## Évolution prévue (v0.9 - Tickets, non encore implémentée)
+## Tickets et pièces jointes (v0.9)
 
-La spécification de la gestion native de tickets ([TICKETS.md](TICKETS.md), §12) prévoit d'intégrer les tickets et leurs pièces jointes à cette page *RGPD* : suppression des commentaires, mise en quarantaine (`A_PURGER/`) des pièces jointes et anonymisation des textes libres (`titre`, `description`, `user_id`) tout en conservant les métriques anonymes (MTTA, MTTR, fiabilité par modèle, compteurs sécurité). À l'échéance de conservation après sortie, plus aucune donnée personnelle du salarié ne subsiste : liens vers le compte, le matériel et la remise coupés, compte du portail supprimé, textes libres effacés. Une durée dédiée aux tickets clos (24 mois par défaut, réglable) complétera la conservation après sortie, et les lignes anonymisées seront elles-mêmes supprimées après une durée de conservation des statistiques (5 ans par défaut, réglable de 1 à 10 ans). À l'anonymisation, la référence du ticket est remplacée et les dates sont ramenées au mois. Exception : le dossier d'un incident avec violation de données (article 33.5) suit une durée propre (60 mois par défaut, à valider avec le DPO).
+Les tickets, leurs pièces jointes et leurs statistiques anonymes sont intégrés à la page *RGPD* en trois étapes manuelles réservées au rôle `informatique` :
+
+1. **Purge d'un salarié sorti (`POST /rgpd/purge`)** : avant de supprimer la fiche du salarié, Kikan supprime son compte portail `demandeur` et anonymise tous ses tickets (ouverts ou clos).
+2. **Purge des tickets clos (`POST /rgpd/purge-tickets`)** : anonymise les tickets fermés ou annulés dont la durée *Conservation des tickets clos* (24 mois par défaut) est échue, et efface au passage les champs textuels (`cause_racine`, `actions_correctives`) et dates exactes des dossiers de violation de données dont la durée dédiée (60 mois par défaut) est échue.
+   - **Effet de l'anonymisation** : suppression des commentaires et des liens externes (`external_links`), mise en quarantaine (`A_PURGER/`) des pièces jointes (soumises au même délai de grâce avant suppression définitive ; contrairement aux PDF scellés, une pièce jointe en quarantaine ne peut pas être restaurée, refus `409`), effacement des textes libres (`titre`, `description`), coupure des liens nominatifs et matériel (`user_id`, comptes, `asset_id`, `assignment_id`), remplacement de la référence par `ANON-<id>` et arrondi des dates au premier du mois. Les métriques anonymes précalculées (`mtta_sec`, `mttr_sec`, nature, criticité, compteurs sécurité) sont conservées.
+   - **Exception violation de données (art. 33.5)** : sur un dossier sans violation potentielle, `cause_racine` et `actions_correctives` sont effacés dès l'anonymisation ; sur un incident avec violation potentielle, ils sont conservés jusqu'à l'échéance de *Conservation des violations de données* (60 mois par défaut).
+3. **Purge des statistiques de tickets (`POST /rgpd/purge-stats-tickets`)** : supprime définitivement les lignes de tickets anonymisées (et leur dossier sécurité) une fois échue la *Conservation des statistiques de tickets* (60 mois par défaut, prolongée jusqu'à l'échéance violation le cas échéant).
+
+Chaque opération est tracée dans le journal d'audit (`rgpd_purge`, `rgpd_purge_tickets`, `rgpd_purge_violations`, `rgpd_purge_stats_tickets`) par compteurs uniquement, sans donnée personnelle. En complément des rappels RGPD hebdomadaires, tout incident avec violation potentielle sans notification DPO déclenche un rappel automatique toutes les 12 h pour le suivi du délai de 72 h (article 33).
 
 ## Tests
 
-`tests/purge_check.py` (réglages, quarantaine, suppression, restauration, GED, rappels) et `tests/verrous_check.py` (double clic) ; voir
+`tests/purge_check.py` (réglages, quarantaine, suppression, restauration, GED, rappels), `tests/tickets_check.py` (anonymisation, purge tickets clos, violations et statistiques), `tests/attachments_check.py` (quarantaine et suppression des pièces jointes) et `tests/verrous_check.py` (double clic) ; voir
 [SECURITY.md](../SECURITY.md).

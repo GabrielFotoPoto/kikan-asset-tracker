@@ -631,12 +631,18 @@ backend/              API FastAPI
     acces_remise.py   acces applicatifs dans l'accuse de remise
     mailer.py         envoi des e-mails ; reminders.py : rappels et rapport mensuel
     sso.py            connexion Microsoft 365 ; sso_policy.py : reglages et regles de connexion locale
+    ldap_auth.py      connecteur Active Directory local (LDAP / LDAPS) pour le portail demandeur
+    tickets.py        logique metier des tickets (numerotation, transitions, securite, cloture auto, purge RGPD)
+    detentions.py     service partage de lecture du materiel actuellement detenu par un salarie
+    attachments.py    pieces jointes des tickets (magic bytes, quotas, quarantaine et purge)
+    parcours.py       parcours guide d'arrivee et de depart
     integration.py    moteur d'import/export des integrations ; apitoken.py : jetons de l'API ; glpi.py : connecteur GLPI
+    netguard.py       protection SSRF sur les appels sortants ; appsettings.py : reglages en base ; theme.py : personnalisation
     reset_admin.py    commande de secours (mot de passe provisoire)
-    routers/          endpoints (entites, users, assets, assignments, lifecycle, besoins, revues, import, reports,
-                      rgpd, stats, applications, user_apps, parametres, policies, auth, sso, audit_log, mail_admin,
-                      storage_admin, backup_admin, integrations, glpi_admin, api_v1, search, arrivee,
-                      apropos, branding, previsions, renouvellements)
+    routers/          endpoints (entites, users, assets, assignments, lifecycle, besoins, revues, import_data, reports,
+                      rgpd, stats, applications, user_apps, parametres, parcours, policies, auth, sso, ldap_admin,
+                      tickets, portail, audit_log, mail_admin, storage_admin, backup_admin, integrations, glpi_admin,
+                      api_v1, search, arrivee, apropos, branding, previsions, renouvellements)
 backend/migrations/   migrations Alembic du schema
 converter/            service isole de conversion Word vers PDF (LibreOffice, sans Internet)
 frontend/             application React (Vite + Nginx, HTTPS)
