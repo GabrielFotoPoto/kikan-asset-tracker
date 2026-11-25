@@ -6,6 +6,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Corrigé
+- **Formatage uniforme des dates restantes (`frontend/src/parcours.js`, `frontend/src/pages/Assignments.jsx`, `frontend/src/pages/Parametres.jsx`)** : utilise `formaterDate` / `formaterDateHeure` (`frontend/src/format.js`, format `JJ/MM/AAAA` et `JJ/MM/AAAA HH:MM`) pour les dates de parcours, les dates de remise/signature/besoins des affectations, le dernier test SSO et les dates d'expiration et d'utilisation des jetons API.
 - **Reprise automatique `en_attente -> en_cours` sur l'API `/v1` (`backend/app/tickets.py`, `backend/app/routers/api_v1.py`, `docs/API.md`, PR `#208`)** : un commentaire public avec `auteur_type = "demandeur"` (valeur par défaut) envoyé via `POST /v1/tickets/{reference}/commentaires` fait désormais repasser un ticket `en_attente` à `en_cours` (cumul de `duree_attente_sec` et remise à vide de `en_attente_depuis`), comme sur le portail salarié. Un commentaire public `auteur_type = "it"` et une note interne (`interne = true`) laissent le ticket `en_attente`.
 
 ## [0.9.1] - 2026-11-25

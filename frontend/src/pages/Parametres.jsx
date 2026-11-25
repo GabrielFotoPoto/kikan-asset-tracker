@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { api, downloadFile, errorText, fetchDataUrl } from "../api.js";
 import { ICONE_DEFAUT, brandingChanged, iconUrl } from "../branding.js";
 import ConfirmButton from "../components/ConfirmButton.jsx";
+import { formaterDate, formaterDateHeure } from "../format.js";
 import Glpi from "./Glpi.jsx";
 import { Feedback } from "../components/Notifications.jsx";
 
@@ -618,7 +619,7 @@ function AuthSso({ setErr, setMsg }) {
         </div>
         {t && (
           <p className="muted">
-            Dernier test : {t.upn} (role {t.role}{t.mfa ? ", MFA presente" : ", MFA absente"}), par {t.par}, le {new Date(t.ts * 1000).toLocaleString("fr-FR")}.
+            Dernier test : {t.upn} (role {t.role}{t.mfa ? ", MFA presente" : ", MFA absente"}), par {t.par}, le {formaterDateHeure(new Date(t.ts * 1000).toISOString())}.
           </p>
         )}
         {!data.actif && data.blocages.length > 0 && (
@@ -876,7 +877,7 @@ const DROITS_API = [
   ["tickets_ecriture", "Ecrire les tickets"],
   ["tickets_interne", "Lire et ecrire les notes internes"],
 ];
-const fmtDate = (d) => (d ? String(d).replace("T", " ").slice(0, 16) : "jamais");
+const fmtDate = (d) => formaterDateHeure(d, "jamais");
 
 // Jetons de l'API d'integration (/v1) : un outil externe pousse du materiel et des salaries vers Kikan.
 function JetonsApi({ setErr, setMsg }) {
@@ -989,7 +990,7 @@ function JetonsApi({ setErr, setMsg }) {
                   <td>{t.source}</td>
                   <td>{t.droits.map((d) => DROITS_API.find(([k]) => k === d)?.[1] || d).join(", ")}</td>
                   <td>{scope(t)}</td>
-                  <td>{t.expire_le}</td>
+                  <td>{formaterDate(t.expire_le)}</td>
                   <td>{fmtDate(t.derniere_utilisation)}{t.utilisations ? ` (${t.utilisations})` : ""}</td>
                   <td>{etat(t)}</td>
                   <td>{t.actif && <ConfirmButton confirmLabel="Confirmer la revocation" onConfirm={() => revoke(t)}>Revoquer</ConfirmButton>}</td>
