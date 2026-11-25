@@ -23,6 +23,7 @@ import { api, downloadFile } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { Feedback } from "../components/Notifications.jsx";
 import { ErrorState, Loading } from "../components/State.jsx";
+import { libelleCanalTicket } from "../format.js";
 
 const CRITICITES = [
   ["faible", "Faible"],
@@ -202,7 +203,7 @@ function StatsTickets({ entites }) {
         {a.par_canal.length > 0 && (
           <div style={{ marginTop: 14 }}>
             <h4>Repartition par canal</h4>
-            <Bars items={a.par_canal} value="count" label={(i) => i.canal} />
+            <Bars items={a.par_canal} value="count" label={(i) => libelleCanalTicket(i.canal)} />
           </div>
         )}
       </div>

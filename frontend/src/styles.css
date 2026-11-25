@@ -104,7 +104,8 @@ h2 { margin-top: 0; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 14px; }
 th { color: var(--muted); font-weight: 600; }
-.badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--surface-2); color: var(--muted); }
+.badge { display: inline-block; white-space: nowrap; padding: 2px 8px; border-radius: 999px; font-size: 12px; line-height: 1.4; background: var(--surface-2); color: var(--muted); }
+.badge-group { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 form.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 label { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); gap: 4px; }
 input, select, textarea {
@@ -368,7 +369,7 @@ dialog.palette::backdrop { background: rgba(20, 27, 38, 0.5); }
 @media (max-width: 720px) {
   .etapes, .etapes.etapes-6, .deux-colonnes { grid-template-columns: 1fr; }
 }
-.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.warn { padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 0; background: var(--warn-bg); color: var(--warn); }
 .panneau-confirmation { border-color: var(--brand); }
 .panneau-constat { border-color: var(--warn-line); }
 .panneau-constat h3, .panneau-confirmation h3 { margin-top: 0; margin-bottom: 6px; }
