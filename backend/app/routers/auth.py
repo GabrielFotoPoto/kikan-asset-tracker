@@ -505,7 +505,7 @@ def update_account(
         raise HTTPException(409, "Impossible : ce serait le dernier compte informatique actif")
 
     if data.role is not None and data.role != target.role and (target.sso_oid or target.source_auth == "ldap"):
-        raise HTTPException(409, "Le role de ce compte est gere par l'annuaire externe")
+        raise HTTPException(409, "Le role de ce compte est gere par Microsoft 365 ou Active Directory")
     if data.secours is not None and data.secours != target.secours:
         if data.secours and target.source_auth in ("sso", "ldap"):
             raise HTTPException(409, "Ce compte est gere par Microsoft 365 ou Active Directory : il n'a pas de mot de passe local")
