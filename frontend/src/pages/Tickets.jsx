@@ -116,20 +116,25 @@ export default function Tickets() {
   }, []);
 
   useEffect(() => {
-    if (!form.user_id) {
+    const requestedUserId = form.user_id;
+    if (!requestedUserId) {
       setAssetsSalarie([]);
       return;
     }
     let cancelled = false;
-    api.get(`/tickets/materiel-salarie/${form.user_id}`)
+    setAssetsSalarie([]);
+    api.get(`/tickets/materiel-salarie/${requestedUserId}`)
       .then((rows) => {
         if (cancelled) return;
         const list = Array.isArray(rows) ? rows : [];
         setAssetsSalarie(list);
-        setForm((f) => ({
-          ...f,
-          asset_id: f.materiel_hors_affectation ? f.asset_id : conserverAssetPourSalarie(f.asset_id, list),
-        }));
+        setForm((f) => {
+          if (String(f.user_id) !== String(requestedUserId)) return f;
+          return {
+            ...f,
+            asset_id: f.materiel_hors_affectation ? f.asset_id : conserverAssetPourSalarie(f.asset_id, list),
+          };
+        });
       })
       .catch(() => {
         if (!cancelled) setAssetsSalarie([]);
@@ -141,8 +146,8 @@ export default function Tickets() {
     setForm((f) => ({
       ...f,
       user_id: nextUserId,
-      asset_id: nextUserId ? f.asset_id : f.asset_id,
-      materiel_hors_affectation: false,
+      asset_id: f.materiel_hors_affectation ? f.asset_id : "",
+      materiel_hors_affectation: nextUserId ? f.materiel_hors_affectation : false,
     }));
   };
 
