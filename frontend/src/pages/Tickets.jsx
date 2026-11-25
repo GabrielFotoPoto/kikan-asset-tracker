@@ -339,10 +339,12 @@ export default function Tickets() {
                       </span>
                     </td>
                     <td>
-                      <span className={`badge ${t.statut === "resolu" || t.statut === "ferme" ? "ok" : t.statut === "en_attente" ? "warn" : ""}`}>
-                        {STATUT_LABELS[t.statut] || t.statut}
-                      </span>
-                      {t.hors_delai && <span className="badge warn" style={{ marginLeft: 4 }}>Hors delai</span>}
+                      <div className="badge-group">
+                        <span className={`badge ${t.statut === "resolu" || t.statut === "ferme" ? "ok" : t.statut === "en_attente" ? "warn" : ""}`}>
+                          {STATUT_LABELS[t.statut] || t.statut}
+                        </span>
+                        {t.hors_delai && <span className="badge warn">Hors delai</span>}
+                      </div>
                     </td>
                     <td>
                       {t.niveau_securite !== "aucun" ? (
