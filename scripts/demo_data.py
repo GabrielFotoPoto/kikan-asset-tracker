@@ -117,7 +117,7 @@ def need(label, res, ok=(200, 201)):
 
 # --------------------------------------------------------------------------------------------------------------------------------------------
 def effacer():
-    """Retire tout ce que le jeu de demonstration a cree (et seulement cela), PDF scelles compris."""
+    """Retire tout ce que le jeu de demonstration a cree (et seulement cela), PDF scelles et pieces jointes compris."""
     from sqlalchemy import text
     from sqlmodel import Session
     from app import filestore
@@ -127,6 +127,26 @@ def effacer():
         # Requetes ecrites en entier (pas d'assemblage) : seuls les elements marques DEMO- sont concernes.
         refs = [r[0] for r in q("SELECT ged_reference FROM signatures WHERE ged_reference IS NOT NULL AND assignment_id IN "
                                 "(SELECT id FROM assignments WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%'))")]
+        pj_refs = [r[0] for r in q("SELECT storage_ref FROM attachments WHERE entity_type = 'ticket' AND entity_id IN "
+                                   "(SELECT id FROM tickets WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%') "
+                                   "OR asset_id IN (SELECT id FROM assets WHERE identifiant_interne LIKE 'DEMO-%'))")]
+        q("DELETE FROM attachments WHERE entity_type = 'ticket' AND entity_id IN "
+          "(SELECT id FROM tickets WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%') "
+          "OR asset_id IN (SELECT id FROM assets WHERE identifiant_interne LIKE 'DEMO-%'))")
+        q("DELETE FROM external_links WHERE objet = 'ticket' AND kikan_id IN "
+          "(SELECT id FROM tickets WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%') "
+          "OR asset_id IN (SELECT id FROM assets WHERE identifiant_interne LIKE 'DEMO-%'))")
+        q("DELETE FROM ticket_comments WHERE ticket_id IN "
+          "(SELECT id FROM tickets WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%') "
+          "OR asset_id IN (SELECT id FROM assets WHERE identifiant_interne LIKE 'DEMO-%'))")
+        q("DELETE FROM ticket_security_details WHERE ticket_id IN "
+          "(SELECT id FROM tickets WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%') "
+          "OR asset_id IN (SELECT id FROM assets WHERE identifiant_interne LIKE 'DEMO-%'))")
+        q("DELETE FROM tickets WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%') "
+          "OR asset_id IN (SELECT id FROM assets WHERE identifiant_interne LIKE 'DEMO-%')")
+        q("DELETE FROM password_reset_tokens WHERE account_id IN "
+          "(SELECT id FROM accounts WHERE role = 'demandeur' AND user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%'))")
+        q("DELETE FROM accounts WHERE role = 'demandeur' AND user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%')")
         q("DELETE FROM import_lots WHERE kind = 'entites' AND (elements::jsonb -> 'ids' -> 'entite') @> to_jsonb((SELECT id FROM entite WHERE code = 'DEMO-GRP'))")
         q("DELETE FROM besoins WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%') OR assignment_id IN "
           "(SELECT id FROM assignments WHERE user_id IN (SELECT id FROM users WHERE matricule LIKE 'DEMO-%'))")
@@ -148,7 +168,8 @@ def effacer():
         q("DELETE FROM entite WHERE code LIKE 'DEMO-%'")
         s.commit()
     gone = sum(1 for ref in refs if filestore.delete_document(ref))
-    log(f"Jeu de demonstration efface ({gone} PDF scelle(s) supprime(s) sur {len(refs)}).")
+    pj_gone = sum(1 for ref in pj_refs if filestore.delete_attachment(ref))
+    log(f"Jeu de demonstration efface ({gone} PDF scelle(s) sur {len(refs)}, {pj_gone} piece(s) jointe(s) sur {len(pj_refs)}).")
 
 
 def etat():
@@ -156,10 +177,15 @@ def etat():
     users = need("salaries", call("GET", "/users", token=token))
     assets = need("materiel", call("GET", "/assets", token=token))
     ents = need("entites", call("GET", "/entites", token=token))
+    tkts_res = need("tickets", call("GET", "/tickets?limit=200", token=token))
+    tkts = tkts_res.get("items", []) if isinstance(tkts_res, dict) else tkts_res
     demo_u = [u for u in users if str(u.get("matricule") or "").startswith("DEMO-")]
+    demo_u_ids = {u["id"] for u in demo_u}
     demo_a = [a for a in assets if str(a.get("identifiant_interne") or "").startswith("DEMO-")]
+    demo_t = [t for t in tkts if t.get("user_id") in demo_u_ids]
     log(f"Salaries : {len(demo_u)} de demonstration sur {len(users)} ; materiel : {len(demo_a)} sur {len(assets)} ; "
-        f"entites : {len([e for e in ents if e['code'].startswith('DEMO-')])} sur {len(ents)}.")
+        f"entites : {len([e for e in ents if e['code'].startswith('DEMO-')])} sur {len(ents)} ; "
+        f"tickets : {len(demo_t)} sur {len(tkts)}.")
 
 
 def charger():
@@ -324,8 +350,151 @@ def charger():
     log("Besoins : 4 ouverts (dont 1 en preparation) et 1 solde par une remise")
     del b1
 
+    # 10. Tickets de demonstration (v0.9) et 1 compte portail demandeur (Camille Martin, DEMO-0001)
+    need("compte portail demo", call("POST", f"/users/{made[0]['id']}/compte-demandeur", {"mode": "mot_de_passe"}, token), (200, 201))
+
+    def mk_ticket(idx, nature, criticite, titre, desc, signaler_securite=False):
+        return need(f"ticket {titre[:24]}", call("POST", "/tickets", {
+            "nature_code": nature,
+            "criticite": criticite,
+            "user_id": made[idx]["id"],
+            "asset_id": pcs[idx]["id"],
+            "titre": titre,
+            "description": desc,
+            "signaler_securite": signaler_securite,
+        }, token))
+
+    def add_comment(tid, texte, interne=False):
+        need(f"commentaire ticket {tid}", call("POST", f"/tickets/{tid}/commentaires", {"contenu": texte, "interne": interne}, token))
+
+    def set_statut(tid, st):
+        need(f"statut ticket {tid} -> {st}", call("POST", f"/tickets/{tid}/statut", {"statut": st}, token))
+
+    t1 = mk_ticket(0, "panne_materiel", "haute", "Ecran externe non detecte sur la station d'accueil",
+                   "Depuis la mise a jour de mardi, le second ecran reste noir au branchement USB-C.")
+    set_statut(t1["id"], "en_cours")
+    add_comment(t1["id"], "Bonjour, pouvez-vous tester avec le cable HDMI de secours en attendant la verification du pilote ?")
+
+    t2 = mk_ticket(0, "demande_service", "moyenne", "Installation du client VPN pour le teletravail",
+                   "Besoin d'installer le profil VPN entreprise avant le deplacement de vendredi.")
+    set_statut(t2["id"], "en_cours")
+    set_statut(t2["id"], "en_attente")
+    add_comment(t2["id"], "Merci de confirmer votre disponibilite demain matin pour la prise en main a distance.")
+
+    t3 = mk_ticket(1, "perte_vol_materiel", "critique", "PC portable oublie dans le train - demande de blocage",
+                   "Poste oublie dans la voiture 4 sur le trajet Lyon-Paris. Session verrouillee et disque chiffre.", signaler_securite=True)
+    set_statut(t3["id"], "en_cours")
+    need("escalade incident demo", call("POST", f"/tickets/{t3['id']}/securite/niveau",
+                                        {"niveau_securite": "incident", "sous_categorie": "perte_vol_materiel"}, token))
+    need("dossier securite demo", call("PUT", f"/tickets/{t3['id']}/securite", {
+        "sous_categorie": "perte_vol_materiel",
+        "cause_racine": "Oubli du poste en deplacement professionnel (chiffrement disque actif).",
+        "actions_correctives": "Revocation immediate des sessions Entra ID et commande de verrouillage a distance.",
+    }, token))
+    add_comment(t3["id"], "Session Entra ID revoquee et verrouillage BitLocker confirme.", interne=True)
+    add_comment(t3["id"], "Votre poste a ete bloque a distance. Merci de nous transmettre le numero de declaration de perte.")
+
+    # Piece jointe PNG fictive sur le ticket incident
+    from PIL import Image, ImageDraw
+    pj_img = Image.new("RGB", (640, 360), (244, 246, 250))
+    d = ImageDraw.Draw(pj_img)
+    d.rectangle([(24, 24), (616, 336)], outline=(37, 99, 235), width=3)
+    d.text((48, 56), "Justificatif de demonstration (donnees fictives)", fill=(15, 23, 42))
+    d.text((48, 100), "Declaration de perte - dossier fictif Kikan", fill=(71, 85, 105))
+    pj_buf = io.BytesIO()
+    pj_img.save(pj_buf, "PNG")
+    pj_boundary = "----kikanDemoPj"
+    pj_body = (
+        f"--{pj_boundary}\r\n"
+        "Content-Disposition: form-data; name=\"file\"; filename=\"declaration-perte-demo.png\"\r\n"
+        "Content-Type: image/png\r\n\r\n"
+    ).encode() + pj_buf.getvalue() + f"\r\n--{pj_boundary}--\r\n".encode()
+    need("piece jointe demo", call("POST", f"/tickets/{t3['id']}/pieces-jointes", token=token, raw=pj_body,
+                                   headers={"Content-Type": f"multipart/form-data; boundary={pj_boundary}"}))
+
+    t4 = mk_ticket(2, "message_suspect", "haute", "Courriel suspect demandant une revalidation du mot de passe",
+                   "Message recu d'une adresse externe imitant le support informatique. Aucun lien clique.", signaler_securite=True)
+
+    t5 = mk_ticket(3, "incident_logiciel", "moyenne", "Erreur d'export PDF dans l'ERP Gestion",
+                   "Le bouton d'export mensuel renvoie une erreur de delai depasse.")
+    set_statut(t5["id"], "en_cours")
+    add_comment(t5["id"], "Reproduction en cours sur l'environnement de qualification.")
+
+    t6 = mk_ticket(4, "acces_compte", "faible", "Reinitialisation de l'acces messagerie sur smartphone",
+                   "Synchronisation bloquee apres renouvellement du mot de passe.")
+    set_statut(t6["id"], "en_cours")
+    add_comment(t6["id"], "Profil reinitialise, la messagerie se synchronise a nouveau.")
+    set_statut(t6["id"], "resolu")
+
+    t7 = mk_ticket(5, "reseau", "moyenne", "Coupure Wi-Fi repetee en salle de reunion Nord",
+                   "Deconnexions toutes les dix minutes sur le reseau interne.")
+    set_statut(t7["id"], "en_cours")
+    add_comment(t7["id"], "Borne Wi-Fi redemarree et canal ajuste.")
+    set_statut(t7["id"], "resolu")
+    set_statut(t7["id"], "ferme")
+
+    t8 = mk_ticket(6, "panne_materiel", "faible", "Remplacement du chargeur USB-C defectueux",
+                   "Le bloc secteur ne charge plus au-dela de 15 %.")
+    set_statut(t8["id"], "en_cours")
+    add_comment(t8["id"], "Chargeur remplace par un modele du stock.")
+    set_statut(t8["id"], "resolu")
+    set_statut(t8["id"], "ferme")
+
+    # Etale les horodatages des tickets de demonstration sur ~2 mois pour des MTTA/MTTR,
+    # anciennetes de stock et evolutions mensuelles realistes dans Statistiques > Tickets.
+    from datetime import datetime, timezone
+    from sqlmodel import Session, select
+    from app.db import engine
+    from app.models import Assignment, Ticket, TicketComment, TicketSecurityDetail
+    now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
+    calendrier = {
+        t8["id"]: (timedelta(days=52), timedelta(hours=2), timedelta(hours=18), timedelta(hours=26), None),
+        t7["id"]: (timedelta(days=34), timedelta(hours=1), timedelta(hours=9), timedelta(hours=24), None),
+        t6["id"]: (timedelta(days=19), timedelta(hours=3), timedelta(hours=14), None, None),
+        t5["id"]: (timedelta(days=11), timedelta(hours=4), None, None, None),
+        t2["id"]: (timedelta(days=4), timedelta(hours=2), None, None, timedelta(hours=5)),
+        t1["id"]: (timedelta(days=3), timedelta(hours=1, minutes=30), None, None, None),
+        t3["id"]: (timedelta(hours=8), timedelta(minutes=30), None, None, None),
+        t4["id"]: (timedelta(hours=3), None, None, None, None),
+    }
+    with Session(engine) as s:
+        # Date de remise du materiel de Camille Martin (DEMO-0001) anterieure a ses tickets
+        for asg in s.exec(select(Assignment).where(Assignment.user_id == made[0]["id"])).all():
+            asg.date_remise = (now_dt - timedelta(days=90)).replace(hour=9, minute=30, second=0, microsecond=0)
+            s.add(asg)
+        for tid, (age, d_rep, d_res, d_fer, d_att) in calendrier.items():
+            tk = s.get(Ticket, tid)
+            if not tk:
+                continue
+            cree = now_dt - age
+            tk.cree_le = cree
+            tk.premiere_reponse_le = (cree + d_rep) if d_rep else None
+            tk.resolu_le = (cree + d_res) if d_res else None
+            tk.ferme_le = (cree + d_fer) if d_fer else None
+            tk.en_attente_depuis = (cree + d_att) if d_att else None
+            dernier = tk.ferme_le or tk.resolu_le or tk.en_attente_depuis or tk.premiere_reponse_le or cree
+            tk.maj_le = dernier
+            tk.maj_publique_le = dernier
+            s.add(tk)
+            comms = s.exec(select(TicketComment).where(TicketComment.ticket_id == tid).order_by(TicketComment.id)).all()
+            for idx_c, cm in enumerate(comms):
+                cm.cree_le = (cree + (d_rep or timedelta(minutes=30)) + timedelta(minutes=15 * idx_c))
+                s.add(cm)
+            sec = s.get(TicketSecurityDetail, tid)
+            if sec:
+                sec.signale_le = cree
+                if sec.qualifie_le:
+                    sec.qualifie_le = cree + timedelta(minutes=20)
+                    sec.qualification_sec = 1200
+                if sec.escalade_le:
+                    sec.escalade_le = cree + timedelta(minutes=20)
+                s.add(sec)
+        s.commit()
+
+    log("Tickets : 8 tickets de demonstration etales sur 2 mois (dont 1 incident securite avec piece jointe et 1 signalement a qualifier) + 1 compte portail demandeur")
+
     log("")
-    log("Jeu de demonstration charge : 52 salaries, 6 entites, 6 applications, 77 materiels, des remises et restitutions signees (PDF scelles).")
+    log("Jeu de demonstration charge : 52 salaries, 6 entites, 6 applications, 77 materiels, 8 tickets, des remises et restitutions signees (PDF scelles).")
     log("Rappel : les salaries en depart et non restitues alimentent les rappels e-mail ; 3 sortis depuis plus d'un an apparaissent dans la page RGPD.")
 
 
