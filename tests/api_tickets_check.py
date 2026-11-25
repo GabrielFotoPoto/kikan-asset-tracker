@@ -346,5 +346,41 @@ s_v1_upd_ok, d_v1_upd_ok = j("PUT", "/v1/tickets/EXT-MAT-OWN", {
 show("PUT /v1 (maj) : autre salarie refuse (409) puis accepte avec materiel_hors_affectation=True (200)",
      s_v1_upd_409 == 409 and s_v1_upd_ok == 200 and d_v1_upd_ok["resultat"] == "modifie", (s_v1_upd_409, d_v1_upd_ok))
 
+print("== 10. Reprise en_attente -> en_cours sur commentaire demandeur /v1 ==")
+s_rep, c_rep = j("PUT", "/v1/tickets/EXT-API-REPRISE", {
+    "nature_code": "panne_materiel", "titre": "ZZ Reprise en_attente /v1",
+    "description": "Test reprise automatique sur reponse salarie", "criticite": "moyenne",
+    "demandeur_matricule": "ZZG7-A1", "canal": "email",
+}, tok_rw_a)
+ref_rep = c_rep["reference"]
+j("POST", f"/v1/tickets/{ref_rep}/statut", {"statut": "en_cours"}, tok_rw_a)
+j("POST", f"/v1/tickets/{ref_rep}/statut", {"statut": "en_attente"}, tok_rw_a)
+
+# 1) Commentaire public IT -> reste en_attente
+s_c_it, _ = j("POST", f"/v1/tickets/{ref_rep}/commentaires", {
+    "contenu": "Relance IT via API", "interne": False, "auteur_type": "it",
+}, tok_rw_a)
+s_det_it, det_it = j("GET", f"/tickets/{c_rep['id']}", token=tok_it)
+show("Commentaire public auteur_type=it sur /v1 ne reprend pas un ticket en_attente",
+     s_c_it == 201 and s_det_it == 200 and det_it["statut"] == "en_attente", (s_c_it, det_it.get("statut")))
+
+# 2) Note interne -> reste en_attente meme avec auteur_type=demandeur
+s_c_int, _ = j("POST", f"/v1/tickets/{ref_rep}/commentaires", {
+    "contenu": "Note interne API", "interne": True, "auteur_type": "demandeur",
+}, tok_int_a)
+s_det_int, det_int = j("GET", f"/tickets/{c_rep['id']}", token=tok_it)
+show("Note interne sur /v1 ne reprend pas un ticket en_attente",
+     s_c_int == 201 and s_det_int == 200 and det_int["statut"] == "en_attente", (s_c_int, det_int.get("statut")))
+
+# 3) Commentaire public demandeur -> reprend en_cours et cumule duree_attente_sec
+s_c_dem, _ = j("POST", f"/v1/tickets/{ref_rep}/commentaires", {
+    "contenu": "Reponse salarie via API", "interne": False, "auteur_type": "demandeur",
+}, tok_rw_a)
+s_det_dem, det_dem = j("GET", f"/tickets/{c_rep['id']}", token=tok_it)
+show("Commentaire public auteur_type=demandeur sur /v1 reprend en_attente -> en_cours",
+     s_c_dem == 201 and s_det_dem == 200 and det_dem["statut"] == "en_cours"
+     and det_dem["en_attente_depuis"] is None and (det_dem["duree_attente_sec"] or 0) >= 0,
+     (s_c_dem, det_dem.get("statut"), det_dem.get("en_attente_depuis"), det_dem.get("duree_attente_sec")))
+
 print(f"\nResultat : {ok_count} OK, {fail_count} FAIL")
 sys.exit(1 if fail_count else 0)

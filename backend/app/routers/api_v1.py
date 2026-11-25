@@ -540,9 +540,11 @@ def add_ticket_comment_v1(
         auth.need("tickets_interne")
     ticket = _ticket_by_ref(session, auth, reference)
     est_reponse_it = (not data.interne) and (data.auteur_type == "it")
+    est_reponse_demandeur = (not data.interne) and (data.auteur_type == "demandeur")
     updated, comment = tickets_svc.ajouter_commentaire(
         session, None, ticket.id, contenu=data.contenu, interne=data.interne,
         actor_name=auth.actor, compter_premiere_reponse=est_reponse_it,
+        reprendre_si_en_attente=est_reponse_demandeur,
     )
     if not comment.interne:
         if data.auteur_type == "it" and updated.user_id:
