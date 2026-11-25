@@ -23,6 +23,7 @@ import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { useCompteurs } from "../compteurs.jsx";
 import { Feedback } from "../components/Notifications.jsx";
+import { trierDeparts } from "../departs.js";
 import { formaterDate, libelleStatutSalarie } from "../format.js";
 
 export default function Dashboard() {
@@ -51,7 +52,7 @@ export default function Dashboard() {
   }, []);
 
   const byStatus = (s) => assets.filter((a) => a.statut === s).length;
-  const sortants = users.filter((u) => u.statut === "en_depart" || u.statut === "sorti");
+  const sortants = trierDeparts(users);
   // Chaque tuile mene a la liste deja filtree ; les alertes passent en rouge des qu'elles sont non nulles.
   const tuiles = [
     { cle: "users", label: "Utilisateurs", n: users.length, vers: "/utilisateurs", cible: "Ouvre Utilisateurs" },

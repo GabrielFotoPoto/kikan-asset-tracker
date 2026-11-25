@@ -6,6 +6,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Corrigé
+- **Tri de « Départs à suivre » sur le tableau de bord (`frontend/src/departs.js`, `frontend/src/pages/Dashboard.jsx`)** : trie les salariés `en_depart` en premier par date de sortie croissante (plus proches en tête), puis les salariés `sorti` par date de sortie décroissante (sans date en fin de groupe).
 - **Reprise automatique `en_attente -> en_cours` sur l'API `/v1` (`backend/app/tickets.py`, `backend/app/routers/api_v1.py`, `docs/API.md`, PR `#208`)** : un commentaire public avec `auteur_type = "demandeur"` (valeur par défaut) envoyé via `POST /v1/tickets/{reference}/commentaires` fait désormais repasser un ticket `en_attente` à `en_cours` (cumul de `duree_attente_sec` et remise à vide de `en_attente_depuis`), comme sur le portail salarié. Un commentaire public `auteur_type = "it"` et une note interne (`interne = true`) laissent le ticket `en_attente`.
 
 ## [0.9.1] - 2026-11-25
