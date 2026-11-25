@@ -450,6 +450,108 @@ INBOX.clear()
 s, r = run()
 show("un besoin annule n'est plus rappele", not any("NomBS1" in body(m) for m in INBOX))
 
+print("== Notifications reponse salarie sur ticket non assigne (portail et /v1) ==")
+import time as _time
+it2 = account("sec_ml_it2", "informatique", "it2@exemple.test")
+it_off = account("sec_ml_it_off", "informatique", "it_off@exemple.test")
+j("PUT", "/auth/accounts/%d" % it_off["id"], {"actif": False})
+
+s_u_tkt, u_tkt = j("POST", "/users", {
+    "matricule": "ZZML-TKT1", "nom": "NomTkt1", "prenom": "ZZMLtkt1",
+    "email": "zzml.tkt1@exemple.test", "entite_id": EA, "statut": "actif",
+})
+s_prov, prov = j("POST", "/users/%d/compte-demandeur" % u_tkt["id"], {"mode": "mot_de_passe"})
+tok_dem_tmp = login(prov["username"], prov["mot_de_passe_provisoire"])
+_, ch_dem = j("POST", "/auth/change-password", {"old_password": prov["mot_de_passe_provisoire"], "new_password": PW}, token=tok_dem_tmp)
+tok_dem = ch_dem["access_token"]
+
+
+def wait_mails(expected_count, timeout=4.0):
+    deadline = _time.monotonic() + timeout
+    while _time.monotonic() < deadline:
+        if len(INBOX) >= expected_count:
+            return
+        _time.sleep(0.1)
+
+
+# 1) Portail demandeur : reponse sur ticket non assigne -> tous les comptes IT actifs notifies
+s_tp, tp = j("POST", "/tickets", {
+    "nature_code": "panne_materiel", "titre": "ZZML Ticket portail non assigne",
+    "description": "Description portail", "criticite": "moyenne",
+}, token=tok_dem)
+INBOX.clear()
+s_cp, _ = j("POST", "/tickets/%d/commentaires" % tp["id"], {"contenu": "SECRET_CONTENU_PORTAIL"}, token=tok_dem)
+wait_mails(2)
+recips_p = {m["To"] for m in INBOX}
+show("portail : reponse salarie sur ticket non assigne notifie les comptes IT actifs",
+     s_tp == 201 and s_cp == 201 and {"it@exemple.test", "it2@exemple.test"} <= recips_p
+     and "it_off@exemple.test" not in recips_p and "rha@exemple.test" not in recips_p
+     and all("Nouvelle reponse du salarie" in (m["Subject"] or "") and "SECRET_CONTENU_PORTAIL" not in body(m) for m in INBOX),
+     recips_p)
+
+# 2) API /v1 : reponse salarie (auteur_type=demandeur) sur ticket non assigne -> tous les comptes IT actifs notifies
+s_tk, tk_v1 = j("POST", "/integrations/tokens", {
+    "nom": "ZZML Token Tickets", "source": "zzml_v1",
+    "droits": ["tickets_lecture", "tickets_ecriture"],
+    "portee_globale": True, "entites": [], "jours": 30,
+})
+tok_v1 = tk_v1["jeton"]
+s_tv1, tv1 = j("PUT", "/v1/tickets/EXT-ML-UNASS", {
+    "nature_code": "panne_materiel", "titre": "ZZML Ticket v1 non assigne",
+    "description": "Description v1", "criticite": "moyenne",
+    "demandeur_matricule": "ZZML-TKT1", "canal": "email",
+}, token=tok_v1)
+_time.sleep(0.3)
+INBOX.clear()
+s_cv1, _ = j("POST", "/v1/tickets/%s/commentaires" % tv1["reference"], {
+    "contenu": "SECRET_CONTENU_V1", "interne": False, "auteur_type": "demandeur",
+}, token=tok_v1)
+wait_mails(2)
+recips_v1 = {m["To"] for m in INBOX}
+show("/v1 : reponse demandeur sur ticket non assigne notifie les comptes IT actifs",
+     s_tv1 == 200 and s_cv1 == 201 and {"it@exemple.test", "it2@exemple.test"} <= recips_v1
+     and "it_off@exemple.test" not in recips_v1 and "rha@exemple.test" not in recips_v1
+     and all("Nouvelle reponse du salarie" in (m["Subject"] or "") and "SECRET_CONTENU_V1" not in body(m) for m in INBOX),
+     recips_v1)
+
+# 3) API /v1 : ticket assigne a un compte IT actif -> seul l'assigne est notifie
+s_tv2, tv2 = j("PUT", "/v1/tickets/EXT-ML-ASS", {
+    "nature_code": "panne_materiel", "titre": "ZZML Ticket v1 assigne",
+    "description": "Description v1 assigne", "criticite": "moyenne",
+    "demandeur_matricule": "ZZML-TKT1", "canal": "email",
+}, token=tok_v1)
+j("PUT", "/tickets/%d" % tv2["id"], {"assigne_a_account_id": it2["id"]})
+_time.sleep(0.3)
+INBOX.clear()
+s_cv2, _ = j("POST", "/v1/tickets/%s/commentaires" % tv2["reference"], {
+    "contenu": "Reponse salarie ticket assigne", "interne": False, "auteur_type": "demandeur",
+}, token=tok_v1)
+wait_mails(1)
+_time.sleep(0.3)
+recips_v2 = {m["To"] for m in INBOX}
+show("/v1 : reponse demandeur sur ticket assigne notifie uniquement l'assigne",
+     s_tv2 == 200 and s_cv2 == 201 and recips_v2 == {"it2@exemple.test"}, recips_v2)
+
+# 4) Assigne retrograde en rh ou desactive -> repli sur les comptes IT actifs
+from app.db import engine as _eng_ml
+from app.models import Ticket as _TktMl
+from app import tickets as _tkt_svc_ml
+from sqlmodel import Session as _SessMl
+j("PUT", "/auth/accounts/%d" % it2["id"], {"role": "rh", "portee_globale": True})
+with _SessMl(_eng_ml) as _s:
+    _t_ass = _s.get(_TktMl, tv2["id"])
+    dests_downgraded = _tkt_svc_ml.destinataires_reponse_salarie(_s, _t_ass)
+show("assigne retrograde en rh -> repli sur les comptes IT actifs",
+     "it@exemple.test" in dests_downgraded and "it2@exemple.test" not in dests_downgraded,
+     dests_downgraded)
+j("PUT", "/auth/accounts/%d" % it2["id"], {"role": "informatique", "actif": False})
+with _SessMl(_eng_ml) as _s:
+    _t_ass = _s.get(_TktMl, tv2["id"])
+    dests_fallback = _tkt_svc_ml.destinataires_reponse_salarie(_s, _t_ass)
+show("assigne desactive -> repli sur les comptes IT actifs",
+     "it@exemple.test" in dests_fallback and "it2@exemple.test" not in dests_fallback and "it_off@exemple.test" not in dests_fallback,
+     dests_fallback)
+
 print("== Audit ==")
 s, rows = j("GET", "/audit?limit=200")
 rows = rows if isinstance(rows, list) else rows.get("items", [])

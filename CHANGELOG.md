@@ -6,6 +6,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Corrigé
+- **Notification IT sur réponse salarié pour un ticket non assigné (`backend/app/tickets.py`, `backend/app/routers/tickets.py`, `backend/app/routers/api_v1.py`, `docs/API.md`)** : lorsqu'un salarié répond sur un ticket non assigné (ou dont le compte assigné est inactif / sans adresse e-mail), via le portail ou via `POST /v1/tickets/{reference}/commentaires` (`auteur_type = "demandeur"`), tous les comptes `informatique` actifs disposant d'une adresse e-mail sont notifiés ; si le ticket est assigné à un compte actif muni d'une adresse e-mail, seul cet assigné est notifié. Supprime au passage l'import local de `Account` dans `api_v1.py`.
 - **Reprise automatique `en_attente -> en_cours` sur l'API `/v1` (`backend/app/tickets.py`, `backend/app/routers/api_v1.py`, `docs/API.md`, PR `#208`)** : un commentaire public avec `auteur_type = "demandeur"` (valeur par défaut) envoyé via `POST /v1/tickets/{reference}/commentaires` fait désormais repasser un ticket `en_attente` à `en_cours` (cumul de `duree_attente_sec` et remise à vide de `en_attente_depuis`), comme sur le portail salarié. Un commentaire public `auteur_type = "it"` et une note interne (`interne = true`) laissent le ticket `en_attente`.
 
 ## [0.9.1] - 2026-11-25
