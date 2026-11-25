@@ -5,15 +5,30 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.9.1-rc.2] - 2026-11-25
+
+**Pré-version corrective 0.9.1-rc.2 : à essayer avant la 0.9.1.** **Aucune nouvelle migration de base de données** par rapport à la `0.9.0` et à la `0.9.1-rc.1`. **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.9.1-rc.2`, puis `docker compose pull` et `docker compose up -d --no-build` ; les quatre images ensemble.
+
+**Vérifié** : intégration continue verte (11/11 contrôles) sur chacune des PR regroupées (`#199`, `#200`, `#201`, `#202`, `#203`, `#204`), suite locale complète (48/48 suites `kiktest` dont `alembic check`, 44/44 tests front + build Vite), cycle complet `scripts/demo_data.py` et vérification visuelle des 12 captures sur une pile de démonstration isolée.
+
+**Non vérifié en conditions réelles** : parcours manuel complet en préproduction, connexion à un contrôleur de domaine Active Directory réel (si LDAP est activé), connexion à un vrai tenant Microsoft Entra ID (en particulier la détection `idp != iss`), envoi réel du rappel 72 h DPO et des notifications `/v1/tickets*` sur un serveur SMTP de préproduction.
+
 ### Ajouté
-- **Cohérence salarié / matériel sur les tickets IT et `/v1`** :
+- **Cohérence salarié / matériel sur les tickets IT et `/v1` (PR `#199`)** :
   - **Service `backend/app/detentions.py`** : extraction de `actifs_detenus_salarie` hors de `routers/portail.py` et ajout de `detenteur_actuel_actif` (partagés entre portail et tickets).
   - **Contrôle serveur (`backend/app/tickets.py`, `/tickets`, `/tickets/{id}`, `/v1/tickets/{id_externe}`)** : si un salarié et un matériel sont fournis et que le matériel est actuellement affecté à un autre salarié, refus `409` sauf drapeau explicite `materiel_hors_affectation: true` (tracé dans `AuditLog` sous `ticket_materiel_hors_affectation` avec identifiants techniques uniquement). Matériel du salarié ou non affecté accepté ; portail `demandeur` inchangé.
   - **Route `GET /tickets/materiel-salarie/{user_id}`** : réservée au rôle `informatique` (`403` pour `rh`, `lecture`, `demandeur` ; `404` si salarié inexistant), renvoie uniquement les actifs actuellement affectés au salarié sans donnée personnelle superflue.
   - **Interface IT (`frontend/src/pages/Tickets.jsx`)** : lorsqu'un salarié est sélectionné, le menu *Matériel concerné* propose uniquement ses actifs affectés par défaut, avec une case explicite *Autre matériel (hors affectation)* pour rouvrir tout le parc et réinitialisation automatique du matériel au changement de salarié.
+- **Jeu de démonstration tickets (`scripts/demo_data.py`, PR `#201`)** : ajout de 8 tickets fictifs étalés sur 2 mois (dont 1 incident sécurité avec pièce jointe et 1 signalement à qualifier), 1 compte portail `demandeur` local (`DEMO-0001`), date de remise antérieure aux tickets, compteur dans `etat()` et nettoyage complet dans `effacer()`.
 
 ### Corrigé
 - **Formatage des dates et libellés de statuts (`frontend/src/format.js`, PR `#202`)** : affichage des horodatages en `JJ/MM/AAAA HH:MM` (portail *Mes tickets*, *Mon matériel*, échanges des tickets) et des dates en `JJ/MM/AAAA` (*Tableau de bord*), avec libellés lisibles pour les statuts de tickets (`Nouveau`, `En cours`, `En attente`, `Résolu`, `Fermé`, `Annulé`), la criticité, la sécurité, le canal et les statuts salarié (`En départ`, `Sorti`).
+- **Badges de statut et libellé de canal (`frontend/src/styles.css`, `Tickets.jsx`, `Stats.jsx`, PR `#203`)** : suppression du chevauchement entre `En cours` et `Hors délai` dans la liste IT (`.badge` en `inline-block; white-space: nowrap`, `.badge.warn` isolé du padding bloc `.warn`, conteneur `.badge-group`) et affichage du libellé lisible du canal (`IT`, `Portail`, `API`, `E-mail`) dans *Statistiques > Tickets*.
+
+### Documentation
+- **Documentation technique v0.9 (PR `#200`)** : mise à jour de [docs/RGPD.md](docs/RGPD.md) (5 durées et purges réelles de la v0.9, rappel quotidien 72 h DPO), [docs/TICKETS.md](docs/TICKETS.md) (`/apropos` demandeur, `GET /tickets/materiel-salarie/{user_id}`, contrôle `409` / `materiel_hors_affectation`), [docs/API.md](docs/API.md) (`auteur_type` sur les commentaires `/v1`, `materiel_hors_affectation`) et [README.md](README.md) (structure du projet).
+- **Captures d'écran v0.9 (`docs/captures/`, PR `#201`)** : 12 captures rafraîchies et complétées sur données fictives uniquement (tickets IT, création avec filtrage matériel, détail sécurité, statistiques, portail salarié, RGPD, tableau de bord, paramétrage Tickets / Authentification AD LDAP / Intégrations).
+- **Guide d'utilisation ([docs/GUIDE-UTILISATEUR.md](docs/GUIDE-UTILISATEUR.md), PR `#204`)** : mise à jour complète pour la v0.9 (rôle `demandeur`, connexion SSO / AD LDAP / compte local, tickets IT, portail salarié, statistiques tickets, purge RGPD et paramétrage).
 
 ## [0.9.1-rc.1] - 2026-11-25
 
