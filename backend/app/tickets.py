@@ -794,12 +794,17 @@ def modifier_dossier_securite(
     return sec
 
 
-def destinataires_alerte_securite(session: Session) -> list[str]:
-    """Adresses e-mail des administrateurs informatiques actifs (hors donnees sensibles)."""
+def comptes_it_actifs(session: Session) -> list[str]:
+    """Adresses e-mail des comptes informatiques actifs (hors donnees sensibles)."""
     rows = session.exec(
         select(Account).where(Account.role == Role.informatique, Account.actif == True)  # noqa: E712
     ).all()
     return sorted({a.email.strip() for a in rows if a.email and "@" in a.email})
+
+
+def destinataires_alerte_securite(session: Session) -> list[str]:
+    """Destinataires des alertes securite (dedie, pour pouvoir evoluer vers une liste specifique)."""
+    return comptes_it_actifs(session)
 
 
 def destinataires_reponse_salarie(session: Session, ticket: Ticket) -> list[str]:
@@ -812,7 +817,7 @@ def destinataires_reponse_salarie(session: Session, ticket: Ticket) -> list[str]
         ass = session.get(Account, ticket.assigne_a_account_id)
         if ass and ass.actif and ass.role == Role.informatique and ass.email and "@" in ass.email:
             return [ass.email.strip()]
-    return destinataires_alerte_securite(session)
+    return comptes_it_actifs(session)
 
 
 def notifier_it_en_fond(ticket_id: int, reference: str, criticite: str, evenement: str, destinataires: list[str]) -> None:
