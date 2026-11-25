@@ -445,7 +445,7 @@ def charger():
     from datetime import datetime, timezone
     from sqlmodel import Session, select
     from app.db import engine
-    from app.models import Ticket, TicketComment, TicketSecurityDetail
+    from app.models import Assignment, Ticket, TicketComment, TicketSecurityDetail
     now_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     calendrier = {
         t8["id"]: (timedelta(days=52), timedelta(hours=2), timedelta(hours=18), timedelta(hours=26), None),
@@ -458,6 +458,10 @@ def charger():
         t4["id"]: (timedelta(hours=3), None, None, None, None),
     }
     with Session(engine) as s:
+        # Date de remise du materiel de Camille Martin (DEMO-0001) anterieure a ses tickets
+        for asg in s.exec(select(Assignment).where(Assignment.user_id == made[0]["id"])).all():
+            asg.date_remise = (now_dt - timedelta(days=90)).replace(hour=9, minute=30, second=0, microsecond=0)
+            s.add(asg)
         for tid, (age, d_rep, d_res, d_fer, d_att) in calendrier.items():
             tk = s.get(Ticket, tid)
             if not tk:
