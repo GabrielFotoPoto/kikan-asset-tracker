@@ -194,12 +194,23 @@ def login(data: LoginRequest, request: Request, response: Response, session: Ses
                             headers={"Retry-After": str(wait)})
 
     # Aiguillage strict selon source_auth : un mot de passe local n'est JAMAIS envoye a l'annuaire AD/LDAP.
-    if (account is not None and account.source_auth == "ldap") or (account is None and ldap_auth.is_active(session)):
-        if not ldap_auth.is_active(session):
+    import time as _time
+    t0 = _time.monotonic()
+    ldap_actif = ldap_auth.is_active(session)
+
+    def _uniform_401() -> None:
+        if ldap_actif:
+            rem = ldap_auth.login_fail_floor_sec() - (_time.monotonic() - t0)
+            if rem > 0:
+                _time.sleep(rem)
+        raise HTTPException(401, "Identifiants invalides")
+
+    if (account is not None and account.source_auth == "ldap") or (account is None and ldap_actif):
+        if not ldap_actif:
             verify_password(data.password, _DUMMY_HASH)
             login_limiter.fail(ip, username)
             audit(acteur_saisi(account, username), "login_echec", ip=ip, status=401)
-            raise HTTPException(401, "Identifiants invalides")
+            _uniform_401()
         cfg_ldap = ldap_auth.read_settings(session)
         ident = ldap_auth.authenticate(
             username, data.password,
@@ -209,12 +220,13 @@ def login(data: LoginRequest, request: Request, response: Response, session: Ses
             verify_password(data.password, _DUMMY_HASH)
             login_limiter.fail(ip, username)
             audit(acteur_saisi(account, username), "login_echec", ip=ip, status=401)
-            raise HTTPException(401, "Identifiants invalides")
+            _uniform_401()
         resolved = ldap_auth.resolve_ldap_account(session, ident)
         if resolved is None:
+            verify_password(data.password, _DUMMY_HASH)
             login_limiter.fail(ip, username)
-            audit("anonyme", "ldap_refuse", ip=ip, status=403, detail="demandeur non provisionne")
-            raise HTTPException(403, "Acces non provisionne dans Kikan")
+            audit("anonyme", "ldap_refuse", ip=ip, status=401, detail="demandeur non provisionne")
+            _uniform_401()
         login_limiter.success(ip, username)
         audit(audit_actor(resolved), "login_ok", ip=ip, status=200, detail="ldap")
         token = create_access_token(resolved.username, resolved.role.value, resolved.token_epoch, act=audit_actor(resolved))
@@ -232,7 +244,7 @@ def login(data: LoginRequest, request: Request, response: Response, session: Ses
     if not account or not account.actif or not valid or not demandeur_ok:
         login_limiter.fail(ip, username)
         audit(acteur_saisi(account, username), "login_echec", ip=ip, status=401)
-        raise HTTPException(401, "Identifiants invalides")
+        _uniform_401()
 
     if not sso_policy.local_login_allowed(session, account):
         login_limiter.success(ip, username)

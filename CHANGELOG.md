@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- **Sécurité et cadrage Active Directory / LDAP (G5) (`backend/app/ldap_auth.py`, `backend/app/routers/auth.py`, `docs/AD-LDAP.md`)** : refus uniforme `401 Identifiants invalides` (au lieu de `403`), plancher de latence adaptatif sur les échecs `401` quand LDAP est actif (calé sur la latence AD observée, borné par le timeout), `get_info=NONE` dans `ldap3`, non-exposition du nom d'hôte AD aux requêtes anonymes, première liaison effectuée sur l'attribut configuré (`mail`, `userPrincipalName` ou `sAMAccountName` -> `matricule`, avec avertissement explicite dans `docs/AD-LDAP.md`), tests LDAP étendus (`tests/ldap_check.py`).
+
 ## [0.9.0] - 2026-11-25
 
 Gestion de tickets native (IT), gestion transversale des pièces jointes et stockage dédié, portail salarié (`demandeur`) avec comptes locaux, extension SSO Entra ID et connecteur Active Directory (LDAP / LDAPS), escalade et suivi d'incidents de sécurité (72 h DPO/CNIL), statistiques et KPI tickets sans PII, API d'intégration `/v1/tickets*` et passerelle e-mail documentée.

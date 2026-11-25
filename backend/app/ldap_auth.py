@@ -32,12 +32,13 @@ import os
 import re
 import secrets
 import ssl
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 
 from fastapi import HTTPException
-from ldap3 import ALL, BASE, Connection, SIMPLE, SUBTREE, Server, Tls
+from ldap3 import BASE, Connection, NONE, SIMPLE, SUBTREE, Server, Tls
 from ldap3.core.exceptions import LDAPException
 from ldap3.utils.conv import escape_filter_chars
 from sqlalchemy import func
@@ -67,10 +68,25 @@ class LdapIdentity:
     upn: str | None
     sam: str | None
     display_name: str | None
+    attribut: str = "mail"
 
 
 # Hook de test (uniquement pour tests/ldap_check.py avec annuaire simule)
 _TEST_CLIENT_FACTORY: Callable[[str, int, bool, Tls | None, int], tuple[Server, str]] | None = None
+# Moyenne glissante de la latence observee sur l'annuaire AD (pour uniformiser les 401 entre local et AD)
+_OBSERVED_LATENCY_SEC: float = 0.35
+
+
+def login_fail_floor_sec() -> float:
+    """Plancher de latence pour les echecs 401 quand LDAP est actif (cale sur la latence AD observee, borne par le timeout)."""
+    cap = min(float(_timeout()), 2.0)
+    return max(0.35, min(_OBSERVED_LATENCY_SEC, cap))
+
+
+def _record_latency(elapsed: float) -> None:
+    global _OBSERVED_LATENCY_SEC
+    if elapsed > 0:
+        _OBSERVED_LATENCY_SEC = round(0.7 * _OBSERVED_LATENCY_SEC + 0.3 * elapsed, 3)
 
 
 def _hosts() -> list[str]:
@@ -169,12 +185,17 @@ def escape_filter(value: str) -> str:
     return escape_filter_chars(value)
 
 
-def _validate_hosts(hosts: list[str]) -> list[str]:
+def _validate_hosts(hosts: list[str], *, expose_detail: bool = False) -> list[str]:
+    valid: list[str] = []
     for h in hosts:
         err = netguard.probleme_hote(h)
         if err:
-            raise HTTPException(400, f"Hote LDAP refuse ({h}) : {err}")
-    return hosts
+            if expose_detail:
+                raise HTTPException(400, f"Hote LDAP refuse ({h}) : {err}")
+            log.warning("Hote LDAP refuse par netguard : %s", err)
+            continue
+        valid.append(h)
+    return valid
 
 
 def _build_tls() -> Tls:
@@ -205,7 +226,7 @@ def _open_connection(host: str, user_dn: str, password: str) -> Connection:
         conn.bind()
         return conn
 
-    server = Server(host, port=port, use_ssl=use_ssl, tls=tls_obj, connect_timeout=timeout, get_info=ALL)
+    server = Server(host, port=port, use_ssl=use_ssl, tls=tls_obj, connect_timeout=timeout, get_info=NONE)
     conn = Connection(
         server, user=user_dn, password=password,
         authentication=SIMPLE, receive_timeout=timeout, raise_exceptions=False,
@@ -258,7 +279,7 @@ def test_connection() -> dict:
     summary = config_summary()
     if not summary["configure"]:
         raise HTTPException(409, "Configuration LDAP incomplete : " + ", ".join(summary["manque"]))
-    hosts = _validate_hosts(summary["hosts"])
+    hosts = _validate_hosts(summary["hosts"], expose_detail=True)
     base_dn = _base_dn()
     last_err = "injoignable"
     for host in hosts:
@@ -302,7 +323,9 @@ def authenticate(
     if not configured():
         return None
 
-    hosts = _validate_hosts(_hosts())
+    hosts = _validate_hosts(_hosts(), expose_detail=False)
+    if not hosts:
+        return None
     base_dn = _base_dn()
     safe_user = escape_filter(username.strip())
     ldap_filter = f"(&(objectClass=user)(!(objectClass=computer))({attribut}={safe_user}))"
@@ -312,6 +335,7 @@ def authenticate(
     for host in hosts:
         svc_conn = None
         user_conn = None
+        t_start = time.monotonic()
         try:
             svc_conn = _open_connection(host, _bind_dn(), _bind_password())
             if not svc_conn.bound:
@@ -360,11 +384,13 @@ def authenticate(
                 upn=upn.lower() if upn else None,
                 sam=sam.lower() if sam else None,
                 display_name=disp[:120] if disp else None,
+                attribut=attribut,
             )
         except (LDAPException, OSError, RuntimeError) as exc:
             log.warning("Erreur LDAP sur %s : %s", host, type(exc).__name__)
             continue
         finally:
+            _record_latency(time.monotonic() - t_start)
             for c in (user_conn, svc_conn):
                 if c is not None:
                     try:
@@ -402,16 +428,35 @@ def resolve_ldap_account(session: Session, ident: LdapIdentity) -> Account | Non
         session.refresh(account)
         return account
 
-    # 2. Premiere connexion : correspondance sur une fiche salarie active unique par e-mail
-    email_lookup = ident.email or (ident.upn if ident.upn and "@" in ident.upn else None)
-    if not email_lookup:
-        return None
-    matches = session.exec(
-        select(User).where(
-            func.lower(User.email) == email_lookup.lower(),
-            User.statut == EmployeeStatus.actif,
-        )
-    ).all()
+    # 2. Premiere connexion : correspondance sur une fiche salarie active unique selon l'attribut configure
+    if ident.attribut == "sAMAccountName":
+        if not ident.sam:
+            return None
+        matches = session.exec(
+            select(User).where(
+                func.lower(User.matricule) == ident.sam.lower(),
+                User.statut == EmployeeStatus.actif,
+            )
+        ).all()
+    elif ident.attribut == "userPrincipalName":
+        lookup = ident.upn if ident.upn and "@" in ident.upn else None
+        if not lookup:
+            return None
+        matches = session.exec(
+            select(User).where(
+                func.lower(User.email) == lookup.lower(),
+                User.statut == EmployeeStatus.actif,
+            )
+        ).all()
+    else:
+        if not ident.email:
+            return None
+        matches = session.exec(
+            select(User).where(
+                func.lower(User.email) == ident.email.lower(),
+                User.statut == EmployeeStatus.actif,
+            )
+        ).all()
     if len(matches) != 1:
         return None
     user = matches[0]
