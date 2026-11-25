@@ -22,6 +22,7 @@ import { Link, useParams } from "react-router-dom";
 import { api, downloadFile, errorText, fetchDataUrl, postForm } from "../api.js";
 import { Feedback } from "../components/Notifications.jsx";
 import { Loading } from "../components/State.jsx";
+import { formaterDateHeure, libelleStatutTicket } from "../format.js";
 
 export default function MonTicketDetail() {
   const { id } = useParams();
@@ -100,7 +101,7 @@ export default function MonTicketDetail() {
           <Link to="/mes-tickets">&larr; Retour a Mes tickets</Link>
           <h2 style={{ margin: "6px 0 2px" }}>{ticket.reference} - {ticket.titre}</h2>
           <div className="row">
-            <span className="badge">{ticket.statut}</span>
+            <span className="badge">{libelleStatutTicket(ticket.statut)}</span>
             {ticket.signalement_securite && <span className="badge">Signalement de securite pris en compte</span>}
           </div>
         </div>
@@ -161,7 +162,7 @@ export default function MonTicketDetail() {
               <div key={c.id} className="card" style={{ marginBottom: 0 }}>
                 <div className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
                   <strong>{c.auteur}</strong>
-                  <span className="muted">{c.cree_le}</span>
+                  <span className="muted">{formaterDateHeure(c.cree_le)}</span>
                 </div>
                 <div style={{ whiteSpace: "pre-wrap" }}>{c.contenu}</div>
               </div>

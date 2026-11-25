@@ -23,6 +23,7 @@ import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { useCompteurs } from "../compteurs.jsx";
 import { Feedback } from "../components/Notifications.jsx";
+import { formaterDate, libelleStatutSalarie } from "../format.js";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -101,8 +102,8 @@ export default function Dashboard() {
               {sortants.map((u) => (
                 <tr key={u.id}>
                   <td>{u.prenom} {u.nom}</td>
-                  <td><span className="badge">{u.statut}</span></td>
-                  <td>{u.date_sortie || "-"}</td>
+                  <td><span className="badge">{libelleStatutSalarie(u.statut)}</span></td>
+                  <td>{formaterDate(u.date_sortie)}</td>
                 </tr>
               ))}
             </tbody>
