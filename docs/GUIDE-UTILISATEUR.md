@@ -7,37 +7,42 @@ Les captures viennent du **jeu de données de démonstration** (personnes et mat
 
 Kikan garde la trace de **qui détient quel matériel** (ordinateurs portables, smartphones) et **quels accès** il a, de l'arrivée au départ,
 avec une **preuve** : chaque remise et chaque restitution est signée à l'écran par le salarié, puis le PDF est **scellé** (signature électronique de l'organisation).
+Il intègre également un **module de tickets de support** (incidents, demandes, événements de sécurité) accompagné d'un **portail salarié** dédié.
 Le tout est tracé dans un journal d'audit, pour faciliter la démarche ISO 27001.
 
 Principe à retenir : **ce qui a une histoire ne se supprime pas** ; on le désactive, on le passe en « sorti » ou en « réformé ». La suppression définitive des salariés
-partis se fait par une **purge RGPD** encadrée (voir la section 7).
+partis et l'anonymisation des anciens tickets se font par une **purge RGPD** encadrée (voir la section 7).
 
-## 2. Les trois rôles
+## 2. Les quatre rôles
 
 | Rôle | Pour qui | Ce qu'il peut faire |
 |---|---|---|
-| **informatique** | l'équipe informatique | tout : matériel, remises, restitutions, signatures, entités, import, paramétrage, comptes, stockage, sauvegarde, RGPD, journal d'audit |
-| **rh** | le service RH | entrées et départs des salariés, **souhaits de matériel** à l'entrée (sans la page Besoins), accès applicatifs, décisions de la revue des accès ; lecture du reste |
-| **lecture** | contrôle, direction | consulter et exporter, sans rien modifier |
+| **informatique** | l'équipe informatique | tout : matériel, remises, restitutions, signatures, **tickets et statistiques de tickets**, entités, import, paramétrage, comptes (dont comptes portail salariés), stockage, sauvegarde, RGPD, journal d'audit |
+| **rh** | le service RH | entrées et départs des salariés, **souhaits de matériel** à l'entrée (sans la page Besoins), accès applicatifs, décisions de la revue des accès ; lecture du reste (sans accès au module Tickets) |
+| **lecture** | contrôle, direction | consulter et exporter, sans rien modifier (sans accès au module Tickets) |
+| **demandeur** | tout salarié actif | **portail salarié** uniquement : ouvrir et suivre **ses propres tickets** (*Mes tickets*), consulter **son matériel affecté** (*Mon matériel*), gérer *Mon compte* et consulter *À propos*. Aucun accès au reste de Kikan (refus par défaut) |
 
 Les comptes **RH** et **lecture** peuvent être **limités à des entités** (par exemple une seule filiale) : ils ne voient alors que les salariés, le matériel et les accès de ces
-entités et de leurs sous-entités. Ce qui est hors de leur périmètre n'apparaît tout simplement pas. Les comptes **informatique** voient toujours tout.
+entités et de leurs sous-entités. Ce qui est hors de leur périmètre n'apparaît tout simplement pas. Les comptes **informatique** voient toujours tout. Les comptes **demandeur** sont strictement isolés sur leur propre fiche salarié (le passage d'un salarié au statut « sorti » coupe immédiatement l'accès au portail).
 
 ## 3. Se connecter
 
 ![Écran de connexion](captures/guide-connexion.png)
 
-- Saisissez votre **identifiant** et votre **mot de passe** (12 caractères minimum). Si votre organisation utilise **Microsoft 365**, un bouton de connexion dédié apparaît.
-- **Mot de passe oublié ?** (si le lien est proposé) : saisissez votre identifiant ; un lien valable 30 minutes, à usage unique, est envoyé à l'adresse e-mail de votre compte.
+- Saisissez votre **identifiant** et votre **mot de passe** (12 caractères minimum pour un compte local). Selon la configuration de votre organisation :
+  - **Microsoft 365 (SSO Entra ID)** : un bouton de connexion dédié apparaît (utilisable pour l'informatique, les RH et le portail salarié).
+  - **Active Directory local (LDAP / LDAPS)** : pour le portail salarié (`demandeur`), saisissez directement votre identifiant et mot de passe d'entreprise dans le formulaire de connexion.
+  - **Compte local** : pour un salarié sans annuaire, l'informatique crée son compte portail (depuis *Utilisateurs*) avec un **lien d'activation valable 72 heures** (réglable) ou un mot de passe provisoire à changer dès la première connexion.
+- **Mot de passe oublié ?** (si le lien est proposé, comptes locaux) : saisissez votre identifiant ; un lien valable 30 minutes, à usage unique, est envoyé à l'adresse e-mail de votre compte.
   Sinon, demandez à l'informatique de réinitialiser votre mot de passe (page *Comptes*).
-- **Changer son mot de passe** : menu **Mon compte**. Vos autres sessions ouvertes sont alors fermées.
+- **Changer son mot de passe** : menu **Mon compte** (comptes locaux uniquement). Vos autres sessions ouvertes sont alors fermées.
 - La durée d'une session est réglable (4 heures par défaut) ; passé ce délai, il suffit de se reconnecter. Après 5 échecs de connexion, elle est suspendue 15 minutes.
 
 ## 4. Se repérer
 
-Le menu de gauche liste les pages selon votre rôle. Le **tableau de bord** résume la situation :
+Le menu de gauche liste les pages selon votre rôle. Pour un salarié (`demandeur`), l'interface se réduit au portail (*Mes tickets*, *Mon matériel*, *Mon compte*, *À propos*). Pour les autres rôles, le **tableau de bord** résume la situation :
 
-![Tableau de bord](captures/guide-tableau-de-bord.png)
+![Tableau de bord](captures/interface-tableau-de-bord.png)
 
 - les **tuiles** : nombre de salariés, de matériels, de matériels affectés et en stock, **besoins à traiter**, **anomalies d'accès** (en rouge s'il y en a) ; chaque tuile mène à la page concernée ;
 - la liste des **départs à suivre** (salariés partis ou en cours de départ) ;
@@ -165,12 +170,52 @@ matériel **et** récupère l'ancien, avec **un seul document signé**.
 Le renouvellement peut être **partiel** : le salarié garde ce que vous ne cochez pas (son smartphone, par exemple), et seule l'affectation entièrement rendue est clôturée. Dans la liste des remises, l'échange apparaît avec le
 badge **échange** et la liste du matériel restitué ; le bouton **PDF scellé** ouvre l'accusé d'échange. Réservé à un salarié **en poste** (statut actif).
 
+### 5.8 Suivre les tickets de support (informatique)
+
+Page **Tickets** (section *Support*, réservée au rôle `informatique` ; aucun accès pour les rôles `rh` et `lecture`) :
+
+![Liste des tickets IT](captures/tickets-liste.png)
+
+- Les **5 tuiles** en haut résument l'activité en cours : *Nouveaux*, *En cours*, *En attente*, *Sécurité à qualifier* et *Délai cible dépassé*.
+- Les filtres portent sur le statut, la nature, la criticité, le niveau de sécurité et la recherche par référence, titre ou salarié.
+
+**Créer un ticket côté informatique** (bouton **+ Nouveau ticket**) :
+
+![Création d'un ticket IT avec filtrage du matériel par salarié](captures/tickets-creation-materiel.png)
+
+- **Cohérence salarié / matériel** : dès qu'un salarié est sélectionné, le menu *Matériel concerné* propose par défaut **uniquement le matériel actuellement affecté à ce salarié** (et se vide automatiquement si vous changez de salarié).
+- Pour les cas légitimes hors affectation (matériel tout juste rendu, matériel en préparation pour un arrivant, perte/vol ou matériel partagé), cochez explicitement **Autre matériel (hors affectation)** pour rouvrir tout le parc ; cet usage est contrôlé côté serveur et tracé dans le journal d'audit.
+- Sans salarié sélectionné (ticket interne IT), l'ensemble du parc reste proposé librement.
+
+**Traiter un ticket et gérer un événement de sécurité** :
+
+![Fiche ticket IT avec dossier d'investigation sécurité et pièce jointe](captures/tickets-detail-securite.png)
+
+- **Cycle de vie** : *Prendre en charge*, *Mettre en attente* (le temps d'attente est déduit du MTTR net), *Marquer résolu* (clôture automatique après 7 jours par défaut, réglable, sauf tickets de sécurité) ou *Annuler*.
+- **Échanges et pièces jointes** : distinguez les **réponses publiques** (visibles par le salarié) des **notes internes IT** (strictement invisibles du salarié). Jusqu'à 5 pièces jointes par ticket (PNG, JPEG, WEBP réencodés sans métadonnées EXIF, PDF, TXT, LOG).
+- **Événement et incident de sécurité** : un ticket signalé peut être qualifié en **Incident** ou classé **Sans suite**. Le dossier d'investigation (IT uniquement) suit la sous-catégorie, le confinement, la cause racine, les actions correctives et, en cas de **violation potentielle de données personnelles**, le délai indicatif de **72 h DPO / CNIL (RGPD art. 33)**. Le détail complet est dans [TICKETS.md](TICKETS.md).
+
+### 5.9 Portail salarié : Mes tickets et Mon matériel (demandeur)
+
+Les salariés actifs disposant d'un accès portail (compte local, Microsoft 365 ou Active Directory local) arrivent dans un espace simplifié, limité à **Mes tickets**, **Mon matériel**, **Mon compte** et **À propos**.
+
+![Portail salarié - Mes tickets](captures/tickets-portail-demandeur.png)
+
+- **Ouvrir un ticket** (bouton **+ Ouvrir un ticket**) : choisissez la nature, l'urgence ressentie, éventuellement un matériel parmi **vos actifs actuellement affectés**, décrivez le besoin et cochez si nécessaire la case d'événement de sécurité.
+
+![Portail salarié - Ouvrir un ticket](captures/tickets-portail-nouveau.png)
+
+- **Suivre et répondre** : consultez l'avancement, ajoutez des précisions ou une pièce jointe, annulez un ticket encore *Nouveau*, ou confirmez la clôture / rouvrez un ticket *Résolu*. Les notes internes IT ne sont jamais visibles.
+- **Mon matériel** : liste en lecture seule du matériel qui vous est actuellement affecté, avec la date de remise et un lien **Signaler un problème** qui préremplit directement un nouveau ticket sur cet équipement.
+
+![Portail salarié - Mon matériel](captures/tickets-portail-materiel.png)
+
 ## 6. Contrôler et rendre compte
 
 | Page | Pour quoi faire |
 |---|---|
 | **Rapports** | la photo des **détentions à l'instant T** (qui détient quoi), filtrable par entité et service, exportable en **CSV, Excel ou PDF** |
-| **Statistiques** | répartition du parc par entité, service, modèle ; **renouvellements à venir** ; filtres par **entité** et par **période** (mouvements remis, restitués, achetés) ; export **CSV, Excel et PDF** (section 6.3) |
+| **Statistiques** | répartition du parc par entité, service, modèle ; **renouvellements à venir** ; filtres par **entité** et par **période** ; onglet **Tickets** (informatique uniquement : backlog, MTTA/MTTR, fiabilité par modèle, sécurité) ; export **CSV, Excel et PDF** (section 6.3) |
 | **Renouvellements** (informatique) | matériel **à renouveler** (échéance dépassée ou proche) avec son détenteur ; boutons **Renouveler** et **Reporter** (section 6.4) |
 | **Prévisions** | **échéances de renouvellement** et **budget estimé** par mois, année, type et entité, sur la période de votre choix (12 mois par défaut) ; export **CSV, Excel et PDF** (section 6.2) |
 | **Revue des accès** | anomalies d'accès, rapport « qui a accès à quoi » et **campagnes de revue** (section 6.1) |
@@ -217,6 +262,10 @@ renouvellements. Les boutons **Exporter CSV, Excel ou PDF** reprennent ce qui es
 
 ![Statistiques filtrées par période](captures/statistiques-filtres.png)
 
+Pour le rôle **informatique**, un second onglet **Tickets** regroupe des indicateurs agrégés sans donnée nominative, filtrables par entité, période, nature et criticité (avec export CSV et Excel) : **activité et backlog** (criticité, ancienneté, évolution mensuelle, canal), **réactivité et qualité** (MTTA médiane, MTTR net médian, réouvertures), **fiabilité du parc matériel** (pannes par nature et par modèle) et **pilotage sécurité** (signalements, escalades, délai de qualification).
+
+![Statistiques - onglet Tickets](captures/tickets-statistiques.png)
+
 ### 6.4 Renouvellements (informatique)
 
 La page **Renouvellements** liste le matériel **en stock ou affecté** dont l'échéance de renouvellement est **dépassée** ou proche, avec son **détenteur** : un tableau de bord de décision pour l'informatique, qui est **seule à décider** du renouvellement. Choisissez un **horizon**
@@ -244,27 +293,26 @@ développement » : le numéro n'est renseigné que sur les images publiées. Ut
 | **Entités** | le groupe et ses filiales (parent, activation). Une entité utilisée se désactive, elle ne se supprime pas |
 | **Chartes** | déposer la charte (Word, PDF ou Markdown), globale ou par entité. Une nouvelle version **archive** l'ancienne ; les documents déjà signés ne changent pas |
 | **Import** | reprise de l'existant par **CSV ou Excel**, dans l'ordre : entités, applications, salariés, matériel, affectations, accès. Toujours **simulation d'abord**, puis import réel « tout ou rien ». Un import réalisé peut être **annulé** tant que rien de ce qu'il a créé n'est utilisé |
-| **Paramétrage** | types et services, catégories de besoin et **gammes proposées aux RH**, **coûts de remplacement** (budget des prévisions), **apparence** (icône de l'application), fusion des marques et modèles, **modèle de PDF** (logo, mentions), **E-mails** (SMTP, rappels, rapport mensuel), **intégrations** (jetons d'API, GLPI), connexion Microsoft 365 |
-| **Comptes** | créer des comptes nominatifs, choisir le rôle et le **périmètre** (RH, lecture), réinitialiser un mot de passe, désactiver |
-| **Stockage** | où sont rangés les PDF scellés ; test de connexion ; copie vers un nouveau moteur |
+| **Paramétrage** | types et services, catégories de besoin et **gammes proposées aux RH**, **coûts de remplacement** (budget des prévisions), **tickets** (clôture auto, délais cibles, pièces jointes, natures), **apparence** (icône de l'application), fusion des marques et modèles, **modèle de PDF** (logo, mentions), **E-mails** (SMTP, rappels, rapport mensuel), **intégrations** (jetons d'API dont droits tickets, GLPI), **authentification** (Microsoft 365 et Active Directory local LDAP/LDAPS) |
+| **Comptes** | créer des comptes nominatifs, choisir le rôle et le **périmètre** (RH, lecture), réinitialiser un mot de passe, désactiver. Les comptes portail `demandeur` locaux se créent depuis la page **Utilisateurs** (unitaire ou en lot) |
+| **Stockage** | où sont rangés les PDF scellés (et profil dédié aux pièces jointes des tickets) ; test de connexion ; copie vers un nouveau moteur |
 | **Sauvegarde** | état de la dernière sauvegarde chiffrée ; l'alerte du tableau de bord |
-| **RGPD** | durée de conservation des salariés sortis et **purge** (section 7.1) |
+| **RGPD** | durées de conservation (salariés sortis, tickets clos, violations de données, statistiques tickets) et **purge** (section 7.1) |
 
 ![Import : imports réalisés et annulation](captures/import-annulation.png)
 
 ### 7.1 Purge RGPD
 
-Les salariés sortis sont conservés pendant une durée **réglable** (12 mois par défaut) après leur sortie. La page **RGPD** :
+Les salariés sortis et les anciens tickets sont conservés pendant des durées **réglables** (12 mois après sortie, 30 jours de délai de grâce, 24 mois pour les tickets clos, 60 mois pour les dossiers violation de données et 60 mois pour les statistiques anonymes par défaut). La page **RGPD** :
 
 ![Page RGPD](captures/rgpd-purge.png)
 
-1. **Prévisualiser** la liste des salariés dont la durée est atteinte, puis **Purger** (action volontaire de l'informatique, jamais automatique).
-2. Leurs données disparaissent de Kikan. Leurs **PDF scellés** vont dans le dossier **`A_PURGER`** du partage, puis sont **supprimés définitivement** après un **délai de grace** réglable (30 jours par défaut) ; d'ici là,
-   « Remettre à l'origine » les récupère en cas d'erreur.
+1. **Prévisualiser** la liste des salariés (ou tickets clos / statistiques) dont la durée est atteinte, puis **Purger** (action volontaire de l'informatique, jamais automatique).
+2. À la purge d'un salarié sorti, ses données et son compte portail disparaissent de Kikan et ses tickets sont anonymisés. Ses **PDF scellés** (et les **pièces jointes** des tickets anonymisés) vont dans le dossier **`A_PURGER`** du partage, puis sont **supprimés définitivement** après le **délai de grâce** réglable (30 jours par défaut) ; d'ici là, « Remettre à l'origine » récupère un PDF scellé en cas d'erreur (les pièces jointes en quarantaine ne sont pas restaurables).
 3. **SharePoint et DocuWare** : Kikan **ne supprime rien** ; il liste les documents à faire supprimer par l'équipe de la GED, qui confirme ensuite.
-4. Un **rappel par e-mail** prévient si la purge n'a pas été faite à l'échéance.
+4. Un **rappel par e-mail** prévient si la purge n'a pas été faite à l'échéance (et un rappel quotidien suit le délai de 72 h DPO / CNIL sur les incidents avec violation potentielle sans notification DPO).
 
-Le détail (traçabilité, sauvegardes, limites) est dans [RGPD.md](RGPD.md).
+Le détail (règles d'anonymisation, durées, traçabilité, sauvegardes, limites) est dans [RGPD.md](RGPD.md).
 
 ### 7.2 E-mails
 
@@ -285,6 +333,20 @@ L'icône de la page de connexion est lisible **sans être connecté** : n'y mett
 
 ![Page de connexion avec le logo Kikan par défaut](captures/icone-connexion.png)
 
+### 7.4 Paramétrage des tickets, de l'authentification (SSO / AD LDAP) et des intégrations
+
+- **Onglet Tickets** : règle la clôture automatique après résolution (7 jours par défaut, 0 pour désactiver, jamais appliquée aux tickets de sécurité), la taille max et le plafond global des pièces jointes, les délais cibles indicatifs par criticité et le catalogue des natures (avec bascule *Auto-sécurité*).
+
+![Paramétrage - onglet Tickets](captures/parametrage-tickets.png)
+
+- **Onglet Authentification** : regroupe le SSO **Microsoft 365 (Entra ID)** (y compris le rôle applicatif `Kikan.Demandeur` pour le portail salarié, voir [SSO.md](SSO.md)) et le connecteur **Active Directory local (LDAP / LDAPS)** réservé au portail `demandeur` (attribut de correspondance, groupe AD autorisé et test de connexion ; hôte, Base DN et secret restent dans `.env`, voir [AD-LDAP.md](AD-LDAP.md)).
+
+![Paramétrage - onglet Authentification (Microsoft 365 et Active Directory local)](captures/parametrage-ad-ldap.png)
+
+- **Onglet Intégrations** : regroupe le connecteur **GLPI** et les **jetons d'accès à l'API `/v1`**, incluant les trois droits tickets (`tickets_lecture` signalé comme sensible, `tickets_ecriture`, `tickets_interne`) pour piloter les tickets depuis un outil externe ou créer des tickets depuis une boîte mail (voir [API.md](API.md) et [TICKETS-EMAIL.md](TICKETS-EMAIL.md)).
+
+![Paramétrage - onglet Intégrations (GLPI et jetons d'accès API)](captures/parametrage-integrations.png)
+
 ## 8. Je veux...
 
 | Je veux... | Où | Qui |
@@ -304,6 +366,11 @@ L'icône de la page de connexion est lisible **sans être connecté** : n'y mett
 | chiffrer le budget de renouvellement | Prévisions (coûts à renseigner dans Paramétrage, Coûts de remplacement) | tous (coûts : informatique) |
 | donner ou retirer un accès applicatif | Accès applicatifs | RH, informatique |
 | repérer les accès à retirer | Revue des accès, onglet Anomalies | tous |
+| ouvrir ou suivre un ticket de support (salarié) | Portail salarié : Mes tickets / Mon matériel | demandeur |
+| créer ou traiter un ticket IT (avec filtrage matériel / sécurité) | Tickets (Support) | informatique |
+| consulter les KPI des tickets (MTTA, MTTR, fiabilité, sécurité) | Statistiques, onglet Tickets | informatique |
+| donner accès au portail salarié (compte local, SSO ou AD/LDAP) | Utilisateurs (compte local) ou Paramétrage, Authentification | informatique |
+| configurer les natures, délais cibles ou jetons API tickets | Paramétrage, onglets Tickets et Intégrations | informatique |
 | reprendre mon parc existant | Import (simulation puis import réel) | informatique |
 | corriger un import raté | Import, « Annuler cet import » | informatique |
 | importer depuis GLPI (avec filtres et correspondance des champs) | Paramétrage, Intégrations, GLPI (voir [GLPI.md](GLPI.md)) | informatique |
