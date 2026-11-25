@@ -557,6 +557,8 @@ refused("invite B2B (acct=1) refuse", {**DEM1, "oid": "00000000-0000-0000-0000-0
 refused("invite B2B (userType=Guest) refuse", {**DEM1, "oid": "00000000-0000-0000-0000-00000000d021", "over": {"userType": "Guest"}}, "role")
 refused("invite B2B (#EXT# dans UPN) refuse", {**DEM1, "oid": "00000000-0000-0000-0000-00000000d022",
         "upn": "zzg4b_ext#EXT#@exemple.test"}, "role")
+refused("invite B2B (idp != iss) refuse", {**DEM1, "oid": "00000000-0000-0000-0000-00000000d024",
+        "over": {"idp": "https://sts.windows.net/autre-tenant-externe/"}}, "role")
 refused("jeton applicatif (idtyp=app) refuse", {**DEM1, "oid": "00000000-0000-0000-0000-00000000d023", "over": {"idtyp": "app"}}, "role")
 
 # 5. Refus uniforme : 0 fiche active, >=2 fiches actives, fiche sorti, MFA absente

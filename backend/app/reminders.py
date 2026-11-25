@@ -27,7 +27,7 @@ import re
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import text
 from sqlmodel import Session, select
@@ -121,9 +121,44 @@ def _fmt(d: date) -> str:
     return d.strftime("%d/%m/%Y")
 
 
+def _dpo_alerts(session: Session, now: datetime | None = None) -> list[dict]:
+    """Incidents avec violation de donnees potentielle sans notification DPO (delai indicatif 72 h RGPD art. 33)."""
+    from .models import Ticket, TicketSecurityDetail
+    now_utc = (now or datetime.now(timezone.utc))
+    if now_utc.tzinfo is not None:
+        now_utc = now_utc.astimezone(timezone.utc).replace(tzinfo=None)
+    rows = session.exec(
+        select(Ticket, TicketSecurityDetail)
+        .join(TicketSecurityDetail, TicketSecurityDetail.ticket_id == Ticket.id)
+        .where(
+            Ticket.anonymise_le.is_(None),
+            Ticket.statut.notin_(("ferme", "annule")),
+            TicketSecurityDetail.violation_donnees_potentielle.is_(True),
+            TicketSecurityDetail.notification_dpo_le.is_(None),
+        )
+    ).all()
+    items = []
+    for t, sec in rows:
+        ref_dt = sec.date_decouverte_violation or sec.escalade_le or sec.signale_le or t.cree_le
+        if ref_dt is not None and ref_dt.tzinfo is not None:
+            ref_dt = ref_dt.astimezone(timezone.utc).replace(tzinfo=None)
+        elapsed_h = int((now_utc - ref_dt).total_seconds() // 3600) if ref_dt else 0
+        rem_h = 72 - elapsed_h
+        delai = f"restant {rem_h} h" if rem_h >= 0 else f"depasse de {abs(rem_h)} h"
+        items.append({
+            "cle": f"ticket_dpo:{t.id}",
+            "entite_id": t.entite_id,
+            "ligne": f"- {t.reference} : violation potentielle, notification DPO en attente (delai indicatif 72 h RGPD art. 33 : {delai})",
+        })
+    return items
+
+
 def collect(session: Session, cfg: MailConfig, today: date) -> dict[str, list[dict]]:
     """Elements a signaler, par type : {cle, entite_id, ligne}."""
-    out: dict[str, list[dict]] = {"renouv": [], "depart": [], "nonrestit": [], "besoins": [], "purge": [], "revue": []}
+    out: dict[str, list[dict]] = {
+        "renouv": [], "depart": [], "nonrestit": [], "besoins": [], "purge": [], "revue": [], "securite_dpo": [],
+    }
+    out["securite_dpo"] = _dpo_alerts(session)
     if cfg.purge:  # purge RGPD en retard ou non terminee (informatique) : nombres seulement, jamais de nom
         st = purge.etat(session, today)
         late = [("candidats", st["candidats"], "salarie(s) sorti(s) depuis plus longtemps que la duree de conservation : purge a lancer (page RGPD)"),
@@ -188,6 +223,7 @@ TITRES = {
     "besoins": "Besoins de materiel pour des arrivees proches",
     "purge": "Purge RGPD a traiter",
     "revue": "Revue des droits d'acces",
+    "securite_dpo": "Incidents de securite : suivi delai 72 h DPO / CNIL",
 }
 
 
@@ -202,17 +238,18 @@ def digests(session: Session, cfg: MailConfig, now: datetime) -> list[Digest]:
             sent[key] = r.envoye_le
     period = {"renouv": timedelta(days=RELANCE_RENOUV_J), "depart": timedelta(days=RELANCE_DEPART_J),
               "nonrestit": timedelta(weeks=max(1, cfg.nonrestit_sem)), "besoins": timedelta(days=RELANCE_DEPART_J),
-              "purge": timedelta(weeks=max(1, cfg.purge_sem)), "revue": timedelta(days=RELANCE_DEPART_J)}
+              "purge": timedelta(weeks=max(1, cfg.purge_sem)), "revue": timedelta(days=RELANCE_DEPART_J),
+              "securite_dpo": timedelta(hours=12)}
     link = mailer.public_url()
     result = []
     for rcp in recipients(session, cfg):
         sections, marks, counts = [], [], {}
-        for kind in ("besoins", "renouv", "depart", "nonrestit", "purge", "revue"):
-            if kind in ("renouv", "besoins", "purge", "revue") and not rcp.admin:
+        for kind in ("securite_dpo", "besoins", "renouv", "depart", "nonrestit", "purge", "revue"):
+            if kind in ("securite_dpo", "renouv", "besoins", "purge", "revue") and not rcp.admin:
                 continue
             lines = []
             for it in items[kind]:
-                if kind not in ("renouv", "purge", "revue") and not rcp.scope.allows(it["entite_id"]):
+                if kind not in ("securite_dpo", "renouv", "purge", "revue") and not rcp.scope.allows(it["entite_id"]):
                     continue
                 last = sent.get((kind, it["cle"], rcp.email))
                 if last is not None and now - last < period[kind]:
@@ -376,7 +413,7 @@ def tick(now: datetime | None = None, *, force_rappels: bool = False, force_rapp
             errors: list[str] = []
             today = now.date().isoformat()
             due_time = now.hour >= cfg.heure
-            if (cfg.renouv or cfg.depart or cfg.nonrestit or cfg.besoins) and (
+            if (cfg.renouv or cfg.depart or cfg.nonrestit or cfg.besoins or cfg.purge or cfg.revue or _dpo_alerts(session, now)) and (
                     force_rappels or (not manual and due_time and appsettings.get(session, "mail_dernier_cycle") != today)):
                 result["rappels"] = run_reminders(session, cfg, now)
                 errors += result["rappels"]["erreurs"]

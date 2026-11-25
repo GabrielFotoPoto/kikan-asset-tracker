@@ -243,6 +243,7 @@ ALLOWED_FOR_DEMANDEUR = {
     "/auth/me",
     "/auth/change-password",
     "/auth/logout",
+    "/apropos",
     "/branding",
     "/mon-espace/materiel",
     "/tickets",

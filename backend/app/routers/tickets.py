@@ -514,10 +514,13 @@ def get_ticket(
 def update_ticket(
     ticket_id: int,
     data: TicketUpdate,
+    background: BackgroundTasks,
     session: Session = Depends(get_session),
     admin: Account = Depends(require_roles("informatique")),
 ):
     fields = data.model_fields_set
+    avant = session.get(Ticket, ticket_id)
+    niveau_avant = avant.niveau_securite if avant else None
     ticket = svc.modifier_ticket(
         session,
         admin,
@@ -532,6 +535,13 @@ def update_ticket(
         assignment_fourni="assignment_id" in fields,
         demandeur_verifie=data.demandeur_verifie if "demandeur_verifie" in fields else None,
     )
+    if niveau_avant == "aucun" and ticket.niveau_securite == "signale":
+        dests = svc.destinataires_alerte_securite(session)
+        if dests:
+            background.add_task(
+                svc.alerter_securite_en_fond,
+                ticket.id, ticket.reference, ticket.criticite, "Signalement securite", dests,
+            )
     users_map, accounts_map, assets_map, entites_map, natures_map = _charger_maps(session, [ticket])
     return _serialize_ticket(
         ticket, users_map=users_map, accounts_map=accounts_map, assets_map=assets_map,
@@ -779,10 +789,18 @@ def post_ticket_securite_niveau(
     session: Session = Depends(get_session),
     admin: Account = Depends(require_roles("informatique")),
 ):
+    avant = session.get(Ticket, ticket_id)
+    niveau_avant = avant.niveau_securite if avant else None
     ticket, sec = svc.changer_niveau_securite(
         session, admin, ticket_id, data.niveau_securite, sous_categorie=data.sous_categorie,
     )
-    if ticket.niveau_securite in ("signale", "incident"):
+    # Alerte uniquement a la montee (aucun -> signale/incident, ou signale/sans_suite -> incident),
+    # jamais lors d'une retrogradation incident -> signale.
+    montee_securite = (
+        (ticket.niveau_securite == "incident" and niveau_avant != "incident")
+        or (ticket.niveau_securite == "signale" and niveau_avant == "aucun")
+    )
+    if montee_securite:
         dests = svc.destinataires_alerte_securite(session)
         if dests:
             evt = "Incident de securite confirme" if ticket.niveau_securite == "incident" else "Evenement de securite signale"

@@ -20,7 +20,7 @@ from enum import Enum
 from typing import Optional
 
 from pydantic import NaiveDatetime, field_validator
-from sqlalchemy import Index, func, literal_column, text
+from sqlalchemy import ForeignKey, Index, Integer, UniqueConstraint, func, literal_column, text
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
@@ -331,7 +331,11 @@ class Service(SQLModel, table=True):
 
 class Account(SQLModel, table=True):
     __tablename__ = "accounts"
-    __table_args__ = (Index("uq_accounts_username_lower", func.lower(literal_column("username")), unique=True),)
+    __table_args__ = (
+        Index("uq_accounts_username_lower", func.lower(literal_column("username")), unique=True),
+        Index("uq_accounts_user_id", "user_id", unique=True),
+        Index("ix_accounts_external_uid", "external_uid", unique=True),
+    )
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True)
     role: Role = Role.informatique
@@ -345,12 +349,15 @@ class Account(SQLModel, table=True):
     source_auth: str = "local"                   # local | sso (Microsoft 365) | ldap (Active Directory)
     sso_oid: Optional[str] = Field(default=None, unique=True)  # identifiant stable Entra (jamais l'e-mail)
     sso_upn: Optional[str] = None                # nom d'utilisateur Microsoft (liaison ou dernier connu)
-    external_uid: Optional[str] = Field(default=None, max_length=255, unique=True)  # identifiant stable AD/LDAP (objectGUID)
+    external_uid: Optional[str] = Field(default=None, max_length=255)  # identifiant stable AD/LDAP (objectGUID)
     secours: bool = False                        # compte local de secours (connexion par mot de passe autorisee)
     # Portee (comptes RH et lecture) : globale, ou limitee aux entites de `account_scopes` et a leurs sous-entites.
     # Les comptes informatique sont TOUJOURS globaux (administrateurs), quelle que soit cette valeur.
     portee_globale: bool = True
-    user_id: Optional[int] = Field(default=None, index=True, unique=True, foreign_key="users.id")  # obligatoire pour demandeur
+    user_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(Integer, ForeignKey("users.id", name="fk_accounts_user_id_users", ondelete="SET NULL"), nullable=True),
+    )  # obligatoire pour demandeur
 
     @property
     def sso_lie(self) -> bool:
@@ -558,6 +565,7 @@ class AuditLog(SQLModel, table=True):
 
 class TicketNature(SQLModel, table=True):
     __tablename__ = "ticket_natures"
+    __table_args__ = (UniqueConstraint("code"),)
     id: Optional[int] = Field(default=None, primary_key=True)
     code: str = Field(index=True, unique=True, max_length=40)
     libelle: str = Field(max_length=100)
@@ -575,14 +583,27 @@ class TicketCompteur(SQLModel, table=True):
 
 class Ticket(SQLModel, table=True):
     __tablename__ = "tickets"
+    __table_args__ = (UniqueConstraint("reference"),)
     id: Optional[int] = Field(default=None, primary_key=True)
     reference: str = Field(index=True, unique=True, max_length=20)
-    entite_id: Optional[int] = Field(default=None, index=True, foreign_key="entite.id")
-    user_id: Optional[int] = Field(default=None, index=True, foreign_key="users.id")
-    cree_par_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
-    assigne_a_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
-    asset_id: Optional[int] = Field(default=None, index=True, foreign_key="assets.id")
-    assignment_id: Optional[int] = Field(default=None, index=True, foreign_key="assignments.id")
+    entite_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("entite.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
+    user_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
+    cree_par_account_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
+    assigne_a_account_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
+    asset_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("assets.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
+    assignment_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("assignments.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
     materiel_type: Optional[str] = Field(default=None, max_length=100)
     materiel_marque: Optional[str] = Field(default=None, max_length=100)
     materiel_modele: Optional[str] = Field(default=None, max_length=100)
@@ -612,8 +633,10 @@ class Ticket(SQLModel, table=True):
 class TicketComment(SQLModel, table=True):
     __tablename__ = "ticket_comments"
     id: Optional[int] = Field(default=None, primary_key=True)
-    ticket_id: int = Field(index=True, foreign_key="tickets.id")
-    auteur_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
+    ticket_id: int = Field(sa_column=Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), index=True, nullable=False))
+    auteur_account_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
     interne: bool = False
     contenu: str = Field(max_length=4000)
     cree_le: NaiveDatetime = Field(default_factory=utcnow)
@@ -622,15 +645,19 @@ class TicketComment(SQLModel, table=True):
 class TicketSecurityDetail(SQLModel, table=True):
     """Dossier d'investigation securite (1-1 avec tickets, reserve au role informatique)."""
     __tablename__ = "ticket_security_details"
-    ticket_id: int = Field(primary_key=True, foreign_key="tickets.id")
+    ticket_id: int = Field(sa_column=Column(Integer, ForeignKey("tickets.id", ondelete="CASCADE"), primary_key=True))
     signale_le: NaiveDatetime = Field(default_factory=utcnow)
     signale_par: str = Field(max_length=16)  # demandeur | informatique
     qualifie_le: Optional[NaiveDatetime] = None
     qualification_sec: Optional[int] = None
-    qualifie_par_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
+    qualifie_par_account_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
     sous_categorie: Optional[str] = Field(default=None, max_length=40)
     escalade_le: Optional[NaiveDatetime] = None
-    escalade_par_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
+    escalade_par_account_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
     violation_donnees_potentielle: bool = False
     date_decouverte_violation: Optional[NaiveDatetime] = None
     notification_dpo_le: Optional[NaiveDatetime] = None
@@ -644,13 +671,16 @@ class TicketSecurityDetail(SQLModel, table=True):
 class Attachment(SQLModel, table=True):
     """Piece jointe transversale (tickets en G3, reutilisable pour actifs en C5)."""
     __tablename__ = "attachments"
+    __table_args__ = (Index("ix_attachments_entity", "entity_type", "entity_id"),)
     id: Optional[int] = Field(default=None, primary_key=True)
-    entity_type: str = Field(index=True, max_length=24)
-    entity_id: int = Field(index=True)
+    entity_type: str = Field(max_length=24)
+    entity_id: int
     storage_ref: str = Field(max_length=255)
     sha256: str = Field(max_length=64)
     mime_type: str = Field(max_length=80)
     size_bytes: int
     display_name: str = Field(max_length=180)
-    uploaded_by_account_id: Optional[int] = Field(default=None, index=True, foreign_key="accounts.id")
+    uploaded_by_account_id: Optional[int] = Field(
+        default=None, sa_column=Column(Integer, ForeignKey("accounts.id", ondelete="SET NULL"), index=True, nullable=True),
+    )
     cree_le: NaiveDatetime = Field(default_factory=utcnow)
