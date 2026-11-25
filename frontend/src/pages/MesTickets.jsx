@@ -22,6 +22,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, errorText } from "../api.js";
 import { Feedback } from "../components/Notifications.jsx";
 import { Empty, Loading } from "../components/State.jsx";
+import { formaterDateHeure, libelleStatutTicket } from "../format.js";
 
 export default function MesTickets() {
   const navigate = useNavigate();
@@ -172,8 +173,8 @@ export default function MesTickets() {
                         {t.signalement_securite && <span className="badge" style={{ marginLeft: 6 }}>Signalement de securite pris en compte</span>}
                       </div>
                     </td>
-                    <td><span className={`badge ${t.statut === "resolu" || t.statut === "ferme" ? "ok" : t.statut === "en_attente" ? "warn" : ""}`}>{t.statut}</span></td>
-                    <td className="muted">{t.maj_publique_le}</td>
+                    <td><span className={`badge ${t.statut === "resolu" || t.statut === "ferme" ? "ok" : t.statut === "en_attente" ? "warn" : ""}`}>{libelleStatutTicket(t.statut)}</span></td>
+                    <td className="muted">{formaterDateHeure(t.maj_publique_le)}</td>
                   </tr>
                 ))}
               </tbody>

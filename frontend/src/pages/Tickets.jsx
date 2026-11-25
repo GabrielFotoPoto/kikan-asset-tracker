@@ -23,23 +23,13 @@ import { api, errorText } from "../api.js";
 import { Feedback } from "../components/Notifications.jsx";
 import { Empty, Loading } from "../components/State.jsx";
 import { useCompteurs } from "../compteurs.jsx";
+import {
+  CRITICITE_TICKET_LABELS as CRITICITE_LABELS,
+  STATUT_TICKET_LABELS as STATUT_LABELS,
+  libelleCanalTicket,
+  libelleSecuriteTicket,
+} from "../format.js";
 import { conserverAssetPourSalarie, listeMaterielProposee } from "../ticketsMateriel.js";
-
-const STATUT_LABELS = {
-  nouveau: "Nouveau",
-  en_cours: "En cours",
-  en_attente: "En attente",
-  resolu: "Resolu",
-  ferme: "Ferme",
-  annule: "Annule",
-};
-
-const CRITICITE_LABELS = {
-  faible: "Faible",
-  moyenne: "Moyenne",
-  haute: "Haute",
-  critique: "Critique",
-};
 
 export default function Tickets() {
   const navigate = useNavigate();
@@ -337,7 +327,7 @@ export default function Tickets() {
                     <td><Link to={`/tickets/${t.id}`}><strong>{t.reference}</strong></Link></td>
                     <td>
                       <div><Link to={`/tickets/${t.id}`}>{t.titre}</Link></div>
-                      <div className="muted">{t.nature_libelle} - {t.canal}{!t.demandeur_verifie ? " (non verifie)" : ""}</div>
+                      <div className="muted">{t.nature_libelle} - {libelleCanalTicket(t.canal)}{!t.demandeur_verifie ? " (non verifie)" : ""}</div>
                     </td>
                     <td>
                       <div>{t.user_nom || <span className="muted">Interne IT</span>}</div>
@@ -357,7 +347,7 @@ export default function Tickets() {
                     <td>
                       {t.niveau_securite !== "aucun" ? (
                         <span className={`badge ${t.niveau_securite === "sans_suite" ? "" : "bad"}`}>
-                          {t.niveau_securite}
+                          {libelleSecuriteTicket(t.niveau_securite)}
                         </span>
                       ) : "-"}
                     </td>

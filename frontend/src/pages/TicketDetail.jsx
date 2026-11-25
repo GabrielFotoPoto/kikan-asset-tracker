@@ -24,6 +24,13 @@ import ConfirmButton from "../components/ConfirmButton.jsx";
 import { Feedback } from "../components/Notifications.jsx";
 import { Loading } from "../components/State.jsx";
 import { useCompteurs } from "../compteurs.jsx";
+import {
+  formaterDateHeure,
+  libelleCanalTicket,
+  libelleCriticiteTicket,
+  libelleSecuriteTicket,
+  libelleStatutTicket,
+} from "../format.js";
 
 const TRANSITIONS = {
   nouveau: [
@@ -243,14 +250,14 @@ export default function TicketDetail() {
           <Link to="/tickets">&larr; Retour aux tickets</Link>
           <h2 style={{ margin: "6px 0 2px" }}>{ticket.reference} - {ticket.titre}</h2>
           <div className="row">
-            <span className="badge">{ticket.statut}</span>
+            <span className="badge">{libelleStatutTicket(ticket.statut)}</span>
             <span className={`badge ${ticket.criticite === "critique" || ticket.criticite === "haute" ? "bad" : ""}`}>
-              Criticite : {ticket.criticite}
+              Criticite : {libelleCriticiteTicket(ticket.criticite)}
             </span>
             {ticket.niveau_securite !== "aucun" && (
-              <span className="badge bad">Securite : {ticket.niveau_securite}</span>
+              <span className="badge bad">Securite : {libelleSecuriteTicket(ticket.niveau_securite)}</span>
             )}
-            <span className="badge">Canal : {ticket.canal}</span>
+            <span className="badge">Canal : {libelleCanalTicket(ticket.canal)}</span>
           </div>
         </div>
         <div className="row">
@@ -313,7 +320,7 @@ export default function TicketDetail() {
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <h3 style={{ margin: 0 }}>Securite et dossier d'investigation (IT uniquement)</h3>
           <span className={`badge ${ticket.niveau_securite === "signale" || ticket.niveau_securite === "incident" ? "bad" : ""}`}>
-            Niveau : {ticket.niveau_securite}
+            Niveau : {libelleSecuriteTicket(ticket.niveau_securite)}
           </span>
         </div>
         {!estFinal && (
@@ -451,7 +458,7 @@ export default function TicketDetail() {
               <div key={c.id} className={c.interne ? "card warn" : "card"} style={{ marginBottom: 0 }}>
                 <div className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
                   <strong>{c.auteur || "Informatique"} {c.interne ? "(Note interne IT - invisible du salarie)" : "(Public)"}</strong>
-                  <span className="muted">{c.cree_le}</span>
+                  <span className="muted">{formaterDateHeure(c.cree_le)}</span>
                 </div>
                 <div style={{ whiteSpace: "pre-wrap" }}>{c.contenu}</div>
               </div>
