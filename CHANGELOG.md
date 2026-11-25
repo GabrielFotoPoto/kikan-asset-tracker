@@ -5,13 +5,22 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
-## [0.9.0-rc.1] - 2026-11-25
+## [0.9.0] - 2026-11-25
 
-**Pré-version 0.9.0-rc.1 : à essayer avant la 0.9.0.** Elle contient six **migrations** (`0025` à `0030` : tables de tickets, pièces jointes transversales, rôle `demandeur` et `accounts.user_id`, dossier sécurité, compteur de rétrogradations et `accounts.external_uid` ; aucune perte de données) : **faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.9.0-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` ; les quatre images ensemble. Pour activer le stockage dédié aux pièces jointes (`KIKAN_ATTACHMENTS_*`) ou le connecteur Active Directory (`KIKAN_LDAP_*`), reporter les nouvelles variables depuis `.env.example` et `docker-compose.yml`. Pour revenir en arrière, restaurer la sauvegarde.
+Gestion de tickets native (IT), gestion transversale des pièces jointes et stockage dédié, portail salarié (`demandeur`) avec comptes locaux, extension SSO Entra ID et connecteur Active Directory (LDAP / LDAPS), escalade et suivi d'incidents de sécurité (72 h DPO/CNIL), statistiques et KPI tickets sans PII, API d'intégration `/v1/tickets*` et passerelle e-mail documentée.
 
-**Vérifié** : intégration continue de `main` verte sur `604c8ff` (`CI`, `CodeQL`, `Dependency Graph` - 49 suites de tests automatisés dont la sauvegarde de bout en bout, tests et build frontend sous Node 24, `pip-audit` vierge sur les dépendances ajoutées).
+### Mise à jour depuis 0.8.1
+- **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Cette version contient six **migrations** (`0025` à `0030` : tables de tickets, pièces jointes transversales, rôle `demandeur` et `accounts.user_id`, dossier sécurité, compteur de rétrogradations et `accounts.external_uid`, aucune perte de données). Changer `KIKAN_VERSION` dans `.env` pour `0.9.0`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.9.0` sous Linux) ; les quatre images ensemble.
+- Les fichiers `docker-compose.yml` et `.env.example` ajoutent les variables optionnelles pour le stockage dédié aux pièces jointes (`KIKAN_ATTACHMENTS_*`) et le connecteur Active Directory (`KIKAN_LDAP_*`) : reporter ces lignes si vous activez l'une de ces fonctions.
+- Retour en arrière : restaurer la sauvegarde (la migration `0027` ajoute la valeur `demandeur` au type énuméré PostgreSQL `role`).
 
-**Non vérifié en conditions réelles** : parcours manuel complet dans un navigateur sur préproduction, migration depuis `0.8.1` sur des données de préproduction, connexion à un vrai tenant Microsoft Entra ID (G4b), connexion à un contrôleur de domaine Active Directory réel (G5), stockage distant dédié aux pièces jointes (G3), exécution du workflow n8n sur une vraie boîte mail (G7), validation DPO des durées de conservation par défaut (`retention_tickets_clos_mois`, `retention_tickets_securite_mois`, `retention_stats_tickets_mois`).
+### Vérifié
+- Intégration continue de `main` verte (`CI`, `CodeQL`, `Dependency Graph` - 49 suites de tests automatisés dont la sauvegarde de bout en bout, tests et build frontend sous Node 24, `pip-audit` vierge sur les dépendances ajoutées).
+- Pré-version `0.9.0-rc.1` publiée et validée pour le passage en `0.9.0` (le détail des vérifications manuelles éventuelles n'est pas consigné).
+- Images de la `0.9.0` identiques à celles de la `rc.1` sur le plan du code : seul `CHANGELOG.md` change entre les deux.
+
+### Non vérifié en conditions réelles
+- Parcours manuel complet dans un navigateur sur préproduction, migration depuis `0.8.1` sur des données de préproduction, connexion à un vrai tenant Microsoft Entra ID (G4b), connexion à un contrôleur de domaine Active Directory réel (G5), stockage distant dédié aux pièces jointes (G3), exécution du workflow n8n sur une vraie boîte mail (G7), validation DPO des durées de conservation par défaut (`retention_tickets_clos_mois`, `retention_tickets_securite_mois`, `retention_stats_tickets_mois`).
 
 ### Ajouté
 - **Lot G5 (#179) - Connecteur Active Directory local (LDAP / LDAPS)** :
