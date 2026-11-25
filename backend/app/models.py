@@ -342,9 +342,10 @@ class Account(SQLModel, table=True):
     must_change_password: bool = False           # mot de passe provisoire a remplacer
     token_epoch: int = 0                         # incremente pour revoquer les sessions ouvertes
     derniere_connexion: Optional[NaiveDatetime] = None
-    source_auth: str = "local"                   # local | sso (Microsoft 365)
+    source_auth: str = "local"                   # local | sso (Microsoft 365) | ldap (Active Directory)
     sso_oid: Optional[str] = Field(default=None, unique=True)  # identifiant stable Entra (jamais l'e-mail)
     sso_upn: Optional[str] = None                # nom d'utilisateur Microsoft (liaison ou dernier connu)
+    external_uid: Optional[str] = Field(default=None, max_length=255, unique=True)  # identifiant stable AD/LDAP (objectGUID)
     secours: bool = False                        # compte local de secours (connexion par mot de passe autorisee)
     # Portee (comptes RH et lecture) : globale, ou limitee aux entites de `account_scopes` et a leurs sous-entites.
     # Les comptes informatique sont TOUJOURS globaux (administrateurs), quelle que soit cette valeur.

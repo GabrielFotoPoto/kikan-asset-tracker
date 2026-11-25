@@ -132,6 +132,15 @@ services:
       KIKAN_UPDATE_CHECK_URL: ${KIKAN_UPDATE_CHECK_URL:-}
       KIKAN_UPDATE_PROXY: ${KIKAN_UPDATE_PROXY:-}
       KIKAN_UPDATE_CA_BUNDLE: ${KIKAN_UPDATE_CA_BUNDLE:-}
+      # Connecteur Active Directory local (LDAP / LDAPS, lot G5, role demandeur uniquement)
+      KIKAN_LDAP_HOSTS: ${KIKAN_LDAP_HOSTS:-}
+      KIKAN_LDAP_PORT: ${KIKAN_LDAP_PORT:-}
+      KIKAN_LDAP_TLS: ${KIKAN_LDAP_TLS:-ldaps}
+      KIKAN_LDAP_CA_BUNDLE: ${KIKAN_LDAP_CA_BUNDLE:-}
+      KIKAN_LDAP_BASE_DN: ${KIKAN_LDAP_BASE_DN:-}
+      KIKAN_LDAP_BIND_DN: ${KIKAN_LDAP_BIND_DN:-}
+      KIKAN_LDAP_BIND_PASSWORD: ${KIKAN_LDAP_BIND_PASSWORD:-}
+      KIKAN_LDAP_TIMEOUT_SEC: ${KIKAN_LDAP_TIMEOUT_SEC:-5}
     # Acces direct a l'API reserve a la machine locale (dev, tests).
     ports:
       - "127.0.0.1:${KIKAN_API_PORT:-8080}:8000"

@@ -49,7 +49,7 @@ from ..auth import (
 from ..db import engine, get_session
 from ..models import Account, AccountScope, Entite, PasswordResetToken, Role
 from ..scope import compute_scope
-from .. import mailer, sso_policy
+from .. import ldap_auth, mailer, sso_policy
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -192,6 +192,35 @@ def login(data: LoginRequest, request: Request, response: Response, session: Ses
         audit(acteur_saisi(account, username), "login_bloque", ip=ip, status=429)
         raise HTTPException(429, "Trop de tentatives, reessayez plus tard",
                             headers={"Retry-After": str(wait)})
+
+    # Aiguillage strict selon source_auth : un mot de passe local n'est JAMAIS envoye a l'annuaire AD/LDAP.
+    if (account is not None and account.source_auth == "ldap") or (account is None and ldap_auth.is_active(session)):
+        if not ldap_auth.is_active(session):
+            verify_password(data.password, _DUMMY_HASH)
+            login_limiter.fail(ip, username)
+            audit(acteur_saisi(account, username), "login_echec", ip=ip, status=401)
+            raise HTTPException(401, "Identifiants invalides")
+        cfg_ldap = ldap_auth.read_settings(session)
+        ident = ldap_auth.authenticate(
+            username, data.password,
+            attribut=cfg_ldap["attribut"], groupe_dn=cfg_ldap["groupe_dn"],
+        )
+        if ident is None:
+            verify_password(data.password, _DUMMY_HASH)
+            login_limiter.fail(ip, username)
+            audit(acteur_saisi(account, username), "login_echec", ip=ip, status=401)
+            raise HTTPException(401, "Identifiants invalides")
+        resolved = ldap_auth.resolve_ldap_account(session, ident)
+        if resolved is None:
+            login_limiter.fail(ip, username)
+            audit("anonyme", "ldap_refuse", ip=ip, status=403, detail="demandeur non provisionne")
+            raise HTTPException(403, "Acces non provisionne dans Kikan")
+        login_limiter.success(ip, username)
+        audit(audit_actor(resolved), "login_ok", ip=ip, status=200, detail="ldap")
+        token = create_access_token(resolved.username, resolved.role.value, resolved.token_epoch, act=audit_actor(resolved))
+        set_session_cookie(request, response, token)
+        return TokenResponse(access_token=token, username=resolved.username, role=resolved.role.value,
+                             must_change_password=False)
 
     hashed = account.hashed_password if account else _DUMMY_HASH
     valid = verify_password(data.password, hashed)
@@ -475,11 +504,11 @@ def update_account(
     if removes_admin and not _other_admin_exists(session, target.id):
         raise HTTPException(409, "Impossible : ce serait le dernier compte informatique actif")
 
-    if data.role is not None and data.role != target.role and target.sso_oid:
-        raise HTTPException(409, "Le role de ce compte est gere par Microsoft 365 (roles d'application Entra)")
+    if data.role is not None and data.role != target.role and (target.sso_oid or target.source_auth == "ldap"):
+        raise HTTPException(409, "Le role de ce compte est gere par Microsoft 365 ou Active Directory")
     if data.secours is not None and data.secours != target.secours:
-        if data.secours and target.source_auth == "sso":
-            raise HTTPException(409, "Ce compte a ete cree par Microsoft 365 : il n'a pas de mot de passe local")
+        if data.secours and target.source_auth in ("sso", "ldap"):
+            raise HTTPException(409, "Ce compte est gere par Microsoft 365 ou Active Directory : il n'a pas de mot de passe local")
         if not data.secours and target.role == Role.informatique and target.actif and sso_policy.is_active(session) \
                 and sso_policy.breakglass_count(session, exclude_id=target.id) < 1:
             raise HTTPException(409, "Impossible : ce serait le dernier compte de secours actif")
@@ -508,8 +537,8 @@ def update_account(
         target.secours = data.secours
         changed.append("secours")
     if data.password is not None:
-        if target.source_auth == "sso":
-            raise HTTPException(409, "Ce compte est gere par Microsoft 365 : pas de mot de passe local")
+        if target.source_auth in ("sso", "ldap"):
+            raise HTTPException(409, "Ce compte est gere par Microsoft 365 ou Active Directory : pas de mot de passe local")
         check_password_policy(data.password)
         target.hashed_password = hash_password(data.password)
         changed.append("password")
@@ -545,8 +574,8 @@ def reset_password(account_id: int, session: Session = Depends(get_session),
     target = session.get(Account, account_id)
     if not target:
         raise HTTPException(404, "Compte introuvable")
-    if target.source_auth == "sso":
-        raise HTTPException(409, "Ce compte est gere par Microsoft 365 : pas de mot de passe local")
+    if target.source_auth in ("sso", "ldap"):
+        raise HTTPException(409, "Ce compte est gere par Microsoft 365 ou Active Directory : pas de mot de passe local")
     provisional = generate_temp_password()
     target.hashed_password = hash_password(provisional)
     target.must_change_password = True
@@ -577,6 +606,8 @@ def link_sso(account_id: int, data: LierSso, session: Session = Depends(get_sess
     target = session.get(Account, account_id)
     if not target:
         raise HTTPException(404, "Compte introuvable")
+    if target.source_auth == "ldap":
+        raise HTTPException(409, "Ce compte est gere par Active Directory (LDAP)")
     if target.sso_oid:
         raise HTTPException(409, "Ce compte est deja lie a un compte Microsoft 365")
     if session.exec(select(Account).where(func.lower(Account.sso_upn) == data.upn, Account.id != target.id)).first():

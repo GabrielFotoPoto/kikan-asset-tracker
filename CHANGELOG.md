@@ -6,6 +6,13 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 ## [Non publié]
 
 ### Ajouté
+- **Lot G5 (#179) - Connecteur Active Directory local (LDAP / LDAPS)** :
+  - **Migration `0030_account_external_uid`** : colonne unique indexée `accounts.external_uid` pour l'identifiant stable Active Directory (`objectGUID`).
+  - **Service `backend/app/ldap_auth.py` et administration `/admin/ldap`** (`backend/app/routers/ldap_admin.py`) : dépendances épinglées `ldap3==2.9.1` et `pyasn1==0.6.5` (audit `pip-audit` vierge) ; connexion et secret de bind exclusivement en variables d'environnement (`KIKAN_LDAP_*`), LDAPS/StartTLS obligatoire en production, validation des hôtes via `netguard.py`, échappement RFC 4515, refus des mots de passe vides, bind en deux temps, groupe AD autorisé facultatif, rôle strictement limité à `demandeur`, liaison stable par `external_uid` et journalisation pseudonyme `dem-<id>` sans PII.
+  - **Aiguillage strict dans `POST /auth/login`** (`backend/app/routers/auth.py`) : un compte local Kikan est vérifié uniquement en local par `bcrypt` (son mot de passe n'est jamais envoyé à l'annuaire AD).
+  - **Interface & documentation** : panneau *Annuaire Active Directory local (LDAP / LDAPS)* dans *Paramétrage > Authentification* (`Parametres.jsx`), `.env.example`, `docker-compose.yml`, `docs/AD-LDAP.md`.
+  - **Vérifié** : suite `tests/ldap_check.py` (annuaire `ldap3` simulé sur `kiktest`, migration `0030`), non-régression (`index_check`, `portail_demandeur_check`, `sso_check`), tests et build frontend (`node:24-alpine`), `pip-audit` vierge sur `ldap3==2.9.1` / `pyasn1==0.6.5`.
+  - **Non vérifié** : test de bout en bout contre un contrôleur de domaine Active Directory réel.
 - **Lot G7 (#182) - API d'intégration `/v1/tickets*` et passerelle e-mail documentée** :
   - **Nouveaux droits de jetons API** (`backend/app/apitoken.py`, `frontend/src/pages/Parametres.jsx`) : `tickets_lecture` (signalé comme droit sensible : accès aux textes libres), `tickets_ecriture`, `tickets_interne`.
   - **Endpoints `/v1/tickets*`** (`backend/app/routers/api_v1.py`, service unique `backend/app/tickets.py` et `backend/app/attachments.py`) : `GET /v1/tickets/natures`, `GET /v1/tickets` (filtres `statut`, `nature`, `criticite`, `modifie_depuis`), `GET /v1/tickets/{reference}`, `PUT /v1/tickets/{id_externe}` (idempotent via `external_links`, `?dry_run=1`, recherche salarié par `email` unique / `matricule` / `id_externe`, `canal = api|email` avec `demandeur_verifie = false` pour `email`), `POST /v1/tickets/{reference}/statut`, `POST /v1/tickets/{reference}/commentaires`, `GET/POST /v1/tickets/{reference}/pieces-jointes`.

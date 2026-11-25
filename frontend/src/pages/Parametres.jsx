@@ -642,6 +642,86 @@ function AuthSso({ setErr, setMsg }) {
           Desactiver le SSO rend immediatement la connexion par mot de passe a tous les comptes locaux.
         </p>
       </div>
+
+      <AuthLdap setErr={setErr} setMsg={setMsg} />
+    </div>
+  );
+}
+
+// Annuaire Active Directory local (LDAP / LDAPS), reserve au role demandeur (lot G5).
+function AuthLdap({ setErr, setMsg }) {
+  const [data, setData] = useState(null);
+  const [form, setForm] = useState(null);
+
+  const load = async () => {
+    const d = await api.get("/admin/ldap");
+    setData(d);
+    setForm(d.reglages);
+  };
+  useEffect(() => { load().catch(() => {}); }, []);
+
+  if (!data || !form) return null;
+  const c = data.config;
+
+  const save = async (e) => {
+    e.preventDefault();
+    setErr(null); setMsg(null);
+    try {
+      await api.put("/admin/ldap", form);
+      setMsg("Reglages AD/LDAP enregistres.");
+      await load();
+    } catch (ex) { setErr(errorText(ex)); }
+  };
+
+  const testConn = async () => {
+    setErr(null); setMsg(null);
+    try {
+      const r = await api.post("/admin/ldap/test", {});
+      setMsg(`Connexion LDAP reussie (${r.host}, ${r.tls}).`);
+    } catch (ex) { setErr(errorText(ex)); }
+  };
+
+  return (
+    <div className="card">
+      <h3>Annuaire Active Directory local (LDAP / LDAPS)</h3>
+      <p>
+        <span className={data.actif ? "badge ok" : "badge"}>{data.actif ? "LDAP active" : "LDAP desactive"}</span>{" "}
+        <span className={c.configure ? "badge ok" : "badge bad"}>{c.configure ? "environnement configure" : "environnement incomplet"}</span>
+      </p>
+      <p className="muted">
+        Reserve au role <strong>demandeur</strong> (portail salarie). Les serveurs, le mode TLS et le secret de bind se reglent uniquement dans <code>.env</code> (voir <code>docs/AD-LDAP.md</code>).
+      </p>
+      <table>
+        <tbody>
+          <tr><td>Serveurs</td><td>{c.hosts?.length ? c.hosts.join(", ") : "non renseignes"}</td></tr>
+          <tr><td>Port / TLS</td><td>{c.port} / {c.tls}</td></tr>
+          <tr><td>Base DN</td><td>{c.base_dn || "non renseigne"}</td></tr>
+          <tr><td>Compte de service (bind DN)</td><td>{c.bind_dn || "non renseigne"} ({c.bind_password_present ? "secret present dans .env" : "secret absent"})</td></tr>
+        </tbody>
+      </table>
+      {c.manque?.length > 0 && <p className="muted">Variables manquantes dans <code>.env</code> : {c.manque.join(", ")}.</p>}
+      <form className="grid" style={{ marginTop: 12 }} onSubmit={save}>
+        <label>Attribut de correspondance
+          <select value={form.attribut} onChange={(e) => setForm({ ...form, attribut: e.target.value })}>
+            <option value="mail">mail</option>
+            <option value="userPrincipalName">userPrincipalName</option>
+            <option value="sAMAccountName">sAMAccountName</option>
+          </select>
+        </label>
+        <label>Groupe AD autorise (DN, facultatif)
+          <input value={form.groupe_dn} maxLength={500} placeholder="CN=Kikan-Demandeurs,OU=Groupes,DC=exemple,DC=local"
+                 onChange={(e) => setForm({ ...form, groupe_dn: e.target.value })} />
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={Boolean(form.actif)} disabled={!c.configure}
+                 onChange={(e) => setForm({ ...form, actif: e.target.checked })} />
+          <span>Activer l'authentification AD/LDAP pour le portail salarie</span>
+        </label>
+        <div className="row" style={{ alignSelf: "end" }}>
+          <button type="button" className="ghost" disabled={!c.configure} onClick={testConn}>Tester la connexion LDAP</button>
+          <button type="submit">Enregistrer</button>
+        </div>
+      </form>
     </div>
   );
 }
