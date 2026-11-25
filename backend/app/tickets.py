@@ -38,6 +38,7 @@ from . import appsettings, mailer
 from .audit import audit
 from .auth import audit_actor
 from .db import engine
+from .detentions import detenteur_actuel_actif
 from .models import (
     Account, Asset, Assignment, Role, Ticket, TicketComment, TicketCompteur, TicketNature, TicketSecurityDetail, User, utcnow,
 )
@@ -313,6 +314,35 @@ def _actor_label(actor_account: Account | None, actor_name: str | None = None) -
     return "systeme"
 
 
+def _verifier_materiel_salarie(
+    session: Session,
+    user_id: int | None,
+    asset_id: int | None,
+    *,
+    materiel_hors_affectation: bool = False,
+) -> bool:
+    """Verifie la coherence salarie/materiel : refuse (409) si le materiel appartient a un autre salarie sans opt-in explicite.
+
+    Retourne True si materiel_hors_affectation a ete effectivement utilise pour passer outre (a tracer en audit).
+    """
+    if user_id is None or asset_id is None:
+        return False
+    detenteur = detenteur_actuel_actif(session, asset_id)
+    if detenteur is not None and detenteur != user_id:
+        if not materiel_hors_affectation:
+            raise HTTPException(
+                409,
+                "Ce materiel est actuellement affecte a un autre salarie. Cochez 'Autre materiel (hors affectation)' pour confirmer.",
+            )
+        return True
+    return False
+
+
+def auditer_materiel_hors_affectation(actor: str, reference: str, asset_id: int, user_id: int) -> None:
+    """Trace l'utilisation explicite de materiel_hors_affectation avec uniquement des identifiants techniques."""
+    audit(actor, "ticket_materiel_hors_affectation", target=reference, detail=f"asset_id={asset_id} user_id={user_id}")
+
+
 def creer_ticket(
     session: Session,
     actor_account: Account | None,
@@ -328,6 +358,7 @@ def creer_ticket(
     canal: str = "it",
     demandeur_verifie: bool = True,
     signaler_securite: bool = False,
+    materiel_hors_affectation: bool = False,
     entite_id_override: int | None = None,
     actor_name: str | None = None,
     commit: bool = True,
@@ -350,6 +381,13 @@ def creer_ticket(
     asset = session.get(Asset, asset_id) if asset_id is not None else None
     if asset_id is not None and not asset:
         raise HTTPException(404, "Materiel introuvable")
+
+    hors_affectation_utilise = _verifier_materiel_salarie(
+        session,
+        user.id if user else None,
+        asset.id if asset else None,
+        materiel_hors_affectation=materiel_hors_affectation,
+    )
 
     if assignment_id is not None and not session.get(Assignment, assignment_id):
         raise HTTPException(404, "Remise introuvable")
@@ -401,7 +439,10 @@ def creer_ticket(
     if commit:
         session.commit()
         session.refresh(ticket)
-        audit(_actor_label(actor_account, actor_name), "ticket_creation", target=ticket.reference, detail=f"nature={ticket.nature_code} criticite={ticket.criticite}")
+        actor = _actor_label(actor_account, actor_name)
+        audit(actor, "ticket_creation", target=ticket.reference, detail=f"nature={ticket.nature_code} criticite={ticket.criticite}")
+        if hors_affectation_utilise and asset is not None and user is not None:
+            auditer_materiel_hors_affectation(actor, ticket.reference, asset.id, user.id)
     else:
         session.flush()
     return ticket
@@ -421,6 +462,7 @@ def modifier_ticket(
     assignment_id: int | None = None,
     assignment_fourni: bool = False,
     demandeur_verifie: bool | None = None,
+    materiel_hors_affectation: bool = False,
     actor_name: str | None = None,
     commit: bool = True,
 ) -> Ticket:
@@ -451,6 +493,7 @@ def modifier_ticket(
         _valider_assigne(session, assigne_a_account_id)
         ticket.assigne_a_account_id = assigne_a_account_id
 
+    hors_affectation_utilise = False
     if asset_fourni:
         if asset_id is None:
             ticket.asset_id = None
@@ -459,6 +502,12 @@ def modifier_ticket(
             asset = session.get(Asset, asset_id)
             if not asset:
                 raise HTTPException(404, "Materiel introuvable")
+            hors_affectation_utilise = _verifier_materiel_salarie(
+                session,
+                ticket.user_id,
+                asset.id,
+                materiel_hors_affectation=materiel_hors_affectation,
+            )
             ticket.asset_id = asset.id
             _copier_materiel(ticket, asset)
 
@@ -477,7 +526,10 @@ def modifier_ticket(
     if commit:
         session.commit()
         session.refresh(ticket)
-        audit(_actor_label(actor_account, actor_name), "ticket_maj", target=ticket.reference)
+        actor = _actor_label(actor_account, actor_name)
+        audit(actor, "ticket_maj", target=ticket.reference)
+        if hors_affectation_utilise and ticket.asset_id is not None and ticket.user_id is not None:
+            auditer_materiel_hors_affectation(actor, ticket.reference, ticket.asset_id, ticket.user_id)
     else:
         session.flush()
     return ticket

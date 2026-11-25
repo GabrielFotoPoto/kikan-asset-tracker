@@ -27,6 +27,7 @@ from sqlmodel import Session, select
 
 from .. import appsettings, mailer, sso_policy
 from ..audit import audit
+from ..detentions import actifs_detenus_salarie
 from ..auth import (
     audit_actor,
     demandeur_dep,
@@ -38,29 +39,6 @@ from ..db import engine, get_session
 from ..models import Account, Asset, AssetStatus, Assignment, AssignmentAsset, EmployeeStatus, PasswordResetToken, Role, User
 
 router = APIRouter(tags=["portail"])
-
-
-def actifs_detenus_salarie(session: Session, user_id: int) -> list[tuple[Asset, Assignment]]:
-    """Materiel actuellement detenu par le salarie : affectation en_cours, actif affecte et non restitue."""
-    rows = session.exec(
-        select(Asset, Assignment)
-        .join(AssignmentAsset, AssignmentAsset.asset_id == Asset.id)
-        .join(Assignment, Assignment.id == AssignmentAsset.assignment_id)
-        .where(
-            Assignment.user_id == user_id,
-            Assignment.statut == "en_cours",
-            Asset.statut == AssetStatus.affecte,
-            AssignmentAsset.date_retour.is_(None),
-        )
-        .order_by(Asset.id)
-    ).all()
-    seen: set[int] = set()
-    out: list[tuple[Asset, Assignment]] = []
-    for asset, assign in rows:
-        if asset.id not in seen:
-            seen.add(asset.id)
-            out.append((asset, assign))
-    return out
 
 ACTIVATION_HEURES_KEY = "portail_activation_heures"
 ACTIVATION_HEURES_DEFAUT = 72

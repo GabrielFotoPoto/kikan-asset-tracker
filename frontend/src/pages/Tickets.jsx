@@ -23,6 +23,7 @@ import { api, errorText } from "../api.js";
 import { Feedback } from "../components/Notifications.jsx";
 import { Empty, Loading } from "../components/State.jsx";
 import { useCompteurs } from "../compteurs.jsx";
+import { conserverAssetPourSalarie, listeMaterielProposee } from "../ticketsMateriel.js";
 
 const STATUT_LABELS = {
   nouveau: "Nouveau",
@@ -51,6 +52,7 @@ export default function Tickets() {
   const [natures, setNatures] = useState([]);
   const [users, setUsers] = useState([]);
   const [assets, setAssets] = useState([]);
+  const [assetsSalarie, setAssetsSalarie] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -70,6 +72,7 @@ export default function Tickets() {
     criticite: "moyenne",
     user_id: "",
     asset_id: "",
+    materiel_hors_affectation: false,
     titre: "",
     description: "",
     signaler_securite: false,
@@ -112,6 +115,44 @@ export default function Tickets() {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!form.user_id) {
+      setAssetsSalarie([]);
+      return;
+    }
+    let cancelled = false;
+    api.get(`/tickets/materiel-salarie/${form.user_id}`)
+      .then((rows) => {
+        if (cancelled) return;
+        const list = Array.isArray(rows) ? rows : [];
+        setAssetsSalarie(list);
+        setForm((f) => ({
+          ...f,
+          asset_id: f.materiel_hors_affectation ? f.asset_id : conserverAssetPourSalarie(f.asset_id, list),
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) setAssetsSalarie([]);
+      });
+    return () => { cancelled = true; };
+  }, [form.user_id]);
+
+  const onUserChange = (nextUserId) => {
+    setForm((f) => ({
+      ...f,
+      user_id: nextUserId,
+      asset_id: nextUserId ? f.asset_id : f.asset_id,
+      materiel_hors_affectation: false,
+    }));
+  };
+
+  const assetsVisibles = listeMaterielProposee({
+    userId: form.user_id,
+    assetsParc: assets,
+    assetsSalarie,
+    horsAffectation: form.materiel_hors_affectation,
+  });
+
   const onNatureChange = (code) => {
     const nat = natures.find((n) => n.code === code);
     setForm((f) => ({ ...f, nature_code: code, signaler_securite: nat?.signale_securite ? true : f.signaler_securite }));
@@ -127,6 +168,7 @@ export default function Tickets() {
         criticite: form.criticite,
         user_id: form.user_id ? Number(form.user_id) : null,
         asset_id: form.asset_id ? Number(form.asset_id) : null,
+        materiel_hors_affectation: Boolean(form.user_id && form.materiel_hors_affectation),
         titre: form.titre,
         description: form.description || null,
         signaler_securite: form.signaler_securite,
@@ -194,17 +236,41 @@ export default function Tickets() {
               </select>
             </label>
             <label>Salarie (optionnel, vide = ticket interne IT)
-              <select value={form.user_id} onChange={(e) => setForm({ ...form, user_id: e.target.value })}>
+              <select value={form.user_id} onChange={(e) => onUserChange(e.target.value)}>
                 <option value="">- Aucun (interne IT) -</option>
                 {users.map((u) => <option key={u.id} value={u.id}>{u.prenom} {u.nom} {u.matricule ? `(${u.matricule})` : ""}</option>)}
               </select>
             </label>
-            <label>Materiel concerne (optionnel)
+            <label>
+              {form.user_id
+                ? (form.materiel_hors_affectation ? "Materiel concerne (tout le parc - hors affectation)" : "Materiel concerne (affecte a ce salarie)")
+                : "Materiel concerne (optionnel - tout le parc)"}
               <select value={form.asset_id} onChange={(e) => setForm({ ...form, asset_id: e.target.value })}>
                 <option value="">- Aucun materiel -</option>
-                {assets.map((a) => <option key={a.id} value={a.id}>{a.identifiant_interne || a.numero_serie || `#${a.id}`} - {a.marque} {a.modele}</option>)}
+                {assetsVisibles.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.identifiant_interne || a.numero_serie || `#${a.id}`} - {a.marque} {a.modele}
+                  </option>
+                ))}
               </select>
             </label>
+            {form.user_id && (
+              <label className="check" style={{ gridColumn: "1 / -1" }}>
+                <input
+                  type="checkbox"
+                  checked={form.materiel_hors_affectation}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setForm((f) => ({
+                      ...f,
+                      materiel_hors_affectation: checked,
+                      asset_id: checked ? f.asset_id : conserverAssetPourSalarie(f.asset_id, assetsSalarie),
+                    }));
+                  }}
+                />
+                Autre materiel (hors affectation : materiel rendu, en preparation, perte/vol ou partage)
+              </label>
+            )}
             <label style={{ gridColumn: "1 / -1" }}>Titre
               <input value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} maxLength={200} required />
             </label>

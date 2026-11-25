@@ -31,8 +31,8 @@ from ..asset_catalog import fold
 from ..audit import audit
 from ..auth import audit_actor, demandeur_dep, require_roles
 from ..db import get_session
+from ..detentions import actifs_detenus_salarie
 from ..models import Account, Asset, Attachment, Entite, Role, Ticket, TicketComment, TicketNature, TicketSecurityDetail, User, utcnow
-from .portail import actifs_detenus_salarie
 
 router = APIRouter(tags=["tickets"])
 
@@ -47,6 +47,7 @@ class TicketCreate(BaseModel):
     assignment_id: int | None = None
     assigne_a_account_id: int | None = None
     signaler_securite: bool = False
+    materiel_hors_affectation: bool = False
 
 
 class TicketUpdate(BaseModel):
@@ -56,6 +57,7 @@ class TicketUpdate(BaseModel):
     asset_id: int | None = None
     assignment_id: int | None = None
     demandeur_verifie: bool | None = None
+    materiel_hors_affectation: bool = False
 
 
 class StatutUpdate(BaseModel):
@@ -416,6 +418,7 @@ def create_ticket(
         canal="it",
         demandeur_verifie=True,
         signaler_securite=data.signaler_securite,
+        materiel_hors_affectation=data.materiel_hors_affectation,
     )
     if ticket.user_id:
         user = session.get(User, ticket.user_id)
@@ -436,6 +439,25 @@ def create_ticket(
         ticket, users_map=users_map, accounts_map=accounts_map, assets_map=assets_map,
         entites_map=entites_map, natures_map=natures_map, delais=svc.delais_cibles(session), now=utcnow(),
     )
+
+
+@router.get("/tickets/materiel-salarie/{user_id}", dependencies=[Depends(require_roles("informatique"))])
+def get_materiel_salarie_it(user_id: int, session: Session = Depends(get_session)):
+    """Materiel actuellement affecte a un salarie (reserve IT, sans PII superflue)."""
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "Salarie introuvable")
+    return [
+        {
+            "id": asset.id,
+            "identifiant_interne": asset.identifiant_interne,
+            "type": asset.type,
+            "marque": asset.marque,
+            "modele": asset.modele,
+            "numero_serie": asset.numero_serie,
+        }
+        for asset, _ in actifs_detenus_salarie(session, user.id)
+    ]
 
 
 @router.get("/tickets/{ticket_id}", dependencies=[Depends(require_roles("informatique", "demandeur"))])
@@ -534,6 +556,7 @@ def update_ticket(
         assignment_id=data.assignment_id,
         assignment_fourni="assignment_id" in fields,
         demandeur_verifie=data.demandeur_verifie if "demandeur_verifie" in fields else None,
+        materiel_hors_affectation=data.materiel_hors_affectation,
     )
     if niveau_avant == "aucun" and ticket.niveau_securite == "signale":
         dests = svc.destinataires_alerte_securite(session)
