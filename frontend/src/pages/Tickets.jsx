@@ -23,6 +23,7 @@ import { api, errorText } from "../api.js";
 import { Feedback } from "../components/Notifications.jsx";
 import { Empty, Loading } from "../components/State.jsx";
 import { useCompteurs } from "../compteurs.jsx";
+import { grouperMaterielPourSalarie } from "../ticketsMateriel.js";
 
 const STATUT_LABELS = {
   nouveau: "Nouveau",
@@ -51,6 +52,7 @@ export default function Tickets() {
   const [natures, setNatures] = useState([]);
   const [users, setUsers] = useState([]);
   const [assets, setAssets] = useState([]);
+  const [userAssetIds, setUserAssetIds] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -111,6 +113,27 @@ export default function Tickets() {
       setAssets(Array.isArray(a) ? a : (a.items || []));
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!form.user_id) {
+      setUserAssetIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    api.get(`/lifecycle/recap/${form.user_id}`)
+      .then((res) => {
+        if (!cancelled) {
+          setUserAssetIds(new Set((res?.materiel || []).map((m) => m.id)));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setUserAssetIds(new Set());
+      });
+    return () => { cancelled = true; };
+  }, [form.user_id]);
+
+  const { affectes: assetsSalarie, autres: autresAssets } = grouperMaterielPourSalarie(assets, userAssetIds);
+  const formatAssetOption = (a) => `${a.identifiant_interne || a.numero_serie || `#${a.id}`} - ${a.marque || ""} ${a.modele || ""}`.trim();
 
   const onNatureChange = (code) => {
     const nat = natures.find((n) => n.code === code);
@@ -202,7 +225,18 @@ export default function Tickets() {
             <label>Materiel concerne (optionnel)
               <select value={form.asset_id} onChange={(e) => setForm({ ...form, asset_id: e.target.value })}>
                 <option value="">- Aucun materiel -</option>
-                {assets.map((a) => <option key={a.id} value={a.id}>{a.identifiant_interne || a.numero_serie || `#${a.id}`} - {a.marque} {a.modele}</option>)}
+                {assetsSalarie.length > 0 ? (
+                  <>
+                    <optgroup label="Materiel affecte a ce salarie">
+                      {assetsSalarie.map((a) => <option key={a.id} value={a.id}>{formatAssetOption(a)}</option>)}
+                    </optgroup>
+                    <optgroup label="Autre materiel du parc">
+                      {autresAssets.map((a) => <option key={a.id} value={a.id}>{formatAssetOption(a)}</option>)}
+                    </optgroup>
+                  </>
+                ) : (
+                  autresAssets.map((a) => <option key={a.id} value={a.id}>{formatAssetOption(a)}</option>)
+                )}
               </select>
             </label>
             <label style={{ gridColumn: "1 / -1" }}>Titre

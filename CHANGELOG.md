@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Modifié
+- **Création de ticket IT (`frontend/src/pages/Tickets.jsx`)** : lorsqu'un salarié est sélectionné, le menu *Matériel concerné* regroupe désormais son matériel affecté en tête de liste (`Matériel affecté à ce salarié`, via `GET /lifecycle/recap/{user_id}`) devant `Autre matériel du parc`.
+
 ## [0.9.1-rc.1] - 2026-11-25
 
 **Pré-version corrective 0.9.1-rc.1 : à essayer avant la 0.9.1.** **Aucune nouvelle migration de base de données** par rapport à la `0.9.0` (alignement des modèles SQLAlchemy/SQLModel avec les migrations `0025` à `0030` existantes et intégration d'`alembic check` à la CI). **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.9.1-rc.1`, puis `docker compose pull` et `docker compose up -d --no-build` ; les quatre images ensemble.
