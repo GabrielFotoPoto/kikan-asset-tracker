@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- **Reprise automatique `en_attente -> en_cours` sur l'API `/v1` (`backend/app/tickets.py`, `backend/app/routers/api_v1.py`, `docs/API.md`, PR `#208`)** : un commentaire public avec `auteur_type = "demandeur"` (valeur par défaut) envoyé via `POST /v1/tickets/{reference}/commentaires` fait désormais repasser un ticket `en_attente` à `en_cours` (cumul de `duree_attente_sec` et remise à vide de `en_attente_depuis`), comme sur le portail salarié. Un commentaire public `auteur_type = "it"` et une note interne (`interne = true`) laissent le ticket `en_attente`.
+
 ## [0.9.1] - 2026-11-25
 
 Version corrective consolidant les pré-versions `0.9.1-rc.1` et `0.9.1-rc.2`. **Aucune nouvelle migration de base de données** par rapport à la `0.9.0` (alignement des modèles SQLAlchemy/SQLModel avec les migrations `0025` à `0030` existantes et intégration d'`alembic check` à la CI). **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). Changer `KIKAN_VERSION` dans `.env` pour `0.9.1`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.9.1` sous Linux) ; les quatre images ensemble.

@@ -608,6 +608,7 @@ def ajouter_commentaire(
     demandeur_user_id: int | None = None,
     actor_name: str | None = None,
     compter_premiere_reponse: bool = False,
+    reprendre_si_en_attente: bool = False,
 ) -> tuple[Ticket, TicketComment]:
     if demandeur_user_id is not None and interne:
         raise HTTPException(403, "Notes internes reservees a l'informatique")
@@ -636,7 +637,7 @@ def ajouter_commentaire(
         if ticket.premiere_reponse_le is None and est_it:
             ticket.premiere_reponse_le = now
         # Reprise automatique lorsqu'un demandeur repond a un ticket en_attente
-        if demandeur_user_id is not None and ticket.statut == "en_attente":
+        if (demandeur_user_id is not None or reprendre_si_en_attente) and ticket.statut == "en_attente":
             if ticket.en_attente_depuis is not None:
                 ticket.duree_attente_sec += max(0, int((now - ticket.en_attente_depuis).total_seconds()))
                 ticket.en_attente_depuis = None
