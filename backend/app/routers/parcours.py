@@ -173,7 +173,7 @@ def _etapes_depart(user: User, etat: EtatDepart) -> list[dict]:
 
     depart_e = _etape(
         "depart", "Depart declare", "RH ou informatique", FAIT,
-        f"Sortie le {user.date_sortie.isoformat()}" if user.date_sortie else "Depart declare",
+        f"Sortie le {user.date_sortie.strftime('%d/%m/%Y')}" if user.date_sortie else "Depart declare",
     )
     mat_e, restit_e, sorti_e = _etapes_materiel_et_sortie(user, etat)
     acces_e = _etape(
@@ -192,7 +192,7 @@ def _etape_purge(session: Session, user: User, today: date) -> dict:
     prep = "depuis le" if date_purge <= today else "a partir du"
     return _etape(
         "purge", "Purge RGPD possible", "Informatique", A_VENIR,
-        f"Purge possible {prep} {date_purge.isoformat()}",
+        f"Purge possible {prep} {date_purge.strftime('%d/%m/%Y')}",
         date_purge_possible=date_purge.isoformat(),
     )
 

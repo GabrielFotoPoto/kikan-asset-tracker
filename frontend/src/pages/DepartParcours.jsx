@@ -23,6 +23,7 @@ import { api, errorText } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { EncartProchaineAction, EtapesParcours, JournalParcours, PastilleParcours } from "../components/EtapesParcours.jsx";
 import { ErrorState, Loading } from "../components/State.jsx";
+import { formaterDate } from "../format.js";
 import { MOTIFS_NON_RESTITUTION, formaterQuand, libelleMotif } from "../parcours.js";
 
 // Parcours de depart d'un salarie (SPEC.md 6.3bis) : parcours calcule par GET /parcours/depart/{id}.
@@ -167,7 +168,7 @@ export default function DepartParcours() {
         <div>
           <h2 className="mb4">Depart de {s.prenom} {s.nom}</h2>
           <p className="muted m0">
-            {[s.service, s.date_sortie ? `sortie prevue le ${s.date_sortie}` : "aucune date de sortie declaree", `statut ${s.statut}`].filter(Boolean).join(" - ")}
+            {[s.service, s.date_sortie ? `sortie prevue le ${formaterDate(s.date_sortie)}` : "aucune date de sortie declaree", `statut ${s.statut}`].filter(Boolean).join(" - ")}
           </p>
         </div>
         <PastilleParcours etapes={data.etapes} etapeCourante={data.etape_courante} reserves={data.reserves} action={data.prochaine_action} />
