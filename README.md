@@ -404,7 +404,7 @@ embarqué). Tout est facultatif et désactivé par défaut : **Paramétrage, ong
   (informatique et liste), départs à venir avec du matériel encore détenu, matériel non restitué après la date de sortie,
   besoins de matériel non traités pour des arrivées proches (informatique et liste), et **rappel quotidien 72 h DPO** pour tout incident de sécurité avec violation potentielle non encore notifiée.
   Un rappel déjà envoyé n'est renvoyé qu'à l'échéance de relance. Une RH ne reçoit que les salariés de son périmètre.
-- **Notifications de tickets** : création, réponse d'un salarié (à l'assigné IT ou à tous les comptes `informatique` actifs si le ticket n'est pas assigné), passage à résolu et alerte immédiate sur incident de sécurité ; aucun titre ni texte libre n'est envoyé par e-mail (minimisation RGPD).
+- **Notifications de tickets** : vers **le salarié** (s'il a une adresse e-mail) lors de l'ouverture d'un ticket par l'informatique ou l'API `/api/v1`, d'une réponse publique de l'informatique (jamais pour une note interne) et du passage à résolu ; vers **l'informatique** lors d'une réponse d'un salarié (portail ou `/api/v1` : à l'assigné IT si actif avec e-mail, sinon à tous les comptes `informatique` actifs) et en alerte immédiate à tous les comptes `informatique` actifs lors d'un signalement ou d'une escalade en incident de sécurité (portail, IT ou `/api/v1`). Aucun titre ni texte libre n'est envoyé par e-mail (minimisation RGPD).
 - **Rapport mensuel** : parc, remises et restitutions du mois, matériel non restitué, renouvellements et 3 indicateurs globaux de tickets ; envoyé à
   l'informatique et à la liste avec un lien vers les rapports (variable `KIKAN_PUBLIC_URL`). Une pièce jointe Excel ou PDF est
   possible mais désactivée par défaut, car rien de sensible ne doit circuler par e-mail sans nécessité.
@@ -528,7 +528,7 @@ sont possibles (un seul actif à la fois), choisis dans `.env` avec `KIKAN_STORA
 | `sharepoint` | **SharePoint Online** (Microsoft Graph, permission `Sites.Selected` limitée à un site) : [docs/SHAREPOINT.md](docs/SHAREPOINT.md) | `KIKAN_SHAREPOINT_TENANT_ID`, `_CLIENT_ID`, `_CLIENT_SECRET`, `_SITE`, `_LIBRARY`, `_FOLDER` |
 | `docuware` | **DocuWare** (armoire et champs d'index, compte de service) : [docs/DOCUWARE.md](docs/DOCUWARE.md) | `KIKAN_DOCUWARE_URL`, `_USER`, `_PASSWORD`, `_CABINET`, `_FIELDS` |
 
-**SharePoint et DocuWare ne reçoivent que les PDF scellés** (remises et restitutions) ; les chartes restent dans le volume local de Kikan, et les **pièces jointes des tickets** utilisent un profil de stockage indépendant (`KIKAN_ATTACHMENTS_BACKEND`, local, SMB ou WebDAV, exclu de SharePoint et DocuWare).
+**SharePoint et DocuWare ne reçoivent que les PDF scellés** (remises et restitutions) ; les chartes restent dans le volume local de Kikan, et les **pièces jointes des tickets** utilisent un profil de stockage indépendant (`KIKAN_ATTACHMENTS_BACKEND`) : par défaut (`inherit`) elles suivent le moteur principal, sauf SharePoint ou DocuWare, auquel cas elles basculent en local (un moteur dédié SharePoint ou DocuWare reste toutefois utilisable s'il est configuré explicitement).
 Ces deux moteurs sont testés contre de faux services (dépôt, relecture, gros fichiers, jeton expiré, panne) mais **pas encore sur un vrai
 tenant** : le bouton *Tester la connexion* de la page Stockage valide votre configuration en quelques secondes.
 
