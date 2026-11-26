@@ -479,9 +479,9 @@ j("POST", "/lifecycle/restituer", {"user_id": u_purge["id"], **SIGN})
 s_av, r_av = parcours(u_purge["id"], IT)
 e_pg_echu = etape(r_av, "purge")
 show(
-    "C11b - apres l'echeance de retention : l'etape 6 reste a_venir avec 'Purge possible depuis le 2020-01-01'",
+    "C11b - apres l'echeance de retention : l'etape 6 reste a_venir avec 'Purge possible depuis le 01/01/2020'",
     s_av == 200 and e_pg_echu is not None and e_pg_echu.get("etat") == "a_venir"
-    and e_pg_echu.get("detail") == "Purge possible depuis le 2020-01-01"
+    and e_pg_echu.get("detail") == "Purge possible depuis le 01/01/2020"
     and e_pg_echu.get("date_purge_possible") == "2020-01-01",
     e_pg_echu,
 )
