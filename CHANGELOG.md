@@ -5,11 +5,22 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.9.2-rc.1] - 2026-11-26
+
+**Pré-version corrective 0.9.2-rc.1 : à essayer avant la 0.9.2.** Cinq correctifs depuis la `0.9.1` (PR `#207` à `#211`). **Aucune nouvelle migration de base de données** (la base reste en `0030`) et **fichiers compose inchangés** par rapport à la `0.9.1` : la mise à jour se limite à `KIKAN_VERSION`, après une sauvegarde.
+
+**Vérifié** : intégration continue de `main` verte sur `89479af` (tous les contrôles, dont la pile complète de tests et la sauvegarde/restauration de bout en bout ; l'audit des dépendances, d'abord en échec sur un délai réseau vers `pypi.org`, est passé à la relance).
+
+**Non vérifié en conditions réelles** : notification e-mail des comptes `informatique` sur un vrai serveur SMTP, reprise `en_attente -> en_cours` par un outil externe réel appelant `/v1`, affichage des dates et tri du tableau de bord à l'écran.
+
 ### Corrigé
 - **Formatage uniforme des dates restantes (`frontend/src/parcours.js`, `frontend/src/pages/Assignments.jsx`, `frontend/src/pages/Parametres.jsx`, PR `#211`)** : utilise `formaterDate` / `formaterDateHeure` (`frontend/src/format.js`, format `JJ/MM/AAAA` et `JJ/MM/AAAA HH:MM`) pour les dates de parcours, les dates de remise/signature/besoins des affectations, le dernier test SSO et les dates d'expiration et d'utilisation des jetons API.
 - **Tri de « Départs à suivre » sur le tableau de bord (`frontend/src/departs.js`, `frontend/src/pages/Dashboard.jsx`, PR `#210`)** : trie les salariés `en_depart` en premier par date de sortie croissante (plus proches en tête), puis les salariés `sorti` par date de sortie décroissante (sans date en fin de groupe).
 - **Notification IT sur réponse salarié pour un ticket non assigné (`backend/app/tickets.py`, `backend/app/routers/tickets.py`, `backend/app/routers/api_v1.py`, `docs/API.md`, PR `#209`)** : lorsqu'un salarié répond sur un ticket non assigné (ou dont le compte assigné est inactif / sans adresse e-mail), via le portail ou via `POST /v1/tickets/{reference}/commentaires` (`auteur_type = "demandeur"`), tous les comptes `informatique` actifs disposant d'une adresse e-mail sont notifiés ; si le ticket est assigné à un compte actif muni d'une adresse e-mail, seul cet assigné est notifié. Supprime au passage l'import local de `Account` dans `api_v1.py`.
 - **Reprise automatique `en_attente -> en_cours` sur l'API `/v1` (`backend/app/tickets.py`, `backend/app/routers/api_v1.py`, `docs/API.md`, PR `#208`)** : un commentaire public avec `auteur_type = "demandeur"` (valeur par défaut) envoyé via `POST /v1/tickets/{reference}/commentaires` fait désormais repasser un ticket `en_attente` à `en_cours` (cumul de `duree_attente_sec` et remise à vide de `en_attente_depuis`), comme sur le portail salarié. Un commentaire public `auteur_type = "it"` et une note interne (`interne = true`) laissent le ticket `en_attente`.
+
+### Tests
+- **Portail salarié (`tests/portail_demandeur_check.py`, PR `#207`)** : vérifie qu'un compte `demandeur` reçoit `403` sur `GET /tickets/materiel-salarie/{id}`, route réservée à l'informatique.
 
 ## [0.9.1] - 2026-11-25
 
