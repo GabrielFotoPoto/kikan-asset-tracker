@@ -5,6 +5,9 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Corrigé
+- **Dates du parcours de départ au format `JJ/MM/AAAA` (`frontend/src/pages/DepartParcours.jsx`, `backend/app/routers/parcours.py`)** : la date de sortie prévue en tête de page, le détail de l'étape « Départ déclaré » (« Sortie le ... ») et celui de l'étape « Purge RGPD possible » s'affichaient encore au format ISO `AAAA-MM-JJ`, que #211 ne couvrait pas (constaté à l'essai de la 0.9.2-rc.1 sur la préproduction). Le champ technique `date_purge_possible` de l'API reste au format ISO.
+
 ## [0.9.2-rc.1] - 2026-11-26
 
 **Pré-version corrective 0.9.2-rc.1 : à essayer avant la 0.9.2.** Cinq correctifs depuis la `0.9.1` (PR `#207` à `#211`). **Aucune nouvelle migration de base de données** (la base reste en `0030`) et **fichiers compose inchangés** par rapport à la `0.9.1` : la mise à jour se limite à `KIKAN_VERSION`, après une sauvegarde.

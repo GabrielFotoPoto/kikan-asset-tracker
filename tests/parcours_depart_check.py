@@ -320,7 +320,7 @@ show(
     "C11a - avant l'echeance : etat a_venir, detail 'Purge possible a partir du <date>' (sans delai de grace)",
     e_purge is not None and e_purge.get("etat") == "a_venir"
     and e_purge.get("date_purge_possible") == attendu_purge
-    and f"Purge possible a partir du {attendu_purge}" == e_purge.get("detail"),
+    and f"Purge possible a partir du {date.fromisoformat(attendu_purge).strftime('%d/%m/%Y')}" == e_purge.get("detail"),
     e_purge,
 )
 j("PUT", "/rgpd/retention", {"mois": 12, "delai_grace_jours": 30})
