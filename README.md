@@ -5,7 +5,7 @@
 <h1 align="center">Kikan</h1>
 
 <p align="center">
-  <b>機器管理</b> &middot; Suivi des actifs, remise et restitution de matériel <b>signées et scellées</b>
+  <b>機器管理</b> &middot; Suivi des actifs, remises et restitutions <b>signées et scellées</b>, gestion de tickets et portail salarié
 </p>
 
 <p align="center">
@@ -26,14 +26,17 @@
 ---
 
 **Kikan** (機器管理, *kiki-kanri*, « gestion des équipements ») est une application de
-**suivi des actifs** (PC, smartphones...) par utilisateur et par entité, avec **remise et
-restitution de matériel signées et scellées** (sans papier), import de l'existant, reporting,
-gestion et **revue des accès applicatifs**, rappels et purge RGPD. Elle ne remplace pas un outil d'assistance et d'inventaire
-comme **GLPI** : elle le complète et s'y connecte ([voir ci-dessous](#kikan-et-glpi--complémentaires-pas-concurrents)).
+**suivi des actifs** (PC, smartphones...) par utilisateur et par entité, avec **remise, échange et
+restitution de matériel signés et scellés** (sans papier), **gestion de tickets native** (support IT,
+incidents de sécurité et **portail salarié**), gestion et **revue des accès applicatifs**, import de
+l'existant, reporting, prévisions budgétaires, rappels et purge RGPD. Pour les petites structures, Kikan
+couvre le suivi du parc et le support sans outil tiers ; il peut aussi se connecter à **GLPI** pour
+compléter un inventaire technique existant ([voir ci-dessous](#kikan-et-glpi--complémentaires-pas-concurrents)).
 
 Elle soutient plusieurs contrôles de l'ISO/IEC 27001:2022 :
-A.5.9 (inventaire des actifs), A.5.10 (usage acceptable), A.5.11 (restitution des actifs)
-et A.5.18 (droits d'accès).
+A.5.9 (inventaire des actifs), A.5.10 (usage acceptable), A.5.11 (restitution des actifs),
+A.5.18 (droits d'accès), A.6.8 (signalement des événements de sécurité) et A.5.24 à A.5.27
+(gestion et suivi des incidents de sécurité).
 
 > Remarque : un logiciel n'est pas « certifié ISO 27001 ». Kikan *facilite* la conformité du
 > SMSI d'une organisation, il ne la remplace pas.
@@ -51,16 +54,16 @@ La dernière version publiée figure dans les [versions GitHub](https://github.c
 - **Accès applicatifs** (A.5.18) : catalogue d'applications, attribution par salarié avec précision de niveau.
 - **Revue périodique des droits d'accès** : anomalies (accès d'un salarié sorti, application désactivée), rapport « qui a accès à quoi », campagnes de validation par les RH, clôture avec **rapport PDF scellé**, suivi des retraits : voir [docs/REVUE-ACCES.md](docs/REVUE-ACCES.md).
 
-**Support, tickets et portail salarié (v0.9)**
-- **Tickets natifs (IT)** : ouverture, qualification (nature, criticité), cycle de vie complet (`nouveau`, `en_cours`, `en_attente`, `resolu`, `ferme`, `annule`), notes internes IT, recherche `Ctrl+K`, notifications e-mail sans texte libre, clôture automatique des tickets résolus, et API d'intégration `/api/v1/tickets*` (avec passerelle e-mail documentée dans [docs/TICKETS-EMAIL.md](docs/TICKETS-EMAIL.md)).
-- **Événements et incidents de sécurité** (ISO 27001 A.6.8, A.5.24 à A.5.27) : signalement, escalade en incident, dossier d'investigation isolé réservé à l'informatique, suivi 72 h DPO/CNIL (RGPD art. 33), alerte e-mail immédiate.
+**Support, tickets et portail salarié**
+- **Tickets natifs (IT)** : ouverture, qualification (nature, criticité), cycle de vie complet (`nouveau`, `en_cours`, `en_attente`, `resolu`, `ferme`, `annule`), contrôle de cohérence salarié / matériel, notes internes IT, recherche `Ctrl+K`, notifications e-mail sans texte libre, clôture automatique des tickets résolus, et API d'intégration `/api/v1/tickets*` (avec passerelle e-mail documentée dans [docs/TICKETS-EMAIL.md](docs/TICKETS-EMAIL.md)).
+- **Événements et incidents de sécurité** (ISO 27001 A.6.8, A.5.24 à A.5.27) : signalement, escalade en incident, dossier d'investigation isolé réservé à l'informatique, suivi et rappel quotidien 72 h DPO/CNIL (RGPD art. 33), alerte e-mail immédiate.
 - **Pièces jointes transversales** : liste blanche par octets magiques (PNG/JPEG/WEBP ré-encodés sans EXIF, PDF, TXT/LOG), quotas, profil de stockage indépendant (`KIKAN_ATTACHMENTS_BACKEND`) et quarantaine `A_PURGER/`.
-- **Portail salarié (`demandeur`)** : 4e rôle strictement isolé (*Mes tickets*, *Mon matériel*), provisionnement local unitaire/en lot ou SSO Entra ID (`Kikan.Demandeur`, invités B2B exclus), coupure d'accès immédiate au départ, journalisation pseudonyme `dem-<id>`.
+- **Portail salarié (`demandeur`)** : 4e rôle strictement isolé (*Mes tickets*, *Mon matériel*), accessible par **comptes locaux** (provisionnement unitaire ou en lot), **SSO Microsoft 365 / Entra ID** (`Kikan.Demandeur`, invités B2B exclus) ou **Active Directory local (LDAP / LDAPS)** ([docs/AD-LDAP.md](docs/AD-LDAP.md)) ; coupure d'accès immédiate au départ, journalisation pseudonyme `dem-<id>`.
 - **Statistiques et KPI tickets** : onglet `Tickets` dans *Statistiques* réservé à l'informatique (activité, backlog, MTTA/MTTR net, réouvertures, fiabilité du parc, pilotage sécurité), exports CSV et Excel sans PII, 3 chiffres globaux dans le rapport mensuel IT.
 
 **Organisation et comptes**
 - **Multi-entités / filiales** : salariés, matériel et applications rattachés à une entité ; comptes RH et lecture **cloisonnés par entité** (sous-entités comprises), comptes informatique globaux.
-- **Authentification** : rôles informatique, RH, lecture et **demandeur** (portail salarié) ; connexion **Microsoft 365** (option, `Kikan.IT`, `Kikan.RH`, `Kikan.Demandeur`) avec comptes de secours ; **mot de passe oublié** par e-mail ; limitation des tentatives ; session en **cookie HttpOnly**.
+- **Authentification** : rôles informatique, RH, lecture et **demandeur** (portail salarié) ; connexion **Microsoft 365** (option, `Kikan.IT`, `Kikan.RH`, `Kikan.Demandeur`) avec comptes de secours ; **Active Directory local (LDAP / LDAPS)** pour le portail salarié ; **mot de passe oublié** par e-mail ; limitation des tentatives ; session en **cookie HttpOnly**.
 
 **Reprise, échanges et intégrations**
 - **Import CSV et Excel** de l'existant (entités, applications, salariés, matériel, affectations, accès), simulation, rapport par ligne, import « tout ou rien » et **annulation d'un import**.
@@ -82,9 +85,9 @@ La dernière version publiée figure dans les [versions GitHub](https://github.c
 | Pour... | Lire |
 |---|---|
 | **installer** Kikan, le configurer, le sauvegarder et le mettre à jour | [Guide d'installation](docs/INSTALLATION.md) |
-| **utiliser** Kikan (RH, informatique, lecture) : arrivées, remises signées, départs, revue des accès, purge | [Guide d'utilisation](docs/GUIDE-UTILISATEUR.md) |
-| comprendre la sécurité et la mise en production | [SECURITY.md](SECURITY.md) |
-| brancher Microsoft 365, GLPI, SharePoint, DocuWare, l'API, les tickets | [SSO](docs/SSO.md), [GLPI](docs/GLPI.md), [SharePoint](docs/SHAREPOINT.md), [DocuWare](docs/DOCUWARE.md), [API](docs/API.md), [Tickets](docs/TICKETS.md), [Passerelle e-mail](docs/TICKETS-EMAIL.md) |
+| **utiliser** Kikan (RH, informatique, lecture, demandeur) : arrivées, remises signées, départs, tickets, portail salarié, revue des accès, purge | [Guide d'utilisation](docs/GUIDE-UTILISATEUR.md) |
+| comprendre la sécurité, le RGPD et la mise en production | [SECURITY.md](SECURITY.md), [RGPD](docs/RGPD.md) |
+| brancher Microsoft 365, Active Directory, GLPI, SharePoint, DocuWare, l'API, les tickets | [SSO](docs/SSO.md), [AD / LDAP](docs/AD-LDAP.md), [GLPI](docs/GLPI.md), [SharePoint](docs/SHAREPOINT.md), [DocuWare](docs/DOCUWARE.md), [API](docs/API.md), [Tickets](docs/TICKETS.md), [Passerelle e-mail](docs/TICKETS-EMAIL.md) |
 | sauvegarder et restaurer | [Sauvegarde](docs/SAUVEGARDE.md) |
 
 ## Pile technique
@@ -147,7 +150,7 @@ avant le premier démarrage, ou monter le certificat de l'organisation dans le v
 
 Pour montrer ou essayer Kikan sans saisir de données : `bash scripts/demo.sh charger` (environ 10 secondes) crée un groupe fictif, **Groupe Exemple** et ses
 filiales (Exemple Nord, Exemple Sud, Exemple Est, Exemple Ouest, Exemple Services), 52 salariés, 77 matériels (PC et smartphones), 6 applications et leurs accès, **49 remises signées avec de vrais
-PDF scellés**, des restitutions, des besoins ouverts, des départs à venir, du matériel non restitué, du matériel à renouveler et 3 salariés sortis à purger (page RGPD).
+PDF scellés**, des restitutions, des besoins ouverts, des départs à venir, du matériel non restitué, du matériel à renouveler, 3 salariés sortis à purger (page RGPD), **8 tickets fictifs** (dont un incident de sécurité avec pièce jointe) et un **compte portail salarié** (`DEMO-0001`).
 L'import des entités est un lot que l'on retrouve sur la page Import.
 
 - **Sécurité** : le chargement **refuse** si la base contient déjà autre chose que des données de démonstration (salariés, matériel ou entités réels). À utiliser
@@ -209,11 +212,11 @@ L'import des entités est un lot que l'on retrouve sur la page Import.
 | **demandeur** | Portail salarié uniquement : ses propres tickets (ouverture, commentaires publics, pièces jointes) et son matériel affecté en lecture seule. Refus par défaut sur le reste de l'API. |
 
 > La connexion **Microsoft 365 (Entra ID)**, facultative, attribue le rôle à partir des **rôles d'application** Entra `Kikan.IT` (informatique), `Kikan.RH` (rh) et `Kikan.Demandeur` (portail salarié, ou option membres du tenant hors invités) ;
-> voir la section « Connexion Microsoft 365 » et [docs/SSO.md](docs/SSO.md). Le rôle *lecture* se crée dans la page Comptes.
+> voir la section « Connexion Microsoft 365 » et [docs/SSO.md](docs/SSO.md). Un **Active Directory local (LDAP / LDAPS)** peut également authentifier les salariés sur le portail `demandeur` ([docs/AD-LDAP.md](docs/AD-LDAP.md)). Le rôle *lecture* se crée dans la page Comptes.
 
-## Tickets, sécurité et portail salarié (v0.9)
+## Tickets, sécurité et portail salarié
 
-Spécification complète dans [docs/TICKETS.md](docs/TICKETS.md). Toutes les captures ci-dessous reposent exclusivement sur des données fictives (`@exemple.test`).
+Kikan intègre une gestion de tickets native pour les équipes informatiques et leurs salariés : ouverture depuis l'interface IT, le **portail salarié** (`demandeur`) ou l'API `/api/v1/tickets*` (passerelle e-mail documentée dans [docs/TICKETS-EMAIL.md](docs/TICKETS-EMAIL.md)), lien contrôlé entre salarié et matériel détenu, **pièces jointes** sur profil de stockage dédié, escalade en **incident de sécurité** (dossier d'investigation isolé et suivi du délai 72 h DPO/CNIL), statistiques/KPI sans PII et purge RGPD dédiée. Spécification complète dans [docs/TICKETS.md](docs/TICKETS.md). Toutes les captures ci-dessous reposent exclusivement sur des données fictives (`@exemple.test`).
 
 ![Liste des tickets IT et section Support](docs/captures/tickets-liste.png)
 ![Fiche ticket IT avec dossier sécurité et pièces jointes](docs/captures/tickets-detail-securite.png)
@@ -264,7 +267,7 @@ La connexion par Microsoft 365 (Entra ID) est **facultative** : tant qu'elle n'e
 locale. Procédure complète dans [`docs/SSO.md`](docs/SSO.md).
 
 - **Principe** : OpenID Connect (code d'autorisation avec PKCE) côté serveur, **un seul tenant**, MFA du tenant. Le rôle vient des
-  **rôles d'application** Entra `Kikan.IT` et `Kikan.RH` (noms modifiables), attribués à vos groupes ; toute autre personne est refusée.
+  **rôles d'application** Entra `Kikan.IT`, `Kikan.RH` et `Kikan.Demandeur` (noms modifiables, ou option membres du tenant hors invités B2B pour le portail salarié), attribués à vos groupes ; toute autre personne est refusée.
 - **Comptes** : nominatifs, créés à la première connexion d'un membre autorisé (identifiant stable Entra, jamais l'e-mail), rôle
   **resynchronisé à chaque connexion**. Un compte local existant se lie explicitement (page Comptes), jamais par e-mail.
 - **Configuration** : `.env` (`KIKAN_PUBLIC_URL`, `KIKAN_SSO_TENANT_ID`, `KIKAN_SSO_CLIENT_ID`, `KIKAN_SSO_CLIENT_SECRET`) ; le secret
@@ -275,10 +278,16 @@ locale. Procédure complète dans [`docs/SSO.md`](docs/SSO.md).
 - **Session** : durée réglable de 30 minutes à 12 heures (toutes connexions). Retirer quelqu'un d'Entra n'interrompt pas sa session
   ouverte (limite documentée) ; désactiver son compte dans Kikan la coupe immédiatement.
 
+## Connexion Active Directory local (LDAP / LDAPS, option)
+
+Pour ouvrir le **portail salarié (`demandeur`)** sans Microsoft 365, Kikan propose un connecteur Active Directory sur site (procédure complète dans [docs/AD-LDAP.md](docs/AD-LDAP.md)) :
+
+- **Périmètre strict** : la connexion LDAP ne donne jamais accès aux rôles `informatique`, `rh` ni `lecture` ; elle est réservée au portail `demandeur` (avec filtrage facultatif par groupe AD).
+- **Sécurité** : **LDAPS ou StartTLS** obligatoire en production (LDAP en clair refusé), mot de passe du compte de liaison uniquement dans `.env` (`KIKAN_LDAP_BIND_PASSWORD`), liaison stable par identifiant externe (`external_uid`), réponses uniformes `401` et plancher de latence adaptatif.
+
 ## Comptes
 
-La page **Comptes** (informatique) gère les comptes des équipes informatique, RH et lecture seule (les salariés
-n'ont pas de compte : ils signent sur la tablette). Comptes **nominatifs** : identifiant (3 à 64 caractères, minuscules,
+La page **Comptes** (informatique) gère les comptes des équipes informatique, RH, lecture seule ainsi que les comptes **demandeur** (portail salarié). Les salariés peuvent disposer d'un compte portail (créé localement unitairement ou en lot, ou automatiquement via Microsoft 365 / Active Directory) ; la **signature d'une remise ou d'une restitution sur tablette** reste conduite par l'informatique ou les RH sans que le salarié ait besoin de se connecter. Comptes **nominatifs** : identifiant (3 à 64 caractères, minuscules,
 chiffres et `. _ - @`, unique sans tenir compte de la casse, non modifiable), nom, e-mail, rôle.
 
 - **Création et réinitialisation** : le serveur génère un **mot de passe provisoire** (`XXXX-XXXX-XXXX-XXXX`), affiché
@@ -352,8 +361,8 @@ retient le matériel exact selon le stock, le prépare puis le remet. Les RH n'o
 
 **Paramétrage, onglet Intégrations** (informatique). Tout est facultatif.
 
-- **API d'import par jetons** (`/api/v1`, documentation : [docs/API.md](docs/API.md)) : un outil externe envoie du matériel et
-  des salariés vers Kikan avec un **jeton** (affiché une seule fois, empreinte seule conservée, expiration obligatoire, droits et
+- **API d'intégration par jetons** (`/api/v1`, documentation : [docs/API.md](docs/API.md)) : un outil externe envoie du matériel,
+  des salariés ou des tickets vers Kikan avec un **jeton** (affiché une seule fois, empreinte seule conservée, expiration obligatoire, droits et
   périmètre limités, débit limité). Idempotente, avec simulation (`?dry_run=1`) et lots ; **jamais de suppression, jamais d'écrasement**,
   les éléments déjà connus (même numéro de série, matricule ou e-mail) sont **liés** et non dupliqués.
 - **Connecteur GLPI** (documentation : [docs/GLPI.md](docs/GLPI.md)) : à la demande, Kikan **importe** ce qui existe dans GLPI après votre
@@ -369,20 +378,17 @@ retient le matériel exact selon le stock, le prépare puis le remet. Les RH n'o
 
 ### Kikan et GLPI : complémentaires, pas concurrents
 
-Kikan **ne remplace pas GLPI** et ne cherche pas à le faire : il couvre le cycle de vie du matériel d'un salarié, avec preuve
-signée, là où GLPI est un outil d'assistance et d'inventaire technique. Les deux se parlent par le connecteur ci-dessus.
+Kikan **peut fonctionner seul** pour les petites structures grâce à sa **gestion de tickets native** (support IT, incidents de sécurité et portail salarié), ou **compléter GLPI** dans les organisations qui utilisent déjà GLPI pour l'inventaire technique par agent et leur support existant. Les deux outils se parlent par le connecteur ci-dessus.
 
 | | Kikan | GLPI |
 |---|---|---|
-| **Cœur de métier** | Remise et restitution **signées et scellées**, revue des accès applicatifs, purge RGPD | Tickets d'assistance, inventaire technique, parc, licences et contrats |
+| **Cœur de métier** | Remise, échange et restitution **signés et scellés**, gestion de tickets et incidents de sécurité, revue des accès applicatifs, purge RGPD | Tickets d'assistance, inventaire technique, parc, licences et contrats |
 | **Inventaire** | Saisi, importé (CSV, Excel, GLPI) ou envoyé par l'API ; tout type d'actif (liste de types paramétrable) | Inventaire automatique par agent, parc complet |
 | **Preuve de remise** | Signature manuscrite sur tablette, PDF scellé, charte annexée, archivage dans votre GED | Pas de remise signée et scellée native à notre connaissance |
-| **Public** | RH, informatique, lecture ; chaque RH voit son périmètre d'entités | Équipes informatique et support |
-| **Tickets, supervision** | Tickets natifs et incidents de sécurité (v0.9) pour les structures sans GLPI ; pas de supervision réseau | Oui |
+| **Public** | RH, informatique, lecture et **salariés (`demandeur`)** ; chaque RH voit son périmètre d'entités | Équipes informatique, support et demandeurs |
+| **Tickets, supervision** | Tickets natifs, portail salarié et incidents de sécurité (ISO 27001 / 72 h DPO) ; pas de supervision réseau | Oui |
 
-En pratique : GLPI reste l'outil du support et de l'inventaire technique ; Kikan tient le **qui détient quoi, avec preuve**, la
-relation RH et informatique, et la démarche de conformité (ISO 27001, RGPD). La colonne GLPI décrit GLPI de base, hors plugins, d'après notre
-connaissance de l'outil.
+En pratique : Kikan tient le **qui détient quoi, avec preuve**, le support IT / sécurité, la relation RH et informatique, et la démarche de conformité (ISO 27001, RGPD) ; si GLPI est déjà en place pour l'inventaire par agent ou le support, le connecteur synchronise les salariés et leur matériel. La colonne GLPI décrit GLPI de base, hors plugins, d'après notre connaissance de l'outil.
 
 ![Jetons de l'API d'import](docs/captures/api-jetons.png)
 
@@ -396,9 +402,10 @@ embarqué). Tout est facultatif et désactivé par défaut : **Paramétrage, ong
   jamais stocké en base ni affiché. Une **adresse de liste** (ex. `informatique@...`) peut s'ajouter aux comptes destinataires.
 - **Rappels automatiques** (un récapitulatif par personne et par jour, à l'heure choisie) : renouvellements de matériel
   (informatique et liste), départs à venir avec du matériel encore détenu, matériel non restitué après la date de sortie,
-  besoins de matériel non traités pour des arrivées proches (informatique et liste).
+  besoins de matériel non traités pour des arrivées proches (informatique et liste), et **rappel quotidien 72 h DPO** pour tout incident de sécurité avec violation potentielle non encore notifiée.
   Un rappel déjà envoyé n'est renvoyé qu'à l'échéance de relance. Une RH ne reçoit que les salariés de son périmètre.
-- **Rapport mensuel** : parc, remises et restitutions du mois, matériel non restitué, renouvellements ; envoyé à
+- **Notifications de tickets** : vers **le salarié** (s'il a une adresse e-mail) lors de l'ouverture d'un ticket par l'informatique ou l'API `/api/v1`, d'une réponse publique de l'informatique (jamais pour une note interne) et du passage à résolu ; vers **l'informatique** lors d'une réponse d'un salarié (portail ou `/api/v1` : à l'assigné IT si actif avec e-mail, sinon à tous les comptes `informatique` actifs) et en alerte immédiate à tous les comptes `informatique` actifs lors d'un signalement ou d'une escalade en incident de sécurité (portail, IT ou `/api/v1`). Aucun titre ni texte libre n'est envoyé par e-mail (minimisation RGPD).
+- **Rapport mensuel** : parc, remises et restitutions du mois, matériel non restitué, renouvellements et 3 indicateurs globaux de tickets ; envoyé à
   l'informatique et à la liste avec un lien vers les rapports (variable `KIKAN_PUBLIC_URL`). Une pièce jointe Excel ou PDF est
   possible mais désactivée par défaut, car rien de sensible ne doit circuler par e-mail sans nécessité.
 - **Contrôles** : message de test, aperçu de ce qui serait envoyé, envoi immédiat des rappels ou du rapport, dernier résultat
@@ -521,7 +528,7 @@ sont possibles (un seul actif à la fois), choisis dans `.env` avec `KIKAN_STORA
 | `sharepoint` | **SharePoint Online** (Microsoft Graph, permission `Sites.Selected` limitée à un site) : [docs/SHAREPOINT.md](docs/SHAREPOINT.md) | `KIKAN_SHAREPOINT_TENANT_ID`, `_CLIENT_ID`, `_CLIENT_SECRET`, `_SITE`, `_LIBRARY`, `_FOLDER` |
 | `docuware` | **DocuWare** (armoire et champs d'index, compte de service) : [docs/DOCUWARE.md](docs/DOCUWARE.md) | `KIKAN_DOCUWARE_URL`, `_USER`, `_PASSWORD`, `_CABINET`, `_FIELDS` |
 
-**SharePoint et DocuWare ne reçoivent que les PDF scellés** (remises et restitutions) ; les chartes restent dans le volume local de Kikan.
+**SharePoint et DocuWare ne reçoivent que les PDF scellés** (remises et restitutions) ; les chartes restent dans le volume local de Kikan, et les **pièces jointes des tickets** utilisent un profil de stockage indépendant (`KIKAN_ATTACHMENTS_BACKEND`) : par défaut (`inherit`) elles suivent le moteur principal, sauf SharePoint ou DocuWare, auquel cas elles basculent en local (un moteur dédié SharePoint ou DocuWare reste toutefois utilisable s'il est configuré explicitement).
 Ces deux moteurs sont testés contre de faux services (dépôt, relecture, gros fichiers, jeton expiré, panne) mais **pas encore sur un vrai
 tenant** : le bouton *Tester la connexion* de la page Stockage valide votre configuration en quelques secondes.
 
