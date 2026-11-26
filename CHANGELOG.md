@@ -5,6 +5,14 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.9.2-rc.2] - 2026-11-26
+
+**Pré-version corrective 0.9.2-rc.2 : à essayer avant la 0.9.2.** Complète la `0.9.2-rc.1` avec un correctif d'affichage (PR `#213`). **Aucune nouvelle migration de base de données** (la base reste en `0030`) et **fichiers compose inchangés** : la mise à jour se limite à `KIKAN_VERSION`, après une sauvegarde.
+
+**Vérifié** : intégration continue de la PR `#213` verte (tous les contrôles, dont la pile complète de tests) ; tests du frontend en local (47/47) et compilation. Sur la préproduction en `0.9.2-rc.1` (essai du 2026-11-26) : connexion Microsoft 365, tri de « Départs à suivre » (#210) et dates des remises et du dernier test SSO (#211) conformes.
+
+**Non vérifié en conditions réelles** : notification e-mail des comptes `informatique` sur un vrai serveur SMTP (#209, aucun SMTP configuré sur la préproduction).
+
 ### Corrigé
 - **Dates du parcours de départ au format `JJ/MM/AAAA` (`frontend/src/pages/DepartParcours.jsx`, `backend/app/routers/parcours.py`)** : la date de sortie prévue en tête de page, le détail de l'étape « Départ déclaré » (« Sortie le ... ») et celui de l'étape « Purge RGPD possible » s'affichaient encore au format ISO `AAAA-MM-JJ`, que #211 ne couvrait pas (constaté à l'essai de la 0.9.2-rc.1 sur la préproduction). Le champ technique `date_purge_possible` de l'API reste au format ISO.
 
