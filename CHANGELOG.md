@@ -5,6 +5,24 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+## [0.9.2] - 2026-11-26
+
+Version corrective consolidant les pré-versions `0.9.2-rc.1` et `0.9.2-rc.2` (PR `#207` à `#211` et `#213`). **Aucune nouvelle migration de base de données** (la base reste en `0030`) et **fichiers compose inchangés** depuis la `0.9.1`. **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). La mise à jour se limite à changer `KIKAN_VERSION` dans `.env` pour `0.9.2`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.9.2` sous Linux) ; les quatre images ensemble.
+
+**Vérifié** : intégration continue verte sur `main` et chaque PR regroupée (`#207` à `#214`), tests du frontend en local (47/47) et compilation, ainsi que **validation réelle de la `0.9.2-rc.2` sur la préproduction (2026-11-26)** : connexion Microsoft 365 (SSO Entra ID), tri de « Départs à suivre » (`#210`), affichage des dates (remises, dernier test SSO, parcours de départ, `#211` et `#213`), et notification des comptes `informatique` sur réponse salarié à un ticket non assigné (`#209`) essayée avec un faux serveur SMTP Mailpit (3 e-mails reçus par les 3 comptes `informatique` actifs, sans titre ni texte de la demande).
+
+**Non vérifié en conditions réelles** : envoi d'e-mails par un vrai serveur SMTP (la préproduction n'en a pas ; l'essai de `#209` s'est fait avec Mailpit).
+
+### Corrigé
+- **Dates du parcours de départ au format `JJ/MM/AAAA` (`frontend/src/pages/DepartParcours.jsx`, `backend/app/routers/parcours.py`, PR `#213`)** : la date de sortie prévue en tête de page, le détail de l'étape « Départ déclaré » (« Sortie le ... ») et celui de l'étape « Purge RGPD possible » s'affichaient encore au format ISO `AAAA-MM-JJ`, que `#211` ne couvrait pas. Le champ technique `date_purge_possible` de l'API reste au format ISO.
+- **Formatage uniforme des dates restantes (`frontend/src/parcours.js`, `frontend/src/pages/Assignments.jsx`, `frontend/src/pages/Parametres.jsx`, PR `#211`)** : utilise `formaterDate` / `formaterDateHeure` (`frontend/src/format.js`, format `JJ/MM/AAAA` et `JJ/MM/AAAA HH:MM`) pour les dates de parcours, les dates de remise/signature/besoins des affectations, le dernier test SSO et les dates d'expiration et d'utilisation des jetons API.
+- **Tri de « Départs à suivre » sur le tableau de bord (`frontend/src/departs.js`, `frontend/src/pages/Dashboard.jsx`, PR `#210`)** : trie les salariés `en_depart` en premier par date de sortie croissante (plus proches en tête), puis les salariés `sorti` par date de sortie décroissante (sans date en fin de groupe).
+- **Notification IT sur réponse salarié pour un ticket non assigné (`backend/app/tickets.py`, `backend/app/routers/tickets.py`, `backend/app/routers/api_v1.py`, `docs/API.md`, PR `#209`)** : lorsqu'un salarié répond sur un ticket non assigné (ou dont le compte assigné est inactif / sans adresse e-mail), via le portail ou via `POST /v1/tickets/{reference}/commentaires` (`auteur_type = "demandeur"`), tous les comptes `informatique` actifs disposant d'une adresse e-mail sont notifiés ; si le ticket est assigné à un compte actif muni d'une adresse e-mail, seul cet assigné est notifié. Supprime au passage l'import local de `Account` dans `api_v1.py`.
+- **Reprise automatique `en_attente -> en_cours` sur l'API `/v1` (`backend/app/tickets.py`, `backend/app/routers/api_v1.py`, `docs/API.md`, PR `#208`)** : un commentaire public avec `auteur_type = "demandeur"` (valeur par défaut) envoyé via `POST /v1/tickets/{reference}/commentaires` fait désormais repasser un ticket `en_attente` à `en_cours` (cumul de `duree_attente_sec` et remise à vide de `en_attente_depuis`), comme sur le portail salarié. Un commentaire public `auteur_type = "it"` et une note interne (`interne = true`) laissent le ticket `en_attente`.
+
+### Tests
+- **Portail salarié (`tests/portail_demandeur_check.py`, PR `#207`)** : vérifie qu'un compte `demandeur` reçoit `403` sur `GET /tickets/materiel-salarie/{id}`, route réservée à l'informatique.
+
 ## [0.9.2-rc.2] - 2026-11-26
 
 **Pré-version corrective 0.9.2-rc.2 : à essayer avant la 0.9.2.** Complète la `0.9.2-rc.1` avec un correctif d'affichage (PR `#213`). **Aucune nouvelle migration de base de données** (la base reste en `0030`) et **fichiers compose inchangés** : la mise à jour se limite à `KIKAN_VERSION`, après une sauvegarde.
