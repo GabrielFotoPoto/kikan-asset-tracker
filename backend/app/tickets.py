@@ -794,17 +794,39 @@ def modifier_dossier_securite(
     return sec
 
 
-def destinataires_alerte_securite(session: Session) -> list[str]:
-    """Adresses e-mail des administrateurs informatiques actifs (hors donnees sensibles)."""
+def comptes_it_actifs(session: Session) -> list[str]:
+    """Adresses e-mail des comptes informatiques actifs (hors donnees sensibles)."""
     rows = session.exec(
         select(Account).where(Account.role == Role.informatique, Account.actif == True)  # noqa: E712
     ).all()
     return sorted({a.email.strip() for a in rows if a.email and "@" in a.email})
 
 
-def alerter_securite_en_fond(ticket_id: int, reference: str, criticite: str, evenement: str, destinataires: list[str]) -> None:
+def destinataires_alerte_securite(session: Session) -> list[str]:
+    """Destinataires des alertes securite (dedie, pour pouvoir evoluer vers une liste specifique)."""
+    return comptes_it_actifs(session)
+
+
+def destinataires_reponse_salarie(session: Session, ticket: Ticket) -> list[str]:
+    """Destinataires IT a notifier lors d'une reponse salarie.
+
+    Si le ticket est assigne a un compte informatique actif muni d'une adresse e-mail, seul ce compte est notifie.
+    Sinon (ticket non assigne, ou assigne inactif / sans e-mail / non informatique), tous les comptes informatique actifs sont notifies.
+    """
+    if ticket.assigne_a_account_id:
+        ass = session.get(Account, ticket.assigne_a_account_id)
+        if ass and ass.actif and ass.role == Role.informatique and ass.email and "@" in ass.email:
+            return [ass.email.strip()]
+    return comptes_it_actifs(session)
+
+
+def notifier_it_en_fond(ticket_id: int, reference: str, criticite: str, evenement: str, destinataires: list[str]) -> None:
     for dest in destinataires:
         envoyer_notification_ticket(ticket_id, reference, criticite, evenement, dest, est_it=True)
+
+
+def alerter_securite_en_fond(ticket_id: int, reference: str, criticite: str, evenement: str, destinataires: list[str]) -> None:
+    notifier_it_en_fond(ticket_id, reference, criticite, evenement, destinataires)
 
 
 def calculer_mtta_sec(ticket: Ticket) -> int | None:

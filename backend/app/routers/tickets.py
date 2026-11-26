@@ -618,13 +618,12 @@ def add_ticket_comment(
         demandeur_user_id=dem_user.id if dem_user else None,
     )
     if account.role == Role.demandeur:
-        if ticket.assigne_a_account_id:
-            ass = session.get(Account, ticket.assigne_a_account_id)
-            if ass and ass.email:
-                background.add_task(
-                    svc.envoyer_notification_ticket,
-                    ticket.id, ticket.reference, ticket.criticite, "Nouvelle reponse du salarie", ass.email, est_it=True,
-                )
+        dests = svc.destinataires_reponse_salarie(session, ticket)
+        if dests:
+            background.add_task(
+                svc.notifier_it_en_fond,
+                ticket.id, ticket.reference, ticket.criticite, "Nouvelle reponse du salarie", dests,
+            )
         return {
             "id": comment.id,
             "ticket_id": comment.ticket_id,
