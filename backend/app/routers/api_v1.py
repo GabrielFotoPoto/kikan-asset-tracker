@@ -554,13 +554,12 @@ def add_ticket_comment_v1(
                     tickets_svc.envoyer_notification_ticket,
                     updated.id, updated.reference, updated.criticite, "Nouvelle reponse de l'informatique", user.email,
                 )
-        elif data.auteur_type == "demandeur" and updated.assigne_a_account_id:
-            from ..models import Account as _Acc
-            ass = session.get(_Acc, updated.assigne_a_account_id)
-            if ass and ass.email:
+        elif data.auteur_type == "demandeur":
+            dests = tickets_svc.destinataires_reponse_salarie(session, updated)
+            if dests:
                 background.add_task(
-                    tickets_svc.envoyer_notification_ticket,
-                    updated.id, updated.reference, updated.criticite, "Nouvelle reponse du salarie", ass.email, est_it=True,
+                    tickets_svc.notifier_it_en_fond,
+                    updated.id, updated.reference, updated.criticite, "Nouvelle reponse du salarie", dests,
                 )
     return {"id": comment.id, "interne": comment.interne, "cree_le": comment.cree_le}
 
