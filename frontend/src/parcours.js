@@ -18,6 +18,8 @@
  */
 
 // Logique pure des parcours guides en etapes (arrivee et depart), sans dependance React.
+import { formaterDateHeure } from "./format.js";
+
 export const QUI_LIBELLES = {
   rh: "RH",
   informatique: "Informatique",
@@ -110,7 +112,5 @@ export function resumeParcours(etapes = [], etapeCourante = null, reserves = [],
 
 // Les dates du serveur sont en UTC sans fuseau : on le precise pour l'afficher en heure locale.
 export function formaterQuand(iso) {
-  if (!iso) return "";
-  return new Date(/[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + "Z")
-    .toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  return formaterDateHeure(iso, "");
 }

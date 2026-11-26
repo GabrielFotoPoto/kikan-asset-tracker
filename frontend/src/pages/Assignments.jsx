@@ -25,15 +25,9 @@ import { Feedback } from "../components/Notifications.jsx";
 import Pagination from "../components/Pagination.jsx";
 import SelectionMateriel from "../components/SelectionMateriel.jsx";
 import ThTri from "../components/ThTri.jsx";
+import { formaterDate, formaterDateHeure } from "../format.js";
 import { paginer, trier } from "../tableau.js";
 import { useTableau } from "../useTableau.js";
-
-// Les dates du serveur sont en UTC sans fuseau : on les affiche a l'heure locale de l'utilisateur.
-const dateHeure = (iso) => {
-  if (!iso) return "-";
-  const d = new Date(/(Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : iso + "Z");
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "medium" });
-};
 
 // Colonnes triables (salarie et remise sont calculees plus bas). Sans tri choisi : la remise la plus recente d'abord.
 const COLONNES = [["id", "#"], ["salarie", "Salarie"], ["statut", "Statut"], ["remise", "Remise (signature)"]];
@@ -148,7 +142,7 @@ export default function Assignments() {
                 <label key={b.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <input type="checkbox" checked={besoinIds.includes(b.id)}
                          onChange={() => setBesoinIds((p) => (p.includes(b.id) ? p.filter((x) => x !== b.id) : [...p, b.id]))} />
-                  {b.quantite} x {b.type}{b.gamme ? ` - gamme ${b.gamme}` : ""}{b.commentaire ? ` (${b.commentaire})` : ""}{b.date_souhaitee ? ` - souhaite le ${b.date_souhaitee}` : ""}
+                  {b.quantite} x {b.type}{b.gamme ? ` - gamme ${b.gamme}` : ""}{b.commentaire ? ` (${b.commentaire})` : ""}{b.date_souhaitee ? ` - souhaite le ${formaterDate(b.date_souhaitee)}` : ""}
                 </label>
               ))}
             </div>
@@ -179,7 +173,7 @@ export default function Assignments() {
                     <div className="muted">Restitue : {a.restitues.map((r) => `${r.type || ""} ${r.identifiant_interne || r.id}`.trim()).join(", ")}</div>
                   )}
                 </td>
-                <td>{a.date_signature ? dateHeure(a.date_signature) : <span className="muted">non signee ({dateHeure(a.date_remise)})</span>}</td>
+                <td>{a.date_signature ? formaterDateHeure(a.date_signature) : <span className="muted">non signee ({formaterDateHeure(a.date_remise)})</span>}</td>
                 <td>
                   <div className="row">
                     {writable && a.type !== "echange" && <button className="ghost" onClick={() => sign(a.id)}>Signer</button>}

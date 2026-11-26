@@ -126,7 +126,7 @@ test("resumeParcours : la cloture en attente n'est pas un parcours termine", () 
 test("formaterQuand : accepte une date ISO sans fuseau ou vide", () => {
   assert.equal(formaterQuand(""), "");
   assert.equal(formaterQuand(null), "");
-  assert.ok(formaterQuand("2026-11-04T20:00:00").length > 0);
+  assert.match(formaterQuand("2026-11-04T20:00:00"), /^\d{2}\/\d{2}\/2026 \d{2}:\d{2}$/);
 });
 
 test("fil d'Ariane : /depart/:id et /arrivee/:id sont reconnus", () => {
