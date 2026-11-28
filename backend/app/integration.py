@@ -244,7 +244,7 @@ def upsert_user(session: Session, systeme: str, scope: Scope, item: dict, *, cre
     link = get_link(session, systeme, "user", ext)
     user, how = (session.get(User, link.kikan_id), "lien") if link else match_user(session, item)
     if user is not None and not scope.allows(user.entite_id):
-        if how == "nom" and item.get("homonyme") == "creer":
+        if how == "nom":
             user = None
         else:
             return _result(ext, "refuse", message="Correspondance hors perimetre")

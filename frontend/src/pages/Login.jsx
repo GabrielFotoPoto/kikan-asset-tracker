@@ -31,6 +31,7 @@ const SSO_ERRORS = {
   echange: "L'echange avec Microsoft a echoue. Reessayez ou contactez l'administrateur.",
   reseau: "Microsoft est injoignable depuis le serveur Kikan. Contactez l'administrateur.",
   config: "La connexion Microsoft 365 n'est pas correctement configuree. Contactez l'administrateur.",
+  desactive: "La connexion Microsoft 365 est desactivee. Utilisez votre identifiant et mot de passe ou contactez l'administrateur.",
   trop_de_tentatives: "Trop de tentatives, reessayez dans quelques minutes.",
 };
 

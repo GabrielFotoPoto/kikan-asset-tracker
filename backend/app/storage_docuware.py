@@ -122,7 +122,8 @@ class DocuWareBackend:
             raise StorageError("DocuWare : reponse du service d'identite inattendue") from exc
         parsed = urllib.parse.urlparse(ident)
         base_scheme = urllib.parse.urlparse(self.url).scheme
-        if parsed.scheme != base_scheme or not parsed.hostname or parsed.username or parsed.password:
+        allowed_schemes = ("https", "http") if base_scheme == "http" else ("https",)
+        if parsed.scheme not in allowed_schemes or not parsed.hostname or parsed.username or parsed.password:
             raise StorageError("DocuWare : adresse du service d'identite invalide")
         if netguard.probleme_hote(parsed.hostname):
             raise StorageError("DocuWare : adresse du service d'identite non autorisee")

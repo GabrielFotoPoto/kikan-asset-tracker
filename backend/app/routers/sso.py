@@ -76,7 +76,6 @@ def login_start(request: Request, session: Session = Depends(get_session)):
         raise HTTPException(404, "Connexion Microsoft 365 non activee")
     ip = client_ip(request)
     if sso_login_limiter.retry_after(ip, "sso-login"):
-        audit("anonyme", "sso_refuse", ip=ip, status=429, detail="trop de demandes de connexion SSO")
         raise HTTPException(429, "Trop de tentatives, reessayez plus tard")
     sso_login_limiter.fail(ip, "sso-login")
     try:
@@ -331,7 +330,6 @@ def exchange(data: Ticket, request: Request, response: Response, session: Sessio
         raise HTTPException(429, "Trop de tentatives, reessayez plus tard")
     username = sso.pop_ticket(data.ticket)
     if not sso_policy.is_active(session):
-        login_limiter.fail(ip, "sso-ticket")
         raise HTTPException(401, "Ticket invalide ou expire")
     account = session.exec(select(Account).where(func.lower(Account.username) == username.lower())).first() if username else None
     if not account or not account.actif:

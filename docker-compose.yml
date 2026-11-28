@@ -34,6 +34,7 @@ services:
       KIKAN_MAX_CHARTE_MB: ${KIKAN_MAX_CHARTE_MB:-10}
       KIKAN_LOGIN_MAX_FAILS: ${KIKAN_LOGIN_MAX_FAILS:-5}
       KIKAN_LOGIN_WINDOW_SEC: ${KIKAN_LOGIN_WINDOW_SEC:-900}
+      KIKAN_TRUSTED_PROXIES: ${KIKAN_TRUSTED_PROXIES:-}
       KIKAN_MAX_IMPORT_MB: ${KIKAN_MAX_IMPORT_MB:-5}
       KIKAN_MAX_IMPORT_ROWS: ${KIKAN_MAX_IMPORT_ROWS:-20000}
       # Connexion Microsoft 365 (Entra ID), facultative : activee ensuite dans Parametrage, onglet Authentification.

@@ -593,7 +593,6 @@ def upload_ticket_attachment_v1(
 ):
     auth.need("tickets_ecriture")
     ticket = _ticket_by_ref(session, auth, reference)
-    _refuser_si_securite(ticket)
     locked = session.exec(select(Ticket).where(Ticket.id == ticket.id).with_for_update()).first()
     if not locked or locked.anonymise_le is not None:
         raise HTTPException(404, "Ticket introuvable")

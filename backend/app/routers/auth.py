@@ -211,6 +211,11 @@ def login(data: LoginRequest, request: Request, response: Response, session: Ses
             login_limiter.fail(ip, username)
             audit(acteur_saisi(account, username), "login_echec", ip=ip, status=401)
             _uniform_401()
+        if sso_policy.is_active(session) and sso_policy.read(session)["mode_local"] != "autorise" and not (account is not None and account.secours):
+            verify_password(data.password, _DUMMY_HASH)
+            login_limiter.fail(ip, username)
+            audit(acteur_saisi(account, username), "login_local_refuse", ip=ip, status=401, detail="reserve a Microsoft 365 ou aux comptes de secours")
+            _uniform_401()
         cfg_ldap = ldap_auth.read_settings(session)
         ident = ldap_auth.authenticate(
             username, data.password,
