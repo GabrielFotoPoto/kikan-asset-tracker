@@ -112,6 +112,9 @@ du dépôt) plutôt qu'une issue publique. Décrivez le problème, comment le re
   pourrait répondre autre chose entre le contrôle et la connexion. Seul un compte informatique règle ces adresses.
 - **Identifiants du partage dans `.env`** (SMB ou WebDAV) : utiliser un compte de service dédié, limité au seul
   dossier de Kikan, et protéger le fichier `.env` (droits restreints, sauvegardes chiffrées).
+- **En-tête `X-Real-IP` et `KIKAN_TRUSTED_PROXIES`** : `client_ip()` n'accepte `X-Real-IP` que si l'adresse IP de l'en-tête est valide et provient d'un proxy de confiance. Par défaut (variable vide), les plages acceptées sont `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` et `fc00::/7`. On peut fixer `KIKAN_TRUSTED_PROXIES=none` pour ignorer systématiquement `X-Real-IP`, ou fournir une liste d'adresses / CIDR séparées par des virgules.
+  - **Conséquence en cas de réseau hors plage** : si le réseau Docker de `kikan-web` sort des plages configurées, toutes les IP clientes deviennent celle de Nginx et la limite de connexion par IP devient globale à tous les utilisateurs.
+  - **Limite connue** : avec les plages par défaut, `172.16.0.0/12` couvre également la passerelle Docker du port `127.0.0.1:8080` et le réseau `convnet`, qui peuvent donc encore poser `X-Real-IP`. En production, ne jamais exposer le port `8080` et restreindre `KIKAN_TRUSTED_PROXIES` à l'IP ou au sous-réseau exact du reverse proxy si nécessaire.
 
 ## Vérifier la sécurité
 

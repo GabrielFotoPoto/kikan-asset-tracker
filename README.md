@@ -140,6 +140,16 @@ vous-même `KIKAN_ADMIN_USER` et `KIKAN_ADMIN_PASSWORD` dans `.env` avant le pre
 > de démarrer sans clé solide (c'est le mode par défaut si `KIKAN_ENV` est absent). Voir [SECURITY.md](SECURITY.md) pour la liste de contrôle de mise en production,
 > les risques acceptés et les tests de sécurité.
 
+### Proxies de confiance (`KIKAN_TRUSTED_PROXIES`)
+
+Par défaut, l'API n'accepte l'en-tête `X-Real-IP` (pour l'audit et la limitation de débit par IP) que depuis les réseaux privés `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` et `fc00::/7`, et uniquement si la valeur est une adresse IP valide. La variable `.env` `KIKAN_TRUSTED_PROXIES` permet de restreindre cette liste :
+
+- **vide (défaut)** : réseaux privés RFC 1918 et ULA (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) ;
+- **`none`** : ignore toujours `X-Real-IP` (utilise uniquement l'adresse directe du pair) ;
+- **liste CIDR** (séparée par des virgules, ex. `172.18.0.4/32,10.0.0.0/24`) : n'accepte `X-Real-IP` que depuis ces adresses.
+
+**Attention** : si le réseau Docker de `kikan-web` sort des plages autorisées, toutes les requêtes sont vues avec l'IP de Nginx et la limite de tentatives par IP devient globale à tous les utilisateurs. **Limite connue** : avec la valeur par défaut, la plage `172.16.0.0/12` couvre aussi la passerelle Docker du port local `127.0.0.1:8080` ainsi que le réseau `convnet`, qui peuvent donc encore poser `X-Real-IP` (détails dans [SECURITY.md](SECURITY.md)).
+
 ### Tablette de signature sur le réseau local
 
 Par défaut l'interface n'est publiée que sur la machine locale. Pour l'ouvrir au réseau de l'organisation,

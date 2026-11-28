@@ -5,6 +5,22 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
 
 ## [Non publié]
 
+### Sécurité
+- **Durcissement API `/v1`, SSO et `client_ip` (lot 1)** :
+  - `POST /v1/tickets/{reference}/statut`, `/commentaires` et `/pieces-jointes` renvoient `403` sur les tickets de sécurité (`signale` ou `incident`), aligné avec le masquage en lecture (`backend/app/routers/api_v1.py`, `docs/API.md`).
+  - `integration.upsert_user` ignore désormais toute correspondance par nom (`how == "nom"`) hors périmètre du jeton au lieu de renvoyer `conflit` ou `refuse` (évite toute fuite d'existence ou d'ID inter-entités ; les correspondances par lien, matricule ou e-mail hors périmètre restent refusées).
+  - SSO : `sso_policy.is_active` revérifié sur `/auth/sso/callback` (redirection `/login?sso_erreur=desactive`, message dédié dans `frontend/src/pages/Login.jsx`) et `/auth/sso/exchange` (sans compter d'échec dans `login_limiter`), appel de `login_limiter.success` sur échange valide, et limitation de débit dédiée (`429`) sur `GET /auth/sso/login`.
+  - `client_ip()` (`backend/app/auth.py`) : `X-Real-IP` n'est accepté que depuis un proxy de confiance (`KIKAN_TRUSTED_PROXIES` transmis dans `docker-compose.yml`, plages privées RFC 1918 / ULA par défaut, `none` ou liste CIDR) et validé comme adresse IP (`README.md`, `SECURITY.md`).
+- **Durcissement connecteurs SSRF et LDAP + SSO (lot 2)** :
+  - `storage_docuware.py` : validation de `IdentityServiceUrl` (`https` toujours accepté, `http` uniquement si `KIKAN_DOCUWARE_URL` est en `http`, absence d'identifiants dans l'URL, contrôle `netguard.probleme_hote`).
+  - `storage_sharepoint.py` : validation du schéma, de l'absence d'identifiants dans l'URL et de `netguard.probleme_hote` sur `uploadUrl` et `Location` (302).
+  - `ldap_auth.py` : `auto_referrals=False` explicite sur `ldap3.Connection`.
+  - `routers/auth.py` : avec SSO actif en `mode_local = secours`, les comptes non secours (et inexistants) sont refusés en `401` uniforme avant tout appel à l'annuaire AD (avec vérification maintenue après résolution pour les comptes créés automatiquement).
+
+**Vérifié** : suite complète `bash tests/run_all.sh` sur la pile isolée `kiktest` (incluant les nouveaux tests `client_ip` / `KIKAN_TRUSTED_PROXIES`, gardes SSRF DocuWare et SharePoint, LDAP + SSO en mode `secours`, `/auth/sso/callback` désactivé et `429` sur `GET /auth/sso/login`, `403` `/v1` sur tickets sécurité et homonyme hors périmètre).
+
+**Non vérifié en conditions réelles** : comportement derrière un vrai reverse proxy de production, serveurs DocuWare et SharePoint réels, annuaire LDAP/AD réel couplé au SSO Entra ID.
+
 ## [0.9.2] - 2026-11-26
 
 Version corrective consolidant les pré-versions `0.9.2-rc.1` et `0.9.2-rc.2` (PR `#207` à `#211` et `#213`). **Aucune nouvelle migration de base de données** (la base reste en `0030`) et **fichiers compose inchangés** depuis la `0.9.1`. **Faites une sauvegarde avant** ([SAUVEGARDE.md](docs/SAUVEGARDE.md)). La mise à jour se limite à changer `KIKAN_VERSION` dans `.env` pour `0.9.2`, puis `docker compose pull` et `docker compose up -d --no-build` (ou `scripts/update.sh 0.9.2` sous Linux) ; les quatre images ensemble.
