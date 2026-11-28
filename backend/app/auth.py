@@ -19,6 +19,7 @@
 import datetime
 import hashlib
 import hmac
+import ipaddress
 import logging
 import os
 import secrets
@@ -150,9 +151,52 @@ login_limiter = LoginLimiter(
 )
 
 
+def _parse_trusted_proxies() -> list[ipaddress.IPv4Network | ipaddress.IPv6Network] | None:
+    raw = os.environ.get("KIKAN_TRUSTED_PROXIES")
+    if raw is None or not raw.strip():
+        return None
+    if raw.strip().lower() == "none":
+        return []
+    nets: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for part in raw.split(","):
+        p = part.strip()
+        if not p:
+            continue
+        try:
+            nets.append(ipaddress.ip_network(p, strict=False))
+        except ValueError:
+            log.warning("KIKAN_TRUSTED_PROXIES entree ignoree: %s", p)
+    return nets
+
+
+_TRUSTED_PROXIES = _parse_trusted_proxies()
+_DEFAULT_PROXY_NETS = (
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("fc00::/7"),
+)
+
+
+def _is_trusted_proxy(peer: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(peer)
+    except ValueError:
+        return False
+    nets = _TRUSTED_PROXIES if _TRUSTED_PROXIES is not None else _DEFAULT_PROXY_NETS
+    return any(ip in net for net in nets)
+
+
 def client_ip(request: Request) -> str:
-    # L'API n'est joignable que derriere Nginx (qui pose X-Real-IP) ou en local.
-    return request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
+    # X-Real-IP n'est accepte que depuis un reverse proxy de confiance et s'il s'agit d'une IP valide.
+    peer = request.client.host if request.client else "?"
+    real_ip = (request.headers.get("x-real-ip") or "").strip()
+    if real_ip and _is_trusted_proxy(peer):
+        try:
+            return str(ipaddress.ip_address(real_ip))
+        except ValueError:
+            pass
+    return peer
 
 
 # --- Jetons ---

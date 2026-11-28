@@ -243,6 +243,11 @@ def upsert_user(session: Session, systeme: str, scope: Scope, item: dict, *, cre
         return _result(ext, "refuse", message=err)
     link = get_link(session, systeme, "user", ext)
     user, how = (session.get(User, link.kikan_id), "lien") if link else match_user(session, item)
+    if user is not None and not scope.allows(user.entite_id):
+        if how == "nom" and item.get("homonyme") == "creer":
+            user = None
+        else:
+            return _result(ext, "refuse", message="Correspondance hors perimetre")
     if user is not None and how == "nom":
         choix = item.get("homonyme")  # decision explicite de l'appelant : "lier" a la fiche existante ou "creer" un homonyme
         if choix == "creer":
@@ -250,8 +255,6 @@ def upsert_user(session: Session, systeme: str, scope: Scope, item: dict, *, cre
         elif choix != "lier" and not link_by_name:
             return _result(ext, "conflit", user.id, "Un salarie porte deja ce nom et ce prenom : choisissez homonyme = lier ou creer")
     if user is not None:
-        if not scope.allows(user.entite_id):
-            return _result(ext, "refuse", message="Correspondance hors perimetre")
         if link is None:
             other = link_of(session, systeme, "user", user.id)
             if other is not None:

@@ -237,7 +237,12 @@ s_sec, c_sec = j("PUT", "/v1/tickets/EXT-SEC-1", {
 }, tok_rw_a)
 assert s_sec == 200, c_sec
 ref_sec = c_sec["reference"]
-j("POST", f"/v1/tickets/{ref_sec}/commentaires", {"contenu": "COMMENTAIRE_SEC_SECRET", "interne": True}, tok_int_a)
+s_sec_st, _ = j("POST", f"/v1/tickets/{ref_sec}/statut", {"statut": "en_cours"}, tok_rw_a)
+s_sec_cm, _ = j("POST", f"/v1/tickets/{ref_sec}/commentaires", {"contenu": "TENTATIVE_V1_SEC", "interne": False}, tok_rw_a)
+s_sec_pj, _ = multipart_upload(f"/v1/tickets/{ref_sec}/pieces-jointes", "sec.txt", b"test", "text/plain", tok_rw_a)
+show("ticket signale : ecritures /v1 (statut, commentaire, PJ) refusees (403)",
+     s_sec_st == 403 and s_sec_cm == 403 and s_sec_pj == 403, (s_sec_st, s_sec_cm, s_sec_pj))
+j("POST", f"/tickets/{c_sec['id']}/commentaires", {"contenu": "COMMENTAIRE_SEC_SECRET", "interne": True}, tok_it)
 # Escalade en incident + cause_racine cote IT
 j("POST", f"/tickets/{c_sec['id']}/securite/niveau", {"niveau_securite": "incident", "sous_categorie": "phishing"}, tok_it)
 j("PUT", f"/tickets/{c_sec['id']}/securite", {"cause_racine": "CAUSE_RACINE_ULTRA_SECRETE"}, tok_it)

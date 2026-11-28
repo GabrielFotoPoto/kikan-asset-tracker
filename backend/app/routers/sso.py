@@ -31,7 +31,7 @@ from sqlmodel import Session, select
 
 from .. import appsettings, sso, sso_policy
 from ..audit import audit
-from ..auth import audit_actor, client_ip, create_access_token, hash_password, login_limiter, require_roles, set_session_cookie
+from ..auth import LoginLimiter, audit_actor, client_ip, create_access_token, hash_password, login_limiter, require_roles, set_session_cookie
 from ..db import get_session
 from ..models import Account, AccountScope, EmployeeStatus, PasswordResetToken, Role, User
 from .auth import USERNAME_RE, TokenResponse
@@ -45,6 +45,7 @@ def _cookie_args() -> dict:
 
 
 PROTOCOL_ERRORS = {"session", "idp", "jeton", "echange", "reseau"}
+sso_login_limiter = LoginLimiter(max_per_ip=120, max_per_account=120, window=60)
 
 
 def _protocol_failure(ip: str) -> None:
@@ -69,10 +70,15 @@ def public_config(session: Session = Depends(get_session)):
 
 
 @router.get("/login")
-def login_start(session: Session = Depends(get_session)):
+def login_start(request: Request, session: Session = Depends(get_session)):
     """Redirige vers Microsoft (le navigateur est ensuite renvoye sur /callback)."""
     if not sso_policy.is_active(session):
         raise HTTPException(404, "Connexion Microsoft 365 non activee")
+    ip = client_ip(request)
+    if sso_login_limiter.retry_after(ip, "sso-login"):
+        audit("anonyme", "sso_refuse", ip=ip, status=429, detail="trop de demandes de connexion SSO")
+        raise HTTPException(429, "Trop de tentatives, reessayez plus tard")
+    sso_login_limiter.fail(ip, "sso-login")
     try:
         url, state = sso.new_flow("login")
     except sso.SsoError as exc:
@@ -277,6 +283,8 @@ def callback(request: Request, code: str | None = None, state: str | None = None
 
     if error or not code:
         return refuse("idp", f"retour de Microsoft : {(error or 'sans code')[:40]}")
+    if not test and not sso_policy.is_active(session):
+        return refuse("desactive", "connexion Microsoft 365 desactivee")
     cfg = sso_policy.read(session)
     try:
         tokens = sso.exchange_code(code, flow["verifier"])
@@ -322,10 +330,14 @@ def exchange(data: Ticket, request: Request, response: Response, session: Sessio
     if login_limiter.retry_after(ip, "sso-ticket"):
         raise HTTPException(429, "Trop de tentatives, reessayez plus tard")
     username = sso.pop_ticket(data.ticket)
+    if not sso_policy.is_active(session):
+        login_limiter.fail(ip, "sso-ticket")
+        raise HTTPException(401, "Ticket invalide ou expire")
     account = session.exec(select(Account).where(func.lower(Account.username) == username.lower())).first() if username else None
     if not account or not account.actif:
         login_limiter.fail(ip, "sso-ticket")
         raise HTTPException(401, "Ticket invalide ou expire")
+    login_limiter.success(ip, "sso-ticket")
     from ..auth import audit_actor
     token = create_access_token(account.username, account.role.value, account.token_epoch, act=audit_actor(account))
     set_session_cookie(request, response, token)

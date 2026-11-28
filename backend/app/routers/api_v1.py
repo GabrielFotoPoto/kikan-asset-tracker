@@ -502,6 +502,11 @@ def put_ticket_v1(
     }
 
 
+def _refuser_si_securite(ticket: Ticket) -> None:
+    if ticket.niveau_securite in ("signale", "incident"):
+        raise HTTPException(403, "Ticket securite reserve a l'interface informatique")
+
+
 @router.post("/tickets/{reference}/statut")
 def change_ticket_statut_v1(
     reference: str,
@@ -512,6 +517,7 @@ def change_ticket_statut_v1(
 ):
     auth.need("tickets_ecriture")
     ticket = _ticket_by_ref(session, auth, reference)
+    _refuser_si_securite(ticket)
     updated = tickets_svc.changer_statut(session, None, ticket.id, data.statut, actor_name=auth.actor)
     if updated.statut == "resolu" and updated.user_id:
         user = session.get(User, updated.user_id)
@@ -539,6 +545,7 @@ def add_ticket_comment_v1(
     if data.interne:
         auth.need("tickets_interne")
     ticket = _ticket_by_ref(session, auth, reference)
+    _refuser_si_securite(ticket)
     est_reponse_it = (not data.interne) and (data.auteur_type == "it")
     est_reponse_demandeur = (not data.interne) and (data.auteur_type == "demandeur")
     updated, comment = tickets_svc.ajouter_commentaire(
@@ -586,9 +593,11 @@ def upload_ticket_attachment_v1(
 ):
     auth.need("tickets_ecriture")
     ticket = _ticket_by_ref(session, auth, reference)
+    _refuser_si_securite(ticket)
     locked = session.exec(select(Ticket).where(Ticket.id == ticket.id).with_for_update()).first()
     if not locked or locked.anonymise_le is not None:
         raise HTTPException(404, "Ticket introuvable")
+    _refuser_si_securite(locked)
     if locked.statut in tickets_svc.STATUTS_FINAUX:
         raise HTTPException(409, "Impossible d'ajouter une piece jointe a un ticket ferme ou annule")
     max_bytes = att_svc.taille_max_mio(session) * 1024 * 1024
