@@ -30,6 +30,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from . import netguard
 from .filestore import TIMEOUT, StorageError, _env, safe_key
 
 SMALL_MAX = 4 * 1024 * 1024          # au-dela : session de televersement
@@ -171,7 +172,9 @@ class SharePointBackend:
                                 json.dumps({"item": {"@microsoft.graph.conflictBehavior": "replace"}}).encode(),
                                 {"Content-Type": "application/json"}, ok=(200,))
         upload_url = json.loads(raw)["uploadUrl"]
-        if urllib.parse.urlparse(upload_url).scheme != urllib.parse.urlparse(self.graph).scheme:
+        up = urllib.parse.urlparse(upload_url)
+        graph_scheme = urllib.parse.urlparse(self.graph).scheme
+        if up.scheme != graph_scheme or not up.hostname or up.username or up.password or netguard.probleme_hote(up.hostname):
             raise StorageError("SharePoint : adresse de televersement inattendue")
         total, start = len(data), 0
         while start < total:
@@ -190,7 +193,9 @@ class SharePointBackend:
             raise StorageError("Document introuvable sur SharePoint") from exc
         if status == 302:
             location = headers.get("Location") or headers.get("location")
-            if not location or urllib.parse.urlparse(location).scheme not in ("http", "https"):
+            loc = urllib.parse.urlparse(location or "")
+            graph_scheme = urllib.parse.urlparse(self.graph).scheme
+            if not location or loc.scheme != graph_scheme or not loc.hostname or loc.username or loc.password or netguard.probleme_hote(loc.hostname):
                 raise StorageError("SharePoint : adresse de telechargement invalide")
             status, _, raw = self._raw("GET", location)   # adresse pre-autorisee : jamais d'en-tete Authorization
             if status != 200:

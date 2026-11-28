@@ -33,6 +33,7 @@ import urllib.request
 import uuid
 from datetime import date, datetime, timezone
 
+from . import netguard
 from .docname import cle_sans_nom
 from .filestore import TIMEOUT, StorageError, _env, safe_key
 
@@ -116,9 +117,16 @@ class DocuWareBackend:
         if status != 200:
             raise StorageError(f"DocuWare : service d'identite introuvable (HTTP {status} ; KIKAN_DOCUWARE_URL ?)")
         try:
-            self._identity = json.loads(raw)["IdentityServiceUrl"].rstrip("/")
-        except (ValueError, KeyError) as exc:
+            ident = str(json.loads(raw)["IdentityServiceUrl"]).strip().rstrip("/")
+        except (ValueError, KeyError, TypeError) as exc:
             raise StorageError("DocuWare : reponse du service d'identite inattendue") from exc
+        parsed = urllib.parse.urlparse(ident)
+        base_scheme = urllib.parse.urlparse(self.url).scheme
+        if parsed.scheme != base_scheme or not parsed.hostname or parsed.username or parsed.password:
+            raise StorageError("DocuWare : adresse du service d'identite invalide")
+        if netguard.probleme_hote(parsed.hostname):
+            raise StorageError("DocuWare : adresse du service d'identite non autorisee")
+        self._identity = ident
         return self._identity
 
     def _access_token(self, force: bool = False) -> str:

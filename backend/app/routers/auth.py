@@ -227,6 +227,10 @@ def login(data: LoginRequest, request: Request, response: Response, session: Ses
             login_limiter.fail(ip, username)
             audit("anonyme", "ldap_refuse", ip=ip, status=401, detail="demandeur non provisionne")
             _uniform_401()
+        if not sso_policy.local_login_allowed(session, resolved):
+            login_limiter.success(ip, username)
+            audit(audit_actor(resolved), "login_local_refuse", ip=ip, status=403, detail="reserve a Microsoft 365 ou aux comptes de secours")
+            raise HTTPException(403, "Connexion par mot de passe reservee aux comptes de secours : utilisez Microsoft 365")
         login_limiter.success(ip, username)
         audit(audit_actor(resolved), "login_ok", ip=ip, status=200, detail="ldap")
         token = create_access_token(resolved.username, resolved.role.value, resolved.token_epoch, act=audit_actor(resolved))

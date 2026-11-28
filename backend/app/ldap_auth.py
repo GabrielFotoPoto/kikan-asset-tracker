@@ -221,7 +221,7 @@ def _open_connection(host: str, user_dn: str, password: str) -> Connection:
         conn = Connection(
             server, user=user_dn, password=password,
             authentication=SIMPLE, client_strategy=strategy,
-            receive_timeout=timeout, raise_exceptions=False,
+            auto_referrals=False, receive_timeout=timeout, raise_exceptions=False,
         )
         conn.bind()
         return conn
@@ -229,7 +229,7 @@ def _open_connection(host: str, user_dn: str, password: str) -> Connection:
     server = Server(host, port=port, use_ssl=use_ssl, tls=tls_obj, connect_timeout=timeout, get_info=NONE)
     conn = Connection(
         server, user=user_dn, password=password,
-        authentication=SIMPLE, receive_timeout=timeout, raise_exceptions=False,
+        authentication=SIMPLE, auto_referrals=False, receive_timeout=timeout, raise_exceptions=False,
     )
     if tls_mode == "starttls":
         conn.open()
