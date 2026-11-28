@@ -17,7 +17,7 @@ détaillée est dans [SPEC.md](SPEC.md) (§13).
   - `ldap_auth.py` : `auto_referrals=False` explicite sur `ldap3.Connection`.
   - `routers/auth.py` : avec SSO actif en `mode_local = secours`, les comptes non secours (et inexistants) sont refusés en `401` uniforme avant tout appel à l'annuaire AD (avec vérification maintenue après résolution pour les comptes créés automatiquement).
 
-**Vérifié** : suite complète `bash tests/run_all.sh` sur la pile isolée `kiktest` (incluant les nouveaux tests `client_ip` / `KIKAN_TRUSTED_PROXIES`, gardes SSRF DocuWare et SharePoint, LDAP + SSO en mode `secours`, `/auth/sso/callback` désactivé et `429` sur `GET /auth/sso/login`, `403` `/v1` sur tickets sécurité et homonyme hors périmètre).
+**Vérifié** : suites API et intégrations vertes sur la pile isolée `kiktest` (48/48, incluant les nouveaux tests `client_ip` / `KIKAN_TRUSTED_PROXIES`, gardes SSRF DocuWare et SharePoint, LDAP + SSO en mode `secours`, `/auth/sso/callback` désactivé et `429` sur `GET /auth/sso/login`, `403` `/v1` sur tickets sécurité et homonyme hors périmètre) ; `hygiene_check` non concluant sous Windows (chemins antislash passés à `/bin/bash`, CI Linux en référence) ; build et tests frontend verts (47/47).
 
 **Non vérifié en conditions réelles** : comportement derrière un vrai reverse proxy de production, serveurs DocuWare et SharePoint réels, annuaire LDAP/AD réel couplé au SSO Entra ID.
 

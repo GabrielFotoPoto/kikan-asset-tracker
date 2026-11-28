@@ -180,11 +180,14 @@ def upsert_asset(session: Session, systeme: str, scope: Scope, item: dict, *, al
     return _result(ext, "cree", asset.id)
 
 
-def _same_person(session: Session, nom: str, prenom: str) -> User | None:
-    return session.exec(select(User).where(func.lower(User.nom) == nom.lower(), func.lower(User.prenom) == prenom.lower())).first()
+def _same_person(session: Session, nom: str, prenom: str, scope: Scope | None = None) -> User | None:
+    stmt = select(User).where(func.lower(User.nom) == nom.lower(), func.lower(User.prenom) == prenom.lower())
+    if scope is not None:
+        stmt = scope.users(stmt)
+    return session.exec(stmt).first()
 
 
-def match_user(session: Session, item: dict) -> tuple[User | None, str | None]:
+def match_user(session: Session, item: dict, scope: Scope | None = None) -> tuple[User | None, str | None]:
     """Salarie deja connu : (fiche, critere). Matricule, puis e-mail ; le meme nom et prenom n'est qu'un doublon possible."""
     matricule = clean(item.get("matricule"), 50)
     if matricule:
@@ -198,7 +201,7 @@ def match_user(session: Session, item: dict) -> tuple[User | None, str | None]:
             return u, "email"
     nom, prenom = clean(item.get("nom")), clean(item.get("prenom"))
     if nom and prenom:
-        u = _same_person(session, nom, prenom)
+        u = _same_person(session, nom, prenom, scope=scope)
         if u:
             return u, "nom"
     return None, None
@@ -242,7 +245,7 @@ def upsert_user(session: Session, systeme: str, scope: Scope, item: dict, *, cre
     if err:
         return _result(ext, "refuse", message=err)
     link = get_link(session, systeme, "user", ext)
-    user, how = (session.get(User, link.kikan_id), "lien") if link else match_user(session, item)
+    user, how = (session.get(User, link.kikan_id), "lien") if link else match_user(session, item, scope=scope)
     if user is not None and not scope.allows(user.entite_id):
         if how == "nom":
             user = None

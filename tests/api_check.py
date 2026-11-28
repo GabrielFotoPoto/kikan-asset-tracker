@@ -284,6 +284,11 @@ s, hb = j("POST", "/users", {"matricule": "ZZAP-HB", "nom": "HorsScope", "prenom
 s, r = j("PUT", "/v1/users/U-HS", {"nom": "HorsScope", "prenom": "ZZAPhs", "entite_code": "ZZAP-A"}, token=TA)
 show("homonyme hors perimetre : ignore et cree dans l'entite du jeton",
      r["resultat"] == "cree" and r["id"] != hb["id"] and j("GET", "/users/%d" % r["id"])[1]["entite_id"] == EA, r)
+s, hb2 = j("POST", "/users", {"matricule": "ZZAP-HB2", "nom": "DoubleEnt", "prenom": "ZZAPde", "entite_id": EB})
+s, ha2 = j("POST", "/users", {"matricule": "ZZAP-HA2", "nom": "DoubleEnt", "prenom": "ZZAPde", "entite_id": EA})
+s, r = j("PUT", "/v1/users/U-HS-AB", {"nom": "DoubleEnt", "prenom": "ZZAPde", "entite_code": "ZZAP-A"}, token=TA)
+show("homonyme present en B et en A : conflit sur la fiche A uniquement",
+     r["resultat"] == "conflit" and r["id"] == ha2["id"] and r["id"] != hb2["id"], r)
 s, r = j("PUT", "/v1/users/U-8", {"nom": "", "prenom": "", "entite_code": "ZZAP-A"}, token=FULL)
 show("nom et prenom requis pour creer", r["resultat"] == "refuse", r)
 s, r = j("PUT", "/v1/users/U-9", {"nom": "Hors", "prenom": "ZZAPhors", "entite_code": "ZZAP-B"}, token=TA)

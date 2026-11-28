@@ -418,19 +418,21 @@ from app.storage_docuware import DocuWareBackend as _DocuWareBackend  # noqa: E4
 
 _dw = object.__new__(_DocuWareBackend)
 _dw.url = "https://dw.exemple.test/DocuWare/Platform"
-for _label, _bad_url in (
-    ("169.254.169.254", "https://169.254.169.254/ids"),
-    ("identifiants dans l'adresse", "https://u:p@dw.exemple.test/ids"),
-    ("passage en http depuis https", "http://dw.exemple.test/ids"),
+for _label, _bad_url, _expect_msg in (
+    ("169.254.169.254", "https://169.254.169.254/ids", "service d'identite non autorisee"),
+    ("identifiants dans l'adresse", "https://u:p@dw.exemple.test/ids", "service d'identite invalide"),
+    ("passage en http depuis https", "http://dw.exemple.test/ids", "service d'identite invalide"),
 ):
     _dw._identity = None
     _dw._raw = lambda m, u, data=None, headers=None, b=_bad_url: (200, {}, json.dumps({"IdentityServiceUrl": b}).encode())
+    _dw_msg = ""
     try:
         _dw._identity_url()
         _dw_ok = False
-    except _StorageError:
-        _dw_ok = True
-    show(f"DocuWare IdentityServiceUrl refuse ({_label})", _dw_ok)
+    except _StorageError as _exc:
+        _dw_msg = str(_exc)
+        _dw_ok = _expect_msg in _dw_msg
+    show(f"DocuWare IdentityServiceUrl refuse ({_label})", _dw_ok, _dw_msg)
 
 _dw.url = "http://dw.exemple.test/DocuWare/Platform"
 for _ok_url in ("https://id.exemple.test/ids", "http://id.exemple.test/ids"):
@@ -450,12 +452,14 @@ try:
         ("changement de schema http", "http://sp.exemple.test/up"),
     ):
         _sp._graph = lambda m, p, data=None, headers=None, ok=(200,), b=_bad_url: (200, {}, json.dumps({"uploadUrl": b}).encode())
+        _sp_msg = ""
         try:
             _sp.write("k", b"data")
             _sp_ok = False
-        except _StorageError:
-            _sp_ok = True
-        show(f"SharePoint uploadUrl refuse ({_label})", _sp_ok)
+        except _StorageError as _exc:
+            _sp_msg = str(_exc)
+            _sp_ok = "adresse de televersement inattendue" in _sp_msg
+        show(f"SharePoint uploadUrl refuse ({_label})", _sp_ok, _sp_msg)
 finally:
     _sp_mod.SMALL_MAX = _prev_small
 
@@ -465,12 +469,14 @@ for _label, _bad_url in (
     ("changement de schema http", "http://sp.exemple.test/dl"),
 ):
     _sp._graph = lambda m, p, data=None, headers=None, ok=(200,), b=_bad_url: (302, {"Location": b}, b"")
+    _sp_msg = ""
     try:
         _sp.read("k")
         _sp_ok = False
-    except _StorageError:
-        _sp_ok = True
-    show(f"SharePoint Location 302 refuse ({_label})", _sp_ok)
+    except _StorageError as _exc:
+        _sp_msg = str(_exc)
+        _sp_ok = "adresse de telechargement invalide" in _sp_msg
+    show(f"SharePoint Location 302 refuse ({_label})", _sp_ok, _sp_msg)
 
 # Nettoyage : comptes de test desactives
 for acc_id in (id_rh, id_lect):
