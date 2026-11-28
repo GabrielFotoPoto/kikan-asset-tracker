@@ -300,6 +300,46 @@ try:
     show("hote AD refuse par netguard : 401 anonyme sans exposer l'hote",
          s_ng == 401 and "127.0.0.1" not in str(d_ng), (s_ng, d_ng))
 
+    # SSO actif en mode_local=secours : compte LDAP non secours refuse en 401 sans appel AD, compte secours accepte
+    from app import appsettings as _appsettings, sso_policy as _sso_policy
+    from sqlmodel import Session as _Session
+    from app.db import engine as _engine
+    _sso_env_keys = ("KIKAN_PUBLIC_URL", "KIKAN_SSO_TENANT_ID", "KIKAN_SSO_CLIENT_ID", "KIKAN_SSO_CLIENT_SECRET")
+    _prev_sso_env = {k: os.environ.get(k) for k in _sso_env_keys}
+    with _Session(_engine) as _db:
+        _prev_sso_act = _appsettings.get(_db, _sso_policy.KEYS["actif"], "0")
+        _prev_sso_mod = _appsettings.get(_db, _sso_policy.KEYS["mode_local"], "secours")
+    try:
+        os.environ["KIKAN_PUBLIC_URL"] = "https://kikan.exemple.test"
+        os.environ["KIKAN_SSO_TENANT_ID"] = "00000000-0000-0000-0000-000000000001"
+        os.environ["KIKAN_SSO_CLIENT_ID"] = "00000000-0000-0000-0000-000000000002"
+        os.environ["KIKAN_SSO_CLIENT_SECRET"] = "secret-test-ldap-sso"
+        with _Session(_engine) as _db:
+            _appsettings.put(_db, _sso_policy.KEYS["actif"], "1")
+            _appsettings.put(_db, _sso_policy.KEYS["mode_local"], "secours")
+            _db.commit()
+        _, _accs_sso = j("GET", "/auth/accounts", token=tok_it)
+        _adm_acc = next(a for a in _accs_sso if a["username"] == ADMIN_USER)
+        j("PUT", f"/auth/accounts/{_adm_acc['id']}", {"secours": True}, tok_it)
+        calls_before_sso = ldap_calls["count"]
+        s_ldap_blk, _ = login("zzg5.alice@exemple.test", "AdPasswordAlice2026!")
+        s_unk_blk, _ = login("zzg5.inconnu@exemple.test", "AdPasswordInc2026!")
+        s_sec_ok, _ = login(ADMIN_USER, ADMIN_PASS)
+        show("SSO mode secours + LDAP : compte non secours refuse (401) sans appel AD",
+             s_ldap_blk == 401 and s_unk_blk == 401 and ldap_calls["count"] == calls_before_sso,
+             (s_ldap_blk, s_unk_blk, ldap_calls["count"] - calls_before_sso))
+        show("SSO mode secours + LDAP : compte de secours accepte (200)", s_sec_ok == 200, s_sec_ok)
+    finally:
+        for _k, _v in _prev_sso_env.items():
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
+        with _Session(_engine) as _db:
+            _appsettings.put(_db, _sso_policy.KEYS["actif"], _prev_sso_act)
+            _appsettings.put(_db, _sso_policy.KEYS["mode_local"], _prev_sso_mod)
+            _db.commit()
+
     # Salarie passe sorti -> connexion LDAP refusee (401 uniforme)
     from sqlmodel import Session
     from app.db import engine

@@ -282,7 +282,8 @@ s, r = j("PUT", "/v1/users/U-12", {"nom": "Homonyme", "prenom": "ZZAPhomo", "ent
 show("homonyme = creer : nouvelle fiche", r["resultat"] == "cree" and r["id"] != h0["id"], r)
 s, hb = j("POST", "/users", {"matricule": "ZZAP-HB", "nom": "HorsScope", "prenom": "ZZAPhs", "entite_id": EB})
 s, r = j("PUT", "/v1/users/U-HS", {"nom": "HorsScope", "prenom": "ZZAPhs", "entite_code": "ZZAP-A"}, token=TA)
-show("homonyme hors perimetre : refuse sans reveler l'ID", r["resultat"] == "refuse" and r.get("id") is None, r)
+show("homonyme hors perimetre : ignore et cree dans l'entite du jeton",
+     r["resultat"] == "cree" and r["id"] != hb["id"] and j("GET", "/users/%d" % r["id"])[1]["entite_id"] == EA, r)
 s, r = j("PUT", "/v1/users/U-8", {"nom": "", "prenom": "", "entite_code": "ZZAP-A"}, token=FULL)
 show("nom et prenom requis pour creer", r["resultat"] == "refuse", r)
 s, r = j("PUT", "/v1/users/U-9", {"nom": "Hors", "prenom": "ZZAPhors", "entite_code": "ZZAP-B"}, token=TA)

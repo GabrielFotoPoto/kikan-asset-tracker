@@ -433,7 +433,13 @@ j("PUT", f"/auth/accounts/{al['id']}", {"actif": True}, ADM)
 kind, tk_ok = sso_login(IT)
 s_ok, _ = exchange(tk_ok)
 kind, tk_off = sso_login(IT)
+s_st_off, h_st_off, _ = raw("GET", "/auth/sso/login")
+code_off, state_off, _ = authorize(h_st_off["Location"], IT)
+ck_off = cookie_of(h_st_off).split(";")[0].split("=", 1)[1]
 j("POST", "/auth/sso/admin/desactiver", None, ADM)
+s_cb_off, h_cb_off, _ = raw("GET", f"/auth/sso/callback?code={code_off}&state={state_off}", headers={"Cookie": "kikan_sso_state=" + ck_off})
+show("callback apres desactivation SSO : redirige vers sso_erreur=desactive",
+     h_cb_off.get("Location", "").endswith("/login?sso_erreur=desactive"), h_cb_off.get("Location"))
 show("ticket echange apres desactivation SSO : refuse (401)", exchange(tk_off)[0] == 401)
 j("POST", "/auth/sso/admin/activer", None, ADM)
 exchange("bad-ticket-reset-check")
@@ -698,6 +704,11 @@ blob = json.dumps(log)
 show("journal : ni jeton, ni secret, ni code d'autorisation", "eyJ" not in blob and SECRET not in blob and "code_verifier" not in blob)
 refus = [x for x in log if x["action"] == "sso_refuse"]
 show("journal : motifs de refus renseignes", any("role" in (x.get("detail") or "") for x in refus) and any("mfa" in (x.get("detail") or "") for x in refus))
+
+print("== Limitation de debit sur GET /auth/sso/login ==")
+j("POST", "/auth/sso/admin/activer", None, ADM)
+codes_login = [raw("GET", "/auth/sso/login")[0] for _ in range(130)]
+show("GET /auth/sso/login renvoie 429 au-dela de la limite", 429 in codes_login, f"303={codes_login.count(303)} 429={codes_login.count(429)}")
 
 srv.shutdown()
 print(f"\n{'ECHEC' if fails else 'OK'} : {fails} test(s) en echec")

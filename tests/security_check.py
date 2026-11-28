@@ -377,6 +377,101 @@ for url in ("http://[fe80::1]/", "http://224.0.0.1", "http://168.63.129.16"):
                                            "entites": {}, "entite_kikan": None, "entite_glpi": 0, "profil": ""}, adm)
     show(f"GLPI : adresse {url} refusee (400)", s == 400, f"HTTP {s}")
 
+print("== 15. client_ip et KIKAN_TRUSTED_PROXIES ==")
+from types import SimpleNamespace  # noqa: E402
+from app import auth as _auth_mod  # noqa: E402
+
+_prev_tp_env = os.environ.get("KIKAN_TRUSTED_PROXIES")
+_prev_tp_val = _auth_mod._TRUSTED_PROXIES
+try:
+    os.environ.pop("KIKAN_TRUSTED_PROXIES", None)
+    _auth_mod._TRUSTED_PROXIES = _auth_mod._parse_trusted_proxies()
+    req_priv = SimpleNamespace(client=SimpleNamespace(host="172.18.0.5"), headers={"x-real-ip": "203.0.113.10"})
+    req_bad = SimpleNamespace(client=SimpleNamespace(host="172.18.0.5"), headers={"x-real-ip": "evil\nlog"})
+    req_loop = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={"x-real-ip": "1.2.3.4"})
+    req_pub = SimpleNamespace(client=SimpleNamespace(host="198.51.100.2"), headers={"x-real-ip": "1.2.3.4"})
+    show("client_ip defaut : pair prive accepte X-Real-IP valide", _auth_mod.client_ip(req_priv) == "203.0.113.10")
+    show("client_ip defaut : X-Real-IP invalide rejete", _auth_mod.client_ip(req_bad) == "172.18.0.5")
+    show("client_ip defaut : loopback ignore X-Real-IP", _auth_mod.client_ip(req_loop) == "127.0.0.1")
+    show("client_ip defaut : pair non prive ignore X-Real-IP", _auth_mod.client_ip(req_pub) == "198.51.100.2")
+
+    os.environ["KIKAN_TRUSTED_PROXIES"] = "none"
+    _auth_mod._TRUSTED_PROXIES = _auth_mod._parse_trusted_proxies()
+    show("client_ip none : pair prive ignore X-Real-IP", _auth_mod.client_ip(req_priv) == "172.18.0.5")
+
+    os.environ["KIKAN_TRUSTED_PROXIES"] = "10.20.0.0/24, 192.168.50.10"
+    _auth_mod._TRUSTED_PROXIES = _auth_mod._parse_trusted_proxies()
+    req_cidr_ok = SimpleNamespace(client=SimpleNamespace(host="10.20.0.7"), headers={"x-real-ip": "203.0.113.20"})
+    show("client_ip CIDR : pair dans la liste accepte X-Real-IP", _auth_mod.client_ip(req_cidr_ok) == "203.0.113.20")
+    show("client_ip CIDR : pair hors liste ignore X-Real-IP", _auth_mod.client_ip(req_priv) == "172.18.0.5")
+finally:
+    if _prev_tp_env is None:
+        os.environ.pop("KIKAN_TRUSTED_PROXIES", None)
+    else:
+        os.environ["KIKAN_TRUSTED_PROXIES"] = _prev_tp_env
+    _auth_mod._TRUSTED_PROXIES = _prev_tp_val
+
+print("== 16. Gardes SSRF SharePoint et DocuWare ==")
+from app import storage_sharepoint as _sp_mod  # noqa: E402
+from app.filestore import StorageError as _StorageError  # noqa: E402
+from app.storage_docuware import DocuWareBackend as _DocuWareBackend  # noqa: E402
+
+_dw = object.__new__(_DocuWareBackend)
+_dw.url = "https://dw.exemple.test/DocuWare/Platform"
+for _label, _bad_url in (
+    ("169.254.169.254", "https://169.254.169.254/ids"),
+    ("identifiants dans l'adresse", "https://u:p@dw.exemple.test/ids"),
+    ("passage en http depuis https", "http://dw.exemple.test/ids"),
+):
+    _dw._identity = None
+    _dw._raw = lambda m, u, data=None, headers=None, b=_bad_url: (200, {}, json.dumps({"IdentityServiceUrl": b}).encode())
+    try:
+        _dw._identity_url()
+        _dw_ok = False
+    except _StorageError:
+        _dw_ok = True
+    show(f"DocuWare IdentityServiceUrl refuse ({_label})", _dw_ok)
+
+_dw.url = "http://dw.exemple.test/DocuWare/Platform"
+for _ok_url in ("https://id.exemple.test/ids", "http://id.exemple.test/ids"):
+    _dw._identity = None
+    _dw._raw = lambda m, u, data=None, headers=None, b=_ok_url: (200, {}, json.dumps({"IdentityServiceUrl": b}).encode())
+    show(f"DocuWare base http accepte {_ok_url.split('://')[0]}", _dw._identity_url() == _ok_url)
+
+_sp = object.__new__(_sp_mod.SharePointBackend)
+_sp.graph = "https://graph.microsoft.com/v1.0"
+_sp._item = lambda k: "/drives/d/root:/x:"
+_prev_small = _sp_mod.SMALL_MAX
+try:
+    _sp_mod.SMALL_MAX = 0
+    for _label, _bad_url in (
+        ("169.254.169.254", "https://169.254.169.254/up"),
+        ("identifiants dans l'adresse", "https://u:p@sp.exemple.test/up"),
+        ("changement de schema http", "http://sp.exemple.test/up"),
+    ):
+        _sp._graph = lambda m, p, data=None, headers=None, ok=(200,), b=_bad_url: (200, {}, json.dumps({"uploadUrl": b}).encode())
+        try:
+            _sp.write("k", b"data")
+            _sp_ok = False
+        except _StorageError:
+            _sp_ok = True
+        show(f"SharePoint uploadUrl refuse ({_label})", _sp_ok)
+finally:
+    _sp_mod.SMALL_MAX = _prev_small
+
+for _label, _bad_url in (
+    ("169.254.169.254", "https://169.254.169.254/dl"),
+    ("identifiants dans l'adresse", "https://u:p@sp.exemple.test/dl"),
+    ("changement de schema http", "http://sp.exemple.test/dl"),
+):
+    _sp._graph = lambda m, p, data=None, headers=None, ok=(200,), b=_bad_url: (302, {"Location": b}, b"")
+    try:
+        _sp.read("k")
+        _sp_ok = False
+    except _StorageError:
+        _sp_ok = True
+    show(f"SharePoint Location 302 refuse ({_label})", _sp_ok)
+
 # Nettoyage : comptes de test desactives
 for acc_id in (id_rh, id_lect):
     call("PUT", f"/auth/accounts/{acc_id}", {"actif": False}, adm)
